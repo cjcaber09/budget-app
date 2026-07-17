@@ -551,7 +551,8 @@ create policy "categories_insert_own" on public.categories
   for insert with check (auth.uid() = user_id);
 
 create policy "categories_update_own" on public.categories
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "categories_delete_own" on public.categories
   for delete using (auth.uid() = user_id);
@@ -611,7 +612,8 @@ create policy "budgets_insert_own" on public.budgets
   for insert with check (auth.uid() = user_id);
 
 create policy "budgets_update_own" on public.budgets
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "budgets_delete_own" on public.budgets
   for delete using (auth.uid() = user_id);
@@ -668,7 +670,8 @@ create policy "transactions_insert_own" on public.transactions
   for insert with check (auth.uid() = user_id);
 
 create policy "transactions_update_own" on public.transactions
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "transactions_delete_own" on public.transactions
   for delete using (auth.uid() = user_id);
@@ -731,7 +734,8 @@ create policy "recurring_rules_insert_own" on public.recurring_rules
   for insert with check (auth.uid() = user_id);
 
 create policy "recurring_rules_update_own" on public.recurring_rules
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "recurring_rules_delete_own" on public.recurring_rules
   for delete using (auth.uid() = user_id);
