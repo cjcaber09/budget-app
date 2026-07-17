@@ -4,9 +4,6 @@
     "strict": true,
     "types": ["jest"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
       "@/assets/*": [
         "./assets/*"
       ]
