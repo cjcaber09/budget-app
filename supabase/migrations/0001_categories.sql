@@ -17,7 +17,8 @@ create policy "categories_insert_own" on public.categories
   for insert with check (auth.uid() = user_id);
 
 create policy "categories_update_own" on public.categories
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "categories_delete_own" on public.categories
   for delete using (auth.uid() = user_id);
