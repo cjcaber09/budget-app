@@ -12,6 +12,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: {
+    schema: 'budget_tracker',
+  },
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
