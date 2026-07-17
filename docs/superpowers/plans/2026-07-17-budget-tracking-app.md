@@ -87,6 +87,17 @@ README.md
 
 ### Task 1: Initialize the Expo project
 
+> **Amended after implementation:** originally scaffolded at SDK 52. The
+> user's Expo Go app requires SDK 57, so the project was moved to SDK 57
+> (commit `bbee722`). SDK 57's default template also restructures routes
+> under `src/app/` with a custom tab component instead of the classic
+> `app/` + `expo-router` `Tabs` convention this plan is written against —
+> `expo-router` still fully supports the classic layout at SDK 57, so the
+> classic top-level `app/` layout was restored on top of the SDK 57
+> dependencies (commit `65fa299`). Every task below that references
+> `app/...` paths and `Tabs`/`Tabs.Screen` remains valid as written; only
+> the underlying SDK/dependency versions changed.
+
 **Files:**
 - Create: entire project scaffold via `create-expo-app` (package.json, app.json, tsconfig.json, app/ dir with default routes)
 
@@ -100,6 +111,8 @@ Run from the repo root (`C:\Users\Lenovo\ai-projects\Budget-management`):
 ```bash
 npx create-expo-app@latest . --template default@sdk-52
 ```
+
+(Superseded — see amendment note above. Use whatever SDK version matches your actual Expo Go / target device, and expect to reconcile the resulting template layout against this plan's classic `app/` structure if the default template has since changed shape.)
 
 When prompted about the non-empty directory (it contains `docs/` and `.git/`), confirm to proceed.
 
