@@ -11,12 +11,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// AsyncStorage's web implementation reads `window.localStorage`, which
+// doesn't exist during Expo Router's server-side render (web.output:
+// "static"). No-op there so the server render doesn't crash.
+const ssrSafeStorage = {
+  getItem: (key: string) =>
+    typeof window === 'undefined' ? Promise.resolve(null) : AsyncStorage.getItem(key),
+  setItem: (key: string, value: string) =>
+    typeof window === 'undefined' ? Promise.resolve() : AsyncStorage.setItem(key, value),
+  removeItem: (key: string) =>
+    typeof window === 'undefined' ? Promise.resolve() : AsyncStorage.removeItem(key),
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'budget_tracker',
   },
   auth: {
-    storage: AsyncStorage,
+    storage: ssrSafeStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
