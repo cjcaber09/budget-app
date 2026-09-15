@@ -1,4 +1,4 @@
-import { sumTransactionsForCategory, computeBudgetStatus } from '../../src/domain/budgetMath';
+import { sumTransactionsForCategory, computeBudgetStatus, didCrossThreshold } from '../../src/domain/budgetMath';
 import type { Transaction } from '../../src/types/database';
 
 function makeTransaction(overrides: Partial<Transaction>): Transaction {
@@ -56,5 +56,31 @@ describe('computeBudgetStatus', () => {
       percentUsed: 120,
       status: 'over',
     });
+  });
+});
+
+describe('didCrossThreshold', () => {
+  it('reports crossing 80% when spend moves from below to at/above it', () => {
+    expect(didCrossThreshold(100, 70, 85)).toEqual({ crossed: true, threshold: 80 });
+  });
+
+  it('reports crossing 100% (not 80%) when spend jumps straight past both', () => {
+    expect(didCrossThreshold(100, 50, 150)).toEqual({ crossed: true, threshold: 100 });
+  });
+
+  it('reports crossing 100% when already past 80% and now going over budget', () => {
+    expect(didCrossThreshold(100, 85, 110)).toEqual({ crossed: true, threshold: 100 });
+  });
+
+  it('reports no crossing when spend stays below 80%', () => {
+    expect(didCrossThreshold(100, 50, 60)).toEqual({ crossed: false, threshold: null });
+  });
+
+  it('reports no crossing when already over 100% and spend increases further', () => {
+    expect(didCrossThreshold(100, 110, 130)).toEqual({ crossed: false, threshold: null });
+  });
+
+  it('reports no crossing when the budget is 0', () => {
+    expect(didCrossThreshold(0, 0, 10)).toEqual({ crossed: false, threshold: null });
   });
 });
