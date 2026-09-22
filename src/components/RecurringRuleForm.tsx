@@ -89,7 +89,7 @@ export function RecurringRuleForm({ categories, initialValues, submitLabel, onSu
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: {},
   label: { fontWeight: '600', marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12 },
   optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

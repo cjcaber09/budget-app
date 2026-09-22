@@ -1,9 +1,10 @@
-import { View, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useUpdateRecurringRule, useSetRecurringRuleActive } from '../../../src/hooks/useRecurringRules';
 import { RecurringRuleForm } from '../../../src/components/RecurringRuleForm';
 import type { RecurringFrequency } from '../../../src/types/database';
+import { pageLayout } from '../../../src/styles/pageLayout';
 
 export default function EditRecurringRuleScreen() {
   const router = useRouter();
@@ -30,25 +31,27 @@ export default function EditRecurringRuleScreen() {
   const isActive = params.active === 'true';
 
   return (
-    <View style={{ flex: 1 }}>
-      <RecurringRuleForm
-        categories={categories}
-        initialValues={{
-          categoryId: params.categoryId,
-          amount: params.amount,
-          note: params.note,
-          frequency: params.frequency,
-        }}
-        submitLabel="Save Changes"
-        onSubmit={(values) => updateRecurringRule({ id: params.id, ...values }, { onSuccess: () => router.back() })}
-      />
-      <Pressable
-        style={styles.toggleButton}
-        onPress={() => setActive({ id: params.id, active: !isActive }, { onSuccess: () => router.back() })}
-      >
-        <Text style={styles.toggleText}>{isActive ? 'Pause Rule' : 'Resume Rule'}</Text>
-      </Pressable>
-    </View>
+    <ScrollView contentContainerStyle={pageLayout.scrollContent}>
+      <View style={pageLayout.card}>
+        <RecurringRuleForm
+          categories={categories}
+          initialValues={{
+            categoryId: params.categoryId,
+            amount: params.amount,
+            note: params.note,
+            frequency: params.frequency,
+          }}
+          submitLabel="Save Changes"
+          onSubmit={(values) => updateRecurringRule({ id: params.id, ...values }, { onSuccess: () => router.back() })}
+        />
+        <Pressable
+          style={styles.toggleButton}
+          onPress={() => setActive({ id: params.id, active: !isActive }, { onSuccess: () => router.back() })}
+        >
+          <Text style={styles.toggleText}>{isActive ? 'Pause Rule' : 'Resume Rule'}</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 

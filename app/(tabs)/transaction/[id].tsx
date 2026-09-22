@@ -1,9 +1,10 @@
-import { View, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useUpdateTransaction, useDeleteTransaction } from '../../../src/hooks/useTransactions';
 import { useUiStore } from '../../../src/stores/useUiStore';
 import { TransactionForm } from '../../../src/components/TransactionForm';
+import { pageLayout } from '../../../src/styles/pageLayout';
 
 export default function EditTransactionScreen() {
   const router = useRouter();
@@ -28,25 +29,27 @@ export default function EditTransactionScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <TransactionForm
-        categories={categories}
-        initialValues={{ categoryId: params.categoryId, amount: params.amount, note: params.note }}
-        submitLabel="Save Changes"
-        onSubmit={({ categoryId, amount, note }) => {
-          updateTransaction(
-            { id: params.id, categoryId, amount, note, occurredAt: params.occurredAt },
-            { onSuccess: () => router.back() }
-          );
-        }}
-      />
-      <Pressable
-        style={styles.deleteButton}
-        onPress={() => deleteTransaction(params.id, { onSuccess: () => router.back() })}
-      >
-        <Text style={styles.deleteText}>Delete Transaction</Text>
-      </Pressable>
-    </View>
+    <ScrollView contentContainerStyle={pageLayout.scrollContent}>
+      <View style={pageLayout.card}>
+        <TransactionForm
+          categories={categories}
+          initialValues={{ categoryId: params.categoryId, amount: params.amount, note: params.note }}
+          submitLabel="Save Changes"
+          onSubmit={({ categoryId, amount, note }) => {
+            updateTransaction(
+              { id: params.id, categoryId, amount, note, occurredAt: params.occurredAt },
+              { onSuccess: () => router.back() }
+            );
+          }}
+        />
+        <Pressable
+          style={styles.deleteButton}
+          onPress={() => deleteTransaction(params.id, { onSuccess: () => router.back() })}
+        >
+          <Text style={styles.deleteText}>Delete Transaction</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 

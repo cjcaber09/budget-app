@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
+import { pageLayout } from '../../src/styles/pageLayout';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -24,47 +25,51 @@ export default function SignUpScreen() {
 
   if (confirmationSent) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Check your email</Text>
-        <Text>We sent a confirmation link to {email}. Confirm it, then sign in.</Text>
-        <Link href="/sign-in" style={styles.link}>
-          Back to sign in
-        </Link>
+      <View style={styles.screen}>
+        <View style={pageLayout.card}>
+          <Text style={styles.title}>Check your email</Text>
+          <Text>We sent a confirmation link to {email}. Confirm it, then sign in.</Text>
+          <Link href="/sign-in" style={styles.link}>
+            Back to sign in
+          </Link>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
-      {error && <Text style={styles.error}>{error}</Text>}
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Pressable style={styles.button} onPress={handleSignUp} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? 'Creating account...' : 'Sign Up'}</Text>
-      </Pressable>
-      <Link href="/sign-in" style={styles.link}>
-        Already have an account? Sign in
-      </Link>
+    <View style={styles.screen}>
+      <View style={pageLayout.card}>
+        <Text style={styles.title}>Sign Up</Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        <Pressable style={styles.button} onPress={handleSignUp} disabled={submitting}>
+          <Text style={styles.buttonText}>{submitting ? 'Creating account...' : 'Sign Up'}</Text>
+        </Pressable>
+        <Link href="/sign-in" style={styles.link}>
+          Already have an account? Sign in
+        </Link>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  screen: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
   title: { fontSize: 28, fontWeight: '700', marginBottom: 24 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12 },
   button: { backgroundColor: '#2196F3', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 8 },

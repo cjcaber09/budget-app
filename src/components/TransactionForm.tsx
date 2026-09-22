@@ -70,7 +70,7 @@ export function TransactionForm({ categories, initialValues, submitLabel, onSubm
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: {},
   label: { fontWeight: '600', marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12 },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
