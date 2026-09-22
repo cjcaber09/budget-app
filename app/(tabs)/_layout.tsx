@@ -12,6 +12,10 @@ function renderBackButton() {
   return <BackButton />;
 }
 
+// The 4 tab-bar pages (not the hidden new/[id] detail screens nested under
+// (tabs) — the FAB doesn't belong on a screen that's already an editing form).
+const TAB_PAGES = new Set(['/', '/transactions', '/reports', '/settings']);
+
 type TabIconProps = { color: ColorValue; size: number };
 
 function renderOverviewIcon({ color, size }: TabIconProps) {
@@ -87,7 +91,7 @@ export default function TabsLayout() {
       {/* Rendered as a sibling of the whole Tabs navigator (not nested
           inside the Overview screen's own scene) so it can't be clipped
           by that screen's container and reliably paints above the tab bar. */}
-      {pathname === '/' && <AddTransactionFab />}
+      {TAB_PAGES.has(pathname) && <AddTransactionFab />}
     </View>
   );
 }
