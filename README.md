@@ -1,56 +1,82 @@
-# Welcome to your Expo app 👋
+# Budget Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A personal budget-tracking app built with Expo, TypeScript, and Supabase. Set a
+monthly budget per category, log transactions, see spend vs. budget with
+charts, get alerted when you're close to or over budget, and set up recurring
+transactions (rent, subscriptions, etc.).
 
-## Get started
+See `docs/superpowers/specs/2026-07-17-budget-tracking-app-design.md` for the
+full design, including what's explicitly out of scope for v1.
 
-1. Install dependencies
+## Prerequisites
+
+- Node.js 18+
+- A Supabase account (free tier is enough) — create a project at
+  [supabase.com/dashboard](https://supabase.com/dashboard)
+- Expo Go app on your phone (or an iOS/Android simulator) for local development
+
+## Setup
+
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. Copy the env template and fill in your Supabase project's URL and anon key
+   (Project Settings → API in the Supabase dashboard):
 
    ```bash
-   npx expo start
+   cp .env.example .env
    ```
 
-In the output, you'll find options to open the app in a
+   This app's tables live in a dedicated `budget_tracker` Postgres schema
+   (not `public`), so PostgREST can serve them: in the dashboard, go to
+   Project Settings → API → Data API Settings, and add `budget_tracker` to
+   the "Exposed schemas" list. Without this step, every request from the app
+   fails with `PGRST106: Invalid schema`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. Link the project and push the database schema:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   npx supabase db push
+   ```
 
-## Get a fresh project
+   Use the project ref from the same project whose URL/anon key you put in
+   `.env` — the CLI happily links to any project you have access to, and
+   pushing migrations to the wrong one will silently succeed while the app
+   keeps hitting a database with no tables. Double-check the ref in the
+   dashboard URL (`https://supabase.com/dashboard/project/<ref>`) matches
+   the subdomain in `EXPO_PUBLIC_SUPABASE_URL`.
 
-When you're ready, run:
+4. Start the dev server:
 
-```bash
-npm run reset-project
-```
+   ```bash
+   npm start
+   ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+   Scan the QR code with Expo Go, or press `i`/`a` for the iOS/Android simulator.
 
-### Other setup steps
+## Scripts
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- `npm start` — start the Expo dev server
+- `npm test` — run the Jest test suite
+- `npx tsc --noEmit` — type-check the whole project
 
-## Learn more
+## Project Structure
 
-To learn more about developing your project with Expo, look at the following resources:
+- `app/` — screens and navigation (Expo Router: folder structure = routes)
+- `src/domain/` — pure business logic (budget math, recurring-rule occurrence
+  math), unit-tested independently of React and Supabase
+- `src/hooks/` — TanStack Query hooks, one file per entity
+- `src/components/` — shared UI components
+- `src/stores/` — Zustand UI-only state
+- `supabase/migrations/` — SQL migrations, applied via `supabase db push`
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Out of scope for v1
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Multi-account balances, shared/household budgets, multi-currency, a
+server-side cron for recurring transactions (handled via client-side
+catch-up instead), and an E2E test suite. See the design spec for details.
