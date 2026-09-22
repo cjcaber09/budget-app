@@ -1,9 +1,9 @@
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCategories } from '../../src/hooks/useCategories';
-import { useAddTransaction } from '../../src/hooks/useTransactions';
-import { useUiStore } from '../../src/stores/useUiStore';
-import { TransactionForm } from '../../src/components/TransactionForm';
+import { useCategories } from '../../../src/hooks/useCategories';
+import { useAddTransaction } from '../../../src/hooks/useTransactions';
+import { useUiStore } from '../../../src/stores/useUiStore';
+import { TransactionForm } from '../../../src/components/TransactionForm';
 
 export default function NewTransactionScreen() {
   const router = useRouter();

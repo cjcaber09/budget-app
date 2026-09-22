@@ -1,9 +1,9 @@
 import { View, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCategories } from '../../src/hooks/useCategories';
-import { useUpdateRecurringRule, useSetRecurringRuleActive } from '../../src/hooks/useRecurringRules';
-import { RecurringRuleForm } from '../../src/components/RecurringRuleForm';
-import type { RecurringFrequency } from '../../src/types/database';
+import { useCategories } from '../../../src/hooks/useCategories';
+import { useUpdateRecurringRule, useSetRecurringRuleActive } from '../../../src/hooks/useRecurringRules';
+import { RecurringRuleForm } from '../../../src/components/RecurringRuleForm';
+import type { RecurringFrequency } from '../../../src/types/database';
 
 export default function EditRecurringRuleScreen() {
   const router = useRouter();

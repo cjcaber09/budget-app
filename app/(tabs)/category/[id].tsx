@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CategoryForm } from '../../src/components/CategoryForm';
-import { useUpdateCategory } from '../../src/hooks/useCategories';
+import { CategoryForm } from '../../../src/components/CategoryForm';
+import { useUpdateCategory } from '../../../src/hooks/useCategories';
 
 export default function EditCategoryScreen() {
   const router = useRouter();

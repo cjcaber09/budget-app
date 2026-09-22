@@ -1,8 +1,8 @@
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCategories } from '../../src/hooks/useCategories';
-import { useAddRecurringRule } from '../../src/hooks/useRecurringRules';
-import { RecurringRuleForm } from '../../src/components/RecurringRuleForm';
+import { useCategories } from '../../../src/hooks/useCategories';
+import { useAddRecurringRule } from '../../../src/hooks/useRecurringRules';
+import { RecurringRuleForm } from '../../../src/components/RecurringRuleForm';
 
 export default function NewRecurringRuleScreen() {
   const router = useRouter();

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCategories } from '../../src/hooks/useCategories';
-import { useBudgets, useSetBudget } from '../../src/hooks/useBudgets';
-import { useUiStore } from '../../src/stores/useUiStore';
+import { useCategories } from '../../../src/hooks/useCategories';
+import { useBudgets, useSetBudget } from '../../../src/hooks/useBudgets';
+import { useUiStore } from '../../../src/stores/useUiStore';
 
 export default function EditBudgetScreen() {
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();

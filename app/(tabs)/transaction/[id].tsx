@@ -1,9 +1,9 @@
 import { View, ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCategories } from '../../src/hooks/useCategories';
-import { useUpdateTransaction, useDeleteTransaction } from '../../src/hooks/useTransactions';
-import { useUiStore } from '../../src/stores/useUiStore';
-import { TransactionForm } from '../../src/components/TransactionForm';
+import { useCategories } from '../../../src/hooks/useCategories';
+import { useUpdateTransaction, useDeleteTransaction } from '../../../src/hooks/useTransactions';
+import { useUiStore } from '../../../src/stores/useUiStore';
+import { TransactionForm } from '../../../src/components/TransactionForm';
 
 export default function EditTransactionScreen() {
   const router = useRouter();

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { CategoryForm } from '../../src/components/CategoryForm';
-import { useAddCategory } from '../../src/hooks/useCategories';
+import { CategoryForm } from '../../../src/components/CategoryForm';
+import { useAddCategory } from '../../../src/hooks/useCategories';
 
 export default function NewCategoryScreen() {
   const router = useRouter();
