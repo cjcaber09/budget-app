@@ -1,21 +1,54 @@
+import { useState } from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { AddTransactionSheet } from './AddTransactionSheet';
+import { useToastStore } from '../stores/useToastStore';
 
 const FAB_SIZE = 56;
 
 export function AddTransactionFab() {
   const router = useRouter();
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  function handleManualEntry() {
+    setSheetOpen(false);
+    router.push('/transaction/new');
+  }
+
+  async function handleScanPhoto() {
+    setSheetOpen(false);
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      useToastStore.getState().showToast('Camera access is needed to scan a receipt.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+    if (result.canceled || !result.assets[0]) return;
+
+    router.push({ pathname: '/transaction/new', params: { photoUri: result.assets[0].uri } });
+  }
 
   return (
-    <Pressable
-      style={styles.fab}
-      onPress={() => router.push('/transaction/new' as Href)}
-      accessibilityRole="button"
-      accessibilityLabel="Add transaction"
-    >
-      <Text style={styles.fabText}>+</Text>
-    </Pressable>
+    <>
+      <Pressable
+        style={styles.fab}
+        onPress={() => setSheetOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Add transaction"
+      >
+        <Text style={styles.fabText}>+</Text>
+      </Pressable>
+      <AddTransactionSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onScanPhoto={handleScanPhoto}
+        onManualEntry={handleManualEntry}
+      />
+    </>
   );
 }
 

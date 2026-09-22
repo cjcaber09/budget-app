@@ -1,5 +1,5 @@
-import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, ScrollView, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useAddTransaction } from '../../../src/hooks/useTransactions';
 import { useUiStore } from '../../../src/stores/useUiStore';
@@ -8,6 +8,7 @@ import { pageLayout } from '../../../src/styles/pageLayout';
 
 export default function NewTransactionScreen() {
   const router = useRouter();
+  const { photoUri } = useLocalSearchParams<{ photoUri?: string }>();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   const { data: categories } = useCategories();
   const { mutate: addTransaction } = useAddTransaction(selectedMonth);
@@ -23,6 +24,9 @@ export default function NewTransactionScreen() {
   return (
     <ScrollView contentContainerStyle={pageLayout.scrollContent}>
       <View style={pageLayout.card}>
+        {/* Preview only for now -- the photo isn't uploaded/saved with the
+            transaction yet (no receipt storage/column exists). */}
+        {photoUri && <Image source={{ uri: photoUri }} style={styles.preview} />}
         <TransactionForm
           categories={categories}
           submitLabel="Add Transaction"
@@ -37,3 +41,7 @@ export default function NewTransactionScreen() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  preview: { width: '100%', height: 200, borderRadius: 12, marginBottom: 16 },
+});

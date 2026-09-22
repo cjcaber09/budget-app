@@ -27,6 +27,12 @@
       "expo-router",
       "expo-notifications",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Budget Tracker to use the camera to scan receipts."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
