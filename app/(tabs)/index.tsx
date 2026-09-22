@@ -1,4 +1,4 @@
-import { View, ScrollView, Text, Pressable, StyleSheet } from "react-native";
+import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useCategories } from "../../src/hooks/useCategories";
 import { useBudgets } from "../../src/hooks/useBudgets";
@@ -55,39 +55,11 @@ export default function OverviewScreen() {
           ))}
         </View>
       </ScrollView>
-      <Pressable
-        style={styles.fab}
-        onPress={() => router.push("/transaction/new" as Href)}
-        accessibilityRole="button"
-        accessibilityLabel="Add transaction"
-      >
-        <Text style={styles.fabText}>+</Text>
-      </Pressable>
     </View>
   );
 }
 
-const FAB_SIZE = 56;
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: { flex: 1 },
-  fab: {
-    position: "absolute",
-    left: "50%",
-    marginLeft: -FAB_SIZE / 2,
-    // Sits on top of the tab bar itself (most of the circle overlapping
-    // the bar), with just a small sliver poking up into the content area.
-    bottom: -(FAB_SIZE - 12),
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    borderRadius: FAB_SIZE / 2,
-    backgroundColor: "#2196F3",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0px 4px 12px rgba(33, 150, 243, 0.45)",
-    elevation: 8,
-    zIndex: 20,
-  },
-  fabText: { color: "#fff", fontSize: 28, lineHeight: 30 },
 });
