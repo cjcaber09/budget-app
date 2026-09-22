@@ -26,9 +26,9 @@ export default function NewTransactionScreen() {
         <TransactionForm
           categories={categories}
           submitLabel="Add Transaction"
-          onSubmit={({ categoryId, amount, note }) => {
+          onSubmit={({ type, categoryId, amount, note }) => {
             addTransaction(
-              { categoryId, amount, note, occurredAt: new Date().toISOString() },
+              { type, categoryId, amount, note, occurredAt: new Date().toISOString() },
               { onSuccess: () => router.back() }
             );
           }}

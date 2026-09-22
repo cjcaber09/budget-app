@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { Transaction } from '../types/database';
+import type { Transaction, TransactionType } from '../types/database';
 
 function monthRange(month: string) {
   const start = new Date(`${month}T00:00:00.000Z`);
@@ -29,10 +29,11 @@ export function useTransactions(month: string) {
 }
 
 export interface AddTransactionInput {
-  categoryId: string;
+  categoryId: string | null;
   amount: number;
   note: string | null;
   occurredAt: string;
+  type: TransactionType;
 }
 
 interface AddTransactionContext {
@@ -43,7 +44,7 @@ export function useAddTransaction(month: string) {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, AddTransactionInput, AddTransactionContext>({
-    mutationFn: async ({ categoryId, amount, note, occurredAt }: AddTransactionInput) => {
+    mutationFn: async ({ categoryId, amount, note, occurredAt, type }: AddTransactionInput) => {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
 
@@ -53,6 +54,7 @@ export function useAddTransaction(month: string) {
         amount,
         note,
         occurred_at: occurredAt,
+        type,
       });
 
       if (error) throw error;
@@ -69,6 +71,7 @@ export function useAddTransaction(month: string) {
         note: newTransaction.note,
         occurred_at: newTransaction.occurredAt,
         recurring_rule_id: null,
+        type: newTransaction.type,
       };
 
       queryClient.setQueryData<Transaction[]>(['transactions', month], (old) => [
@@ -91,10 +94,11 @@ export function useAddTransaction(month: string) {
 
 export interface UpdateTransactionInput {
   id: string;
-  categoryId: string;
+  categoryId: string | null;
   amount: number;
   note: string | null;
   occurredAt: string;
+  type: TransactionType;
 }
 
 interface UpdateTransactionContext {
@@ -105,10 +109,10 @@ export function useUpdateTransaction(month: string) {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, UpdateTransactionInput, UpdateTransactionContext>({
-    mutationFn: async ({ id, categoryId, amount, note, occurredAt }: UpdateTransactionInput) => {
+    mutationFn: async ({ id, categoryId, amount, note, occurredAt, type }: UpdateTransactionInput) => {
       const { error } = await supabase
         .from('transactions')
-        .update({ category_id: categoryId, amount, note, occurred_at: occurredAt })
+        .update({ category_id: categoryId, amount, note, occurred_at: occurredAt, type })
         .eq('id', id);
 
       if (error) throw error;
@@ -126,6 +130,7 @@ export function useUpdateTransaction(month: string) {
                 amount: updated.amount,
                 note: updated.note,
                 occurred_at: updated.occurredAt,
+                type: updated.type,
               }
             : transaction
         )

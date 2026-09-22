@@ -36,6 +36,7 @@ async function materializeRule(rule: RecurringRule): Promise<void> {
     note: rule.note,
     occurred_at: date.toISOString(),
     recurring_rule_id: rule.id,
+    type: 'expense' as const,
   }));
 
   const { error: insertError } = await supabase.from('transactions').insert(rows);

@@ -1,4 +1,4 @@
-import type { Transaction } from '../types/database';
+import type { Transaction, TransactionType } from '../types/database';
 
 export function sumTransactionsForCategory(
   transactions: Transaction[],
@@ -7,6 +7,10 @@ export function sumTransactionsForCategory(
   return transactions
     .filter((t) => t.category_id === categoryId)
     .reduce((total, t) => total + t.amount, 0);
+}
+
+export function sumTransactionsByType(transactions: Transaction[], type: TransactionType): number {
+  return transactions.filter((t) => t.type === type).reduce((total, t) => total + t.amount, 0);
 }
 
 export type BudgetStatusLevel = 'ok' | 'warning' | 'over';

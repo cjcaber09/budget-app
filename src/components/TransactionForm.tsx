@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import type { Category } from '../types/database';
+import type { Category, TransactionType } from '../types/database';
 
 export interface TransactionFormValues {
+  type: TransactionType;
   categoryId: string;
   amount: string;
   note: string;
@@ -12,10 +13,18 @@ interface Props {
   categories: Category[];
   initialValues?: TransactionFormValues;
   submitLabel: string;
-  onSubmit: (values: { categoryId: string; amount: number; note: string | null }) => void;
+  onSubmit: (values: {
+    type: TransactionType;
+    categoryId: string | null;
+    amount: number;
+    note: string | null;
+  }) => void;
 }
 
+const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
+
 export function TransactionForm({ categories, initialValues, submitLabel, onSubmit }: Props) {
+  const [type, setType] = useState<TransactionType>(initialValues?.type ?? 'expense');
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? categories[0]?.id ?? '');
   const [amount, setAmount] = useState(initialValues?.amount ?? '');
   const [note, setNote] = useState(initialValues?.note ?? '');
@@ -24,7 +33,7 @@ export function TransactionForm({ categories, initialValues, submitLabel, onSubm
   function handleSubmit() {
     const parsedAmount = Number(amount);
 
-    if (!categoryId) {
+    if (type === 'expense' && !categoryId) {
       setError('Please choose a category');
       return;
     }
@@ -34,30 +43,53 @@ export function TransactionForm({ categories, initialValues, submitLabel, onSubm
     }
 
     setError(null);
-    onSubmit({ categoryId, amount: parsedAmount, note: note.trim() ? note.trim() : null });
+    onSubmit({
+      type,
+      categoryId: type === 'expense' ? categoryId : null,
+      amount: parsedAmount,
+      note: note.trim() ? note.trim() : null,
+    });
   }
 
   return (
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
-      <Text style={styles.label}>Category</Text>
+      <Text style={styles.label}>Type</Text>
       <View style={styles.categoryRow}>
-        {categories.map((category) => (
+        {TYPE_OPTIONS.map((option) => (
           <Pressable
-            key={category.id}
-            onPress={() => setCategoryId(category.id)}
-            style={[
-              styles.categoryChip,
-              { borderColor: category.color },
-              categoryId === category.id && { backgroundColor: category.color },
-            ]}
+            key={option}
+            onPress={() => setType(option)}
+            style={[styles.typeChip, type === option && styles.typeChipSelected]}
           >
-            <Text style={categoryId === category.id ? styles.categoryChipTextSelected : styles.categoryChipText}>
-              {category.name}
+            <Text style={type === option ? styles.categoryChipTextSelected : styles.categoryChipText}>
+              {option === 'expense' ? 'Expense' : 'Income'}
             </Text>
           </Pressable>
         ))}
       </View>
+      {type === 'expense' && (
+        <>
+          <Text style={styles.label}>Category</Text>
+          <View style={styles.categoryRow}>
+            {categories.map((category) => (
+              <Pressable
+                key={category.id}
+                onPress={() => setCategoryId(category.id)}
+                style={[
+                  styles.categoryChip,
+                  { borderColor: category.color },
+                  categoryId === category.id && { backgroundColor: category.color },
+                ]}
+              >
+                <Text style={categoryId === category.id ? styles.categoryChipTextSelected : styles.categoryChipText}>
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
       <Text style={styles.label}>Amount</Text>
       <TextInput style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
       <Text style={styles.label}>Note (optional)</Text>
@@ -77,6 +109,14 @@ const styles = StyleSheet.create({
   categoryChip: { borderWidth: 1, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
   categoryChipText: { color: '#333' },
   categoryChipTextSelected: { color: '#fff', fontWeight: '600' },
+  typeChip: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  typeChipSelected: { backgroundColor: '#2196F3', borderColor: '#2196F3' },
   button: { backgroundColor: '#2196F3', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 20 },
   buttonText: { color: '#fff', fontWeight: '600' },
   error: { color: '#D32F2F', marginBottom: 12 },

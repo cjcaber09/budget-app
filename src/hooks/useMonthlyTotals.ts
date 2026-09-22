@@ -18,6 +18,7 @@ export function useMonthlyTotals(monthsBack: number) {
       const { data, error } = await supabase
         .from('transactions')
         .select('amount, occurred_at')
+        .eq('type', 'expense')
         .gte('occurred_at', `${earliestMonth}T00:00:00.000Z`);
 
       if (error) throw error;

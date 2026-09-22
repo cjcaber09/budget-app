@@ -28,7 +28,8 @@ export default function TransactionsScreen() {
                     pathname: '/transaction/[id]',
                     params: {
                       id: item.id,
-                      categoryId: item.category_id,
+                      type: item.type,
+                      categoryId: item.category_id ?? '',
                       amount: String(item.amount),
                       note: item.note ?? '',
                       occurredAt: item.occurred_at,
