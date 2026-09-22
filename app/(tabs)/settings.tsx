@@ -1,11 +1,13 @@
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCategories } from '../../src/hooks/useCategories';
+import { useRecurringRules } from '../../src/hooks/useRecurringRules';
 import { supabase } from '../../src/lib/supabase';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { data: categories } = useCategories();
+  const { data: recurringRules } = useRecurringRules();
 
   return (
     <ScrollView style={styles.container}>
@@ -27,6 +29,38 @@ export default function SettingsScreen() {
       ))}
       <Pressable style={styles.addButton} onPress={() => router.push('/category/new')}>
         <Text style={styles.addButtonText}>+ Add Category</Text>
+      </Pressable>
+
+      <Text style={styles.heading}>Recurring Rules</Text>
+      {(recurringRules ?? []).map((rule) => {
+        const category = (categories ?? []).find((c) => c.id === rule.category_id);
+        return (
+          <Pressable
+            key={rule.id}
+            style={styles.row}
+            onPress={() =>
+              router.push({
+                pathname: '/recurring/[id]',
+                params: {
+                  id: rule.id,
+                  categoryId: rule.category_id,
+                  amount: String(rule.amount),
+                  note: rule.note ?? '',
+                  frequency: rule.frequency,
+                  active: String(rule.active),
+                },
+              })
+            }
+          >
+            <Text style={styles.rowText}>
+              {category?.name ?? 'Unknown'} — ${rule.amount.toFixed(2)} / {rule.frequency}
+              {rule.active ? '' : ' (paused)'}
+            </Text>
+          </Pressable>
+        );
+      })}
+      <Pressable style={styles.addButton} onPress={() => router.push('/recurring/new')}>
+        <Text style={styles.addButtonText}>+ Add Recurring Rule</Text>
       </Pressable>
 
       <Pressable style={styles.signOutButton} onPress={() => supabase.auth.signOut()}>

@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import type { RecurringRule } from '../types/database';
+import type { RecurringRule, RecurringFrequency } from '../types/database';
 import { getDueOccurrences, computeNextOccurrence } from '../domain/recurring';
 
 export function useRecurringRules() {
@@ -73,4 +74,77 @@ export function useRecurringCatchUp(): void {
       runCatchUp(activeRules);
     }
   }, [rules, runCatchUp]);
+}
+
+export interface AddRecurringRuleInput {
+  categoryId: string;
+  amount: number;
+  note: string | null;
+  frequency: RecurringFrequency;
+}
+
+export function useAddRecurringRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryId, amount, note, frequency }: AddRecurringRuleInput) => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const { error } = await supabase.from('recurring_rules').insert({
+        user_id: userData.user.id,
+        category_id: categoryId,
+        amount,
+        note,
+        frequency,
+        next_occurrence_date: formatISO(new Date(), { representation: 'date' }),
+        active: true,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
+    },
+  });
+}
+
+export interface UpdateRecurringRuleInput {
+  id: string;
+  categoryId: string;
+  amount: number;
+  note: string | null;
+  frequency: RecurringFrequency;
+}
+
+export function useUpdateRecurringRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, categoryId, amount, note, frequency }: UpdateRecurringRuleInput) => {
+      const { error } = await supabase
+        .from('recurring_rules')
+        .update({ category_id: categoryId, amount, note, frequency })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
+    },
+  });
+}
+
+export function useSetRecurringRuleActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from('recurring_rules').update({ active }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
+    },
+  });
 }
