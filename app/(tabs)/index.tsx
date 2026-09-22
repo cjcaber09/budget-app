@@ -76,9 +76,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: "50%",
     marginLeft: -FAB_SIZE / 2,
-    // Half the button sits above the tab bar (in the content area), half
-    // below it (over the tab bar itself), straddling the boundary.
-    bottom: -FAB_SIZE / 2,
+    // Sits on top of the tab bar itself (most of the circle overlapping
+    // the bar), with just a small sliver poking up into the content area.
+    bottom: -(FAB_SIZE - 12),
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
