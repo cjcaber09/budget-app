@@ -6,6 +6,7 @@ import { useBudgetAlerts } from '../../src/hooks/useBudgetAlerts';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { BackButton } from '../../src/components/BackButton';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
+import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
 
 function renderBackButton() {
   return <BackButton />;
@@ -37,7 +38,12 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tabs screenOptions={{ headerShown: true }}>
+      <Tabs
+        screenOptions={{
+          headerShown: true,
+          tabBarStyle: { height: TAB_BAR_HEIGHT, paddingBottom: 10, paddingTop: 10 },
+        }}
+      >
         <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: renderOverviewIcon }} />
         <Tabs.Screen
           name="transactions"

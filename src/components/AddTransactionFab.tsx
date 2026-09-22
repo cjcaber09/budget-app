@@ -1,11 +1,8 @@
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const FAB_SIZE = 56;
-// Matches the web tab bar's rendered height (react-navigation bottom-tabs
-// default). Native tab bar heights vary by platform/safe-area; this is
-// tuned against the web build we've been verifying against.
-const TAB_BAR_HEIGHT = 49;
 
 export function AddTransactionFab() {
   const router = useRouter();
