@@ -1,5 +1,6 @@
-import { View } from 'react-native';
+import { View, type ColorValue } from 'react-native';
 import { Tabs, usePathname } from 'expo-router';
+import { LayoutDashboard, Receipt, ChartColumn, Settings } from 'lucide-react-native';
 import { useRecurringCatchUp } from '../../src/hooks/useRecurringRules';
 import { useBudgetAlerts } from '../../src/hooks/useBudgetAlerts';
 import { useUiStore } from '../../src/stores/useUiStore';
@@ -8,6 +9,24 @@ import { AddTransactionFab } from '../../src/components/AddTransactionFab';
 
 function renderBackButton() {
   return <BackButton />;
+}
+
+type TabIconProps = { color: ColorValue; size: number };
+
+function renderOverviewIcon({ color, size }: TabIconProps) {
+  return <LayoutDashboard color={color} size={size} />;
+}
+
+function renderTransactionsIcon({ color, size }: TabIconProps) {
+  return <Receipt color={color} size={size} />;
+}
+
+function renderReportsIcon({ color, size }: TabIconProps) {
+  return <ChartColumn color={color} size={size} />;
+}
+
+function renderSettingsIcon({ color, size }: TabIconProps) {
+  return <Settings color={color} size={size} />;
 }
 
 export default function TabsLayout() {
@@ -19,10 +38,13 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Tabs screenOptions={{ headerShown: true }}>
-        <Tabs.Screen name="index" options={{ title: 'Overview' }} />
-        <Tabs.Screen name="transactions" options={{ title: 'Transactions' }} />
-        <Tabs.Screen name="reports" options={{ title: 'Reports' }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+        <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: renderOverviewIcon }} />
+        <Tabs.Screen
+          name="transactions"
+          options={{ title: 'Transactions', tabBarIcon: renderTransactionsIcon }}
+        />
+        <Tabs.Screen name="reports" options={{ title: 'Reports', tabBarIcon: renderReportsIcon }} />
+        <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: renderSettingsIcon }} />
 
         {/* Detail/edit screens: nested inside (tabs) so the tab bar stays
             visible while on them, hidden from the tab bar itself via
