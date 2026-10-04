@@ -29,7 +29,9 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow Budget Tracker to use the camera to scan receipts."
+          "cameraPermission": "Allow Budget Tracker to use the camera to scan receipts.",
+          "photosPermission": "Allow Budget Tracker to read photos you choose so it can scan receipts.",
+          "microphonePermission": false
         }
       ],
       [
