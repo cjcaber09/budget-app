@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Slot, useRouter, useSegments, type Href } from 'expo-router';
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 import { useSession } from '../src/hooks/useSession';
+import { supabase } from '../src/lib/supabase';
+import { resetClientState } from '../src/lib/resetClientState';
 import { useToastStore } from '../src/stores/useToastStore';
 import { Toast } from '../src/components/Toast';
 
@@ -40,6 +42,13 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') resetClientState(queryClient);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate />
