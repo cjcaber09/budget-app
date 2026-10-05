@@ -35,6 +35,7 @@ export function AddTransactionFab() {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const afterSheetClosesRef = useRef<(() => void) | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // iOS can't present the camera/library while the sheet's Modal is still
   // animating closed — the picker silently never appears. There, wait for the
@@ -47,12 +48,18 @@ export function AddTransactionFab() {
       action();
       return;
     }
+    // A previous tap's timer must not fire against this tap's action.
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
     afterSheetClosesRef.current = action;
-    setTimeout(handleSheetDismiss, 800);
+    fallbackTimerRef.current = setTimeout(handleSheetDismiss, 800);
   }
 
   // Runs at most once per tap: whichever of onDismiss / the fallback comes first.
   function handleSheetDismiss() {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
     const action = afterSheetClosesRef.current;
     afterSheetClosesRef.current = null;
     action?.();
@@ -66,7 +73,13 @@ export function AddTransactionFab() {
   }
 
   async function handleScan(source: ImageSource) {
-    const result = await pickImage(source);
+    let result: Awaited<ReturnType<typeof pickImage>>;
+    try {
+      result = await pickImage(source);
+    } catch {
+      showToast("Couldn't open the camera or photo library.");
+      return;
+    }
     const asset = result && !result.canceled ? result.assets[0] : undefined;
     if (!asset) return;
 
