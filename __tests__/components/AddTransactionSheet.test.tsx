@@ -28,7 +28,9 @@ describe('AddTransactionSheet', () => {
   it('tells users where their image goes', () => {
     renderSheet();
     expect(
-      screen.getByText('Photos are sent to Google Cloud Vision to read the text and are not stored.')
+      screen.getByText(
+        "Photos are sent to Google to read the text (Cloud Vision, or Gemini as a backup — Gemini's free tier may use them to improve Google's products). This app doesn't keep them."
+      )
     ).toBeTruthy();
   });
 });
