@@ -84,6 +84,8 @@ full design, including what's explicitly out of scope for v1.
 - `npm start` — start the Expo dev server
 - `npm test` — run the Jest test suite
 - `npx tsc --noEmit` — type-check the whole project
+- `bash scripts/ocr-live-test.sh` — live end-to-end test of the receipt-OCR backend (one real OCR provider call; throwaway users)
+- `bash scripts/ocr-cleanup-test.sh` — live test that deleting an account purges its OCR files
 
 ## Project Structure
 
