@@ -41,6 +41,14 @@ function noContent(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+// A definite "it isn't there" from auth-js (AuthApiError: status 404 / code 'user_not_found')
+// or storage-js (StorageApiError: statusCode '404', sometimes with HTTP status 400).
+// Anything else (network, 5xx, timeouts) is a failure, not an absence.
+function isNotFound(error: unknown): boolean {
+  const e = error as { status?: unknown; statusCode?: unknown; code?: unknown } | null;
+  return e?.status === 404 || e?.statusCode === '404' || e?.code === 'user_not_found';
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -152,8 +160,10 @@ async function replayScan(admin: AdminClient, userId: string, scanId: string, st
   if (status === 'deleted') return json(410, { error: 'deleted' });
 
   const path = ocrScanPath(userId, scanId);
-  const { data: file } = await admin.storage.from(OCR_BUCKET).download(path);
+  const { data: file, error: downloadError } = await admin.storage.from(OCR_BUCKET).download(path);
   if (!file) {
+    // A storage failure must not be reported as 'deleted' / 'in_progress'.
+    if (downloadError && !isNotFound(downloadError)) return json(500, { error: 'storage_failed' });
     // 'completed' without its .txt: gone. 'pending' without a .txt: the original
     // request is still running (or died before uploading).
     return status === 'completed' ? json(410, { error: 'deleted' }) : json(409, { error: 'in_progress' });
@@ -195,12 +205,13 @@ async function deleteScan(admin: AdminClient, userId: string, body: unknown): Pr
   const scanId = (body as { scanId?: unknown } | null)?.scanId;
   if (!isUuid(scanId)) return json(400, { error: 'invalid_request' });
 
-  const { data: scan } = await admin
+  const { data: scan, error: lookupError } = await admin
     .from('ocr_scans')
     .select('status')
     .eq('id', scanId)
     .eq('user_id', userId)
     .maybeSingle();
+  if (lookupError) return json(500, { error: 'lookup_failed' }); // a DB error is not 'not found'
   if (!scan) return json(404, { error: 'not_found' });
   if (scan.status === 'deleted') return noContent(); // idempotent
   if (scan.status !== 'completed') return json(409, { error: 'not_deletable' });
@@ -224,8 +235,10 @@ async function purgeUserFolder(admin: AdminClient, body: unknown): Promise<Respo
   // pg_net sends only after the delete commits, so the trigger's calls always
   // find the account gone. A live account means the call came from elsewhere
   // (e.g. a leaked secret): refuse instead of wiping a real user's files.
-  const { data: existing } = await admin.auth.admin.getUserById(userId);
+  const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(userId);
   if (existing?.user) return json(409, { error: 'user_exists' });
+  // Fail closed: only a definite not-found proves the account is gone; any other lookup error deletes nothing.
+  if (lookupError && !isNotFound(lookupError)) return json(503, { error: 'lookup_failed' });
 
   let removed = 0;
   // Bounded: each pass lists then removes up to 100 files.
