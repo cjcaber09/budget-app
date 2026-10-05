@@ -1,35 +1,89 @@
-import { useState } from 'react';
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { useRef, useState } from 'react';
+import { Platform, Pressable, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { AddTransactionSheet } from './AddTransactionSheet';
 import { useToastStore } from '../stores/useToastStore';
+import { useScanStore } from '../stores/useScanStore';
+import { prepareScanImage } from '../lib/prepareScanImage';
+import { estimateBase64Bytes, createRequestId } from '../domain/ocr';
+import { MAX_IMAGE_BYTES } from '../../supabase/functions/ocr/shared';
 
 const FAB_SIZE = 56;
+
+type ImageSource = 'camera' | 'library';
+
+function showToast(message: string) {
+  useToastStore.getState().showToast(message);
+}
+
+// On desktop web, the camera picker falls back to a file dialog.
+async function pickImage(source: ImageSource) {
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'] };
+  if (source === 'library') return ImagePicker.launchImageLibraryAsync(options);
+
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    showToast('Camera access is needed to scan a receipt.');
+    return null;
+  }
+  return ImagePicker.launchCameraAsync(options);
+}
 
 export function AddTransactionFab() {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const afterSheetClosesRef = useRef<(() => void) | null>(null);
 
-  function handleManualEntry() {
+  // iOS can't present the camera/library while the sheet's Modal is still
+  // animating closed — the picker silently never appears. There, wait for the
+  // Modal's onDismiss (iOS-only on native), with a timeout fallback so a missed
+  // onDismiss can't swallow the tap. Android and web open immediately, which
+  // also keeps web inside the click's user-activation window.
+  function closeSheetThen(action: () => void) {
     setSheetOpen(false);
-    router.push('/transaction/new');
-  }
-
-  async function handleScanPhoto() {
-    setSheetOpen(false);
-
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      useToastStore.getState().showToast('Camera access is needed to scan a receipt.');
+    if (Platform.OS !== 'ios') {
+      action();
       return;
     }
+    afterSheetClosesRef.current = action;
+    setTimeout(handleSheetDismiss, 800);
+  }
 
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
-    if (result.canceled || !result.assets[0]) return;
+  // Runs at most once per tap: whichever of onDismiss / the fallback comes first.
+  function handleSheetDismiss() {
+    const action = afterSheetClosesRef.current;
+    afterSheetClosesRef.current = null;
+    action?.();
+  }
 
-    router.push({ pathname: '/transaction/new', params: { photoUri: result.assets[0].uri } });
+  // Every navigation carries a fresh `visit` id: the Add Transaction screen is a
+  // tab screen, which stays mounted between visits, and keys its content on it.
+  function handleManualEntry() {
+    setSheetOpen(false);
+    router.push({ pathname: '/transaction/new', params: { visit: createRequestId() } });
+  }
+
+  async function handleScan(source: ImageSource) {
+    const result = await pickImage(source);
+    const asset = result && !result.canceled ? result.assets[0] : undefined;
+    if (!asset) return;
+
+    try {
+      const image = await prepareScanImage(asset);
+      if (estimateBase64Bytes(image.base64) > MAX_IMAGE_BYTES) {
+        showToast('That image is too large to scan.');
+        return;
+      }
+      // One requestId per picked image, reused by any automatic retry. It doubles
+      // as the visit id, which is how the screen knows this image is for it.
+      const requestId = createRequestId();
+      useScanStore.getState().setPendingImage({ ...image, requestId });
+      router.push({ pathname: '/transaction/new', params: { visit: requestId } });
+    } catch {
+      showToast("Couldn't read that image.");
+    }
   }
 
   return (
@@ -45,7 +99,9 @@ export function AddTransactionFab() {
       <AddTransactionSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onScanPhoto={handleScanPhoto}
+        onDismiss={handleSheetDismiss}
+        onTakePhoto={() => closeSheetThen(() => void handleScan('camera'))}
+        onUploadImage={() => closeSheetThen(() => void handleScan('library'))}
         onManualEntry={handleManualEntry}
       />
     </>
