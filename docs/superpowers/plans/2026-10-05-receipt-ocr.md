@@ -6,7 +6,32 @@
 
 **Architecture:** The client shrinks the picked image (≤ 1600 px JPEG), tags it with a `requestId`, and hands it to the Add Transaction screen through an in-memory zustand store (never a URL param). That screen calls the `ocr` Edge Function, which authenticates the user in-function, validates the payload, hashes the image, and asks a Postgres function to either replay an earlier result (same `requestId`, or same image already scanned), block on quota, or open a new ledger row — all under one advisory lock. Only new scans call Google Cloud Vision (one feature, text-only response), clamp the text, upload `{user_id}/{scan_id}.txt`, and mark the row completed; anything left half-done is reconciled from what's actually in Storage. An `auth.users` delete trigger (via `pg_net`) calls the same function's purge route, authenticated by a Vault-held shared secret.
 
-**Tech Stack:** Expo SDK 57 / React Native 0.86 / expo-router, TanStack Query v5, zustand, `expo-image-picker`, `expo-image-manipulator` (new), `lucide-react-native`, Supabase (Postgres, Storage, Vault, `pg_net`, Edge Functions on Deno), Google Cloud Vision `DOCUMENT_TEXT_DETECTION`, Jest + RTL (jest-expo).
+**Tech Stack:** Expo SDK 57 / React Native 0.86 / expo-router, TanStack Query v5, zustand, `expo-image-picker`, `expo-image-manipulator` (new), `lucide-react-native`, Supabase (Postgres, Storage, Vault, `pg_net`, Edge Functions on Deno), Google Cloud Vision `DOCUMENT_TEXT_DETECTION`, Gemini API `generateContent` (fallback), Jest + RTL (jest-expo).
+
+## Amendment — Gemini fallback (added 2026-10-05, mid-execution)
+
+**Why:** the live test (Task 3) is blocked because Google Vision answers every call with `403 BILLING_DISABLED`: Vision needs a billing account even within its free tier. The user asked to also integrate a Google AI endpoint and use it whenever Vision isn't available.
+
+**Decisions:**
+- **Endpoint:** the Gemini API (Google AI Studio key), `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`, with the key in the `x-goog-api-key` header. `generateContent` is the stable, stateless call and is still fully supported. The newer Interactions API targets agents and multi-step work, which an OCR call doesn't need.
+- **Model:** default `gemini-3.5-flash-lite`, Google's cheapest current image-capable model. Its free tier needs no billing, and it defaults to minimal thinking, so no thinking config is sent. The optional `GEMINI_MODEL` secret overrides the model, so a model retirement doesn't need a code change.
+- **Order:**
+  - Vision is tried first when `GOOGLE_VISION_API_KEY` is set. **Any** failure (HTTP error such as billing disabled, quota or outage, a per-image error, a network error) falls through to Gemini when `GEMINI_API_KEY` is set.
+  - Either key alone works. Neither configured means `500 server_misconfigured` before any quota is spent.
+- **Quota:** unchanged. There is one ledger row per new scan whichever provider answers, and all existing caps still apply.
+- **Privacy** (user's choice: disclose): Google's pricing page says Gemini's free tier uses submitted content to improve Google's products. The + sheet's note says so (Task 14).
+- **Testability:** the provider request builders, response parsers and fallback loop live in a new pure, import-free module, `supabase/functions/ocr/ocrProviders.ts`, unit-tested in Jest. `index.ts` only does the `fetch` calls.
+
+**Execution status and order from here:**
+- Done and reviewed: Tasks 1, 2 and 5–11.
+- Task 3: code written but not committed. Its deploy and live test are blocked on Vision billing.
+- Run order: **Task 13** (provider module) → **Task 14** (privacy note) → **Task 3** (`index.ts` per the updated code below; deploy; live test, where section #2 now passes through Gemini while Vision billing is off) → **Task 4** → **Task 12** → final whole-branch review.
+- Before Task 13:
+  - Copy this plan over `docs/superpowers/plans/2026-10-05-receipt-ocr.md` and commit it: `docs: amend receipt OCR plan with Gemini fallback`, ending with the Co-Authored-By trailer.
+  - Regenerate the task briefs for Tasks 3, 12, 13 and 14 from the repo copy.
+  - Task 3's uncommitted `index.ts` gets updated to the code below as part of Task 3, after Task 13 lands.
+- Execution stays subagent-driven on Sonnet (the user's choice).
+- User action needed before Task 3's deploy: Prerequisite step 4 (set `GEMINI_API_KEY`).
 
 ## Global Constraints
 
@@ -16,9 +41,10 @@
 - Extracted text is clamped to **20,000 characters**; responses carry `truncated: boolean`.
 - Images: client normalizes to **JPEG, long edge ≤ 1600 px, compress 0.6** (Vision bills per image, not per byte — smaller just means faster uploads); server accepts only `image/jpeg`, `image/png`, `image/webp`, decoded **≤ 1.5 MiB (1572864 bytes)**, magic bytes must match the declared type. No image is ever stored (only its hash).
 - Vision request: API key in the **`X-Goog-Api-Key` header** (never the URL); response trimmed with the field mask **`fields=responses(fullTextAnnotation/text,error)`** (drops per-word geometry, often megabytes).
+- **OCR fallback:** if Vision fails for any reason, the same image goes to **Gemini `generateContent`** (default model **`gemini-3.5-flash-lite`**, overridable with the **`GEMINI_MODEL`** secret). Same `X-Goog-Api-Key` header, `temperature: 0`, `maxOutputTokens: 8192`, and a transcribe-only prompt. Gemini's text gets the same 20,000-char clamp. Provider failures are logged as `{ scanId, name, status, reason }` codes only, never error messages or text.
 - Every scan request carries a client-generated **`requestId` (UUID)**, unique per user; the outcome of a `requestId` is final.
 - Storage: bucket **`budget-tracker-ocr`**, private, 1 MiB file limit, object path **`{user_id}/{scan_id}.txt`** (always derived, never stored). Project is shared with other apps — every new name is prefixed.
-- Edge Function **`ocr`**, **`verify_jwt = false`** with auth enforced in-function on every path (user JWT via `auth.getUser`, or the shared secret for the account-deletion trigger, which can't carry a user JWT). Secrets: **`GOOGLE_VISION_API_KEY`**, **`OCR_WEBHOOK_SECRET`**. Deploy with **`--use-api --project-ref axcuqumgplgbuwlnzfpt`** (no Docker locally).
+- Edge Function **`ocr`**, **`verify_jwt = false`** with auth enforced in-function on every path (user JWT via `auth.getUser`, or the shared secret for the account-deletion trigger, which can't carry a user JWT). Secrets: **`GOOGLE_VISION_API_KEY`** and/or **`GEMINI_API_KEY`** (at least one; optional **`GEMINI_MODEL`**), **`OCR_WEBHOOK_SECRET`**. Deploy with **`--use-api --project-ref axcuqumgplgbuwlnzfpt`** (no Docker locally).
 - **`pg_net`** gets enabled on the shared project (user-approved). Vault secrets: `budget_tracker_ocr_function_url`, `budget_tracker_ocr_webhook_secret`.
 - Schema **`budget_tracker`**. Migration 0001 grants `all on functions/tables` to `anon, authenticated` by default → every new function must explicitly revoke.
 - `supabase/functions/ocr/shared.ts` is imported by both the Deno function and the app: **one file, no imports** (the root tsconfig has no `allowImportingTsExtensions`; Deno needs `.ts` specifiers).
@@ -32,14 +58,18 @@
 1. Google Cloud: enable **Cloud Vision API** (it requires a billing account even when usage stays in the free tier); create an API key with **API restrictions → Cloud Vision API only** and **Application restrictions → None** (calls come from Supabase's servers, so a website/app/IP restriction would reject every request).
 2. Backstops in case the app-side caps ever fail: a billing **budget alert at $1**, and optionally a lower requests-per-minute quota (Cloud Console → APIs & Services → Cloud Vision API → Quotas).
 3. Set the key yourself so it never passes through chat:
-   `npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt`
+   `npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt` (done)
+4. **Gemini fallback key (amendment):** create a free key at https://aistudio.google.com/apikey (no billing needed), then set it the same way. First load the Supabase token into the terminal; in PowerShell:
+   `$env:SUPABASE_ACCESS_TOKEN = (Get-Content .env | Where-Object { $_ -like 'EXPO_SUPABASE_ACCESS_TOKEN=*' }) -replace '^EXPO_SUPABASE_ACCESS_TOKEN=', ''`
+   `npx supabase secrets set GEMINI_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt`
 
 ## File Structure
 
 | File | Responsibility |
 |---|---|
 | `supabase/functions/ocr/shared.ts` (new) | Runtime-agnostic contract + pure logic shared by function and app: limits, bucket, path, payload validation, text clamp, UUID check, constant-time compare |
-| `supabase/functions/ocr/index.ts` (new) | Edge Function: auth, scan (new/replay), delete, purge |
+| `supabase/functions/ocr/index.ts` (new) | Edge Function: auth, scan (new/replay), delete, purge; does the provider `fetch` calls |
+| `supabase/functions/ocr/ocrProviders.ts` (new, amendment) | Pure, import-free: Vision + Gemini request builders and response parsers, Vision → Gemini fallback loop |
 | `supabase/functions/ocr/deno.json` (new) | Import map for the function |
 | `supabase/config.toml` (modify) | `[functions.ocr] verify_jwt = false` |
 | `supabase/migrations/0008_ocr_scans.sql` (new) | Ledger table, RLS, quota/replay/dedupe/reconcile function, bucket, storage read policy |
@@ -554,7 +584,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `<scratch>/ocr-live-test.sh` (not committed), where `<scratch>` = `C:/Users/Lenovo/AppData/Local/Temp/claude/c--Users-Lenovo-ai-projects-Budget-management/4d89e7d9-6252-45db-92e9-7bd18358d707/scratchpad`
 
 **Interfaces:**
-- Consumes: everything in Task 1; `try_consume_ocr_quota`, `ocr_scans`, bucket (Task 2).
+- Consumes: everything in Task 1; `try_consume_ocr_quota`, `ocr_scans`, bucket (Task 2); `ocrProviders.ts` exports (Task 13 — committed before this task's code lands).
 - Produces:
   - `POST /functions/v1/ocr` (Bearer user JWT) body `{ imageBase64, mimeType, requestId }` → 200 `OcrScanResult` (new scan, or replay by `requestId` / identical image) | 400 `{ error }` | 401 | 409 `{ error: 'in_progress' }` | 410 `{ error: 'deleted' }` | 429 `{ error: 'rate_limited', reason: OcrLimitReason, retryAfterSeconds }` + `Retry-After` | 500 `{ error: 'storage_failed' | 'quota_check_failed' }` | 502 `{ error: 'ocr_failed' }`.
   - `DELETE /functions/v1/ocr` (Bearer user JWT) body `{ scanId }` → 204 (also for already-deleted / missing file) | 400 | 404 | 409 `{ error: 'not_deletable' }` | 500.
@@ -613,6 +643,17 @@ import {
   validateImagePayload,
   type OcrScanResult,
 } from './shared.ts';
+import {
+  DEFAULT_GEMINI_MODEL,
+  VISION_URL,
+  buildGeminiBody,
+  buildVisionBody,
+  geminiUrl,
+  parseGeminiResponse,
+  parseVisionResponse,
+  readWithFallback,
+  type ProviderAttempt,
+} from './ocrProviders.ts';
 
 // deno-lint-ignore no-explicit-any
 type AdminClient = SupabaseClient<any, any, any>;
@@ -663,33 +704,41 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Free tier = 1,000 units/month, 1 unit per image per feature: exactly one
-// feature. The field mask keeps only the text — by default Vision also returns
-// per-word geometry, often megabytes.
-const VISION_URL =
-  'https://vision.googleapis.com/v1/images:annotate?fields=responses(fullTextAnnotation/text,error)';
+async function postJson(url: string, apiKey: string, body: unknown): Promise<{ status: number; json: unknown }> {
+  const res = await fetch(url, {
+    method: 'POST',
+    // Key in a header, not the URL, so it can't leak through logged URLs.
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey },
+    body: JSON.stringify(body),
+  });
+  return { status: res.status, json: await res.json().catch(() => null) };
+}
 
-async function readVisionText(imageBase64: string, visionKey: string): Promise<string | null> {
-  try {
-    const res = await fetch(VISION_URL, {
-      method: 'POST',
-      // Key in a header, not the URL, so it can't leak through logged URLs.
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': visionKey },
-      body: JSON.stringify({
-        requests: [{ image: { content: imageBase64 }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }],
-      }),
+// Vision first (when configured), Gemini as the fallback (when configured).
+function ocrAttempts(imageBase64: string, mimeType: string): ProviderAttempt[] {
+  const attempts: ProviderAttempt[] = [];
+  const visionKey = Deno.env.get('GOOGLE_VISION_API_KEY');
+  if (visionKey) {
+    attempts.push({
+      name: 'vision',
+      run: async () => {
+        const { status, json } = await postJson(VISION_URL, visionKey, buildVisionBody(imageBase64));
+        return parseVisionResponse(status, json);
+      },
     });
-    const body = await res.json().catch(() => null);
-    const result = body?.responses?.[0];
-    if (!res.ok || !result || result.error) {
-      console.error('ocr: vision request failed', { status: res.status });
-      return null;
-    }
-    return result.fullTextAnnotation?.text ?? '';
-  } catch {
-    console.error('ocr: vision request threw');
-    return null;
   }
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (geminiKey) {
+    const model = Deno.env.get('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL;
+    attempts.push({
+      name: 'gemini',
+      run: async () => {
+        const { status, json } = await postJson(geminiUrl(model), geminiKey, buildGeminiBody(imageBase64, mimeType));
+        return parseGeminiResponse(status, json);
+      },
+    });
+  }
+  return attempts;
 }
 
 async function runNewScan(
@@ -697,15 +746,18 @@ async function runNewScan(
   userId: string,
   scanId: string,
   imageBase64: string,
-  visionKey: string
+  mimeType: string
 ): Promise<Response> {
-  const rawText = await readVisionText(imageBase64, visionKey);
-  if (rawText === null) {
+  const outcome = await readWithFallback(ocrAttempts(imageBase64, mimeType));
+  // Reason codes only (e.g. BILLING_DISABLED, RESOURCE_EXHAUSTED) — never messages or text.
+  for (const failure of outcome.failures) console.error('ocr: provider failed', { scanId, ...failure });
+  if (outcome.text === null) {
     await markFailed(admin, scanId);
     return json(502, { error: 'ocr_failed' });
   }
+  console.log('ocr: text read', { scanId, provider: outcome.provider });
 
-  const { text, truncated } = clampOcrText(rawText);
+  const { text, truncated } = clampOcrText(outcome.text);
   const path = ocrScanPath(userId, scanId);
   const { error: uploadError } = await admin.storage
     .from(OCR_BUCKET)
@@ -746,7 +798,7 @@ async function replayScan(admin: AdminClient, userId: string, scanId: string, st
   return json(200, result);
 }
 
-async function scanImage(admin: AdminClient, userId: string, body: unknown, visionKey: string): Promise<Response> {
+async function scanImage(admin: AdminClient, userId: string, body: unknown): Promise<Response> {
   const payload = validateImagePayload(body);
   if (!payload.ok) return json(400, { error: payload.error });
 
@@ -769,7 +821,7 @@ async function scanImage(admin: AdminClient, userId: string, body: unknown, visi
     );
   }
   if (quota.outcome === 'replay') return replayScan(admin, userId, quota.scan_id, quota.scan_status);
-  return runNewScan(admin, userId, quota.scan_id, payload.imageBase64, visionKey);
+  return runNewScan(admin, userId, quota.scan_id, payload.imageBase64, payload.mimeType);
 }
 
 async function deleteScan(admin: AdminClient, userId: string, body: unknown): Promise<Response> {
@@ -858,19 +910,19 @@ Deno.serve(async (req) => {
   if (req.method === 'DELETE') return deleteScan(admin, authData.user.id, body);
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
 
-  const visionKey = Deno.env.get('GOOGLE_VISION_API_KEY');
-  if (!visionKey) {
-    console.error('ocr: missing GOOGLE_VISION_API_KEY');
+  // Checked before validation and quota, so a misconfigured deploy never spends a scan.
+  if (!Deno.env.get('GOOGLE_VISION_API_KEY') && !Deno.env.get('GEMINI_API_KEY')) {
+    console.error('ocr: no OCR provider configured');
     return json(500, { error: 'server_misconfigured' });
   }
-  return scanImage(admin, authData.user.id, body, visionKey);
+  return scanImage(admin, authData.user.id, body);
 });
 ```
 
-- [ ] **Step 3: Confirm the Vision secret exists (prerequisite)**
+- [ ] **Step 3: Confirm the OCR secrets exist (prerequisite)**
 
-Run: `npx supabase secrets list --project-ref axcuqumgplgbuwlnzfpt`
-Expected: a row named `GOOGLE_VISION_API_KEY` (digest only). If missing, **stop and ask the user** to run the Prerequisite step.
+Run: `npx supabase secrets list --project-ref axcuqumgplgbuwlnzfpt` (print names only)
+Expected: `GOOGLE_VISION_API_KEY` and `GEMINI_API_KEY` both listed. Either one alone is a valid deployment, but this rollout's live test relies on Gemini while Vision billing is off. If `GEMINI_API_KEY` is missing, **stop and ask the user** to run Prerequisite step 4.
 
 - [ ] **Step 4: Deploy**
 
@@ -900,7 +952,7 @@ Expected: `receipt.png` exists in the scratchpad.
 
 - [ ] **Step 6: Write and run the live test script**
 
-Two throwaway users via the admin API with `email_confirm: true` (no email sent, avoids the 2/hour mailer limit), on the plus-address pattern the user approved earlier. The service key is fetched at runtime into a shell variable only. The cleanup trap removes their files through the Storage API (the Task 4 trigger doesn't exist yet), then deletes the users. Only section #2 calls Vision (one billed request); every other check is a replay, a rejection, or SQL.
+Two throwaway users via the admin API with `email_confirm: true` (no email sent, avoids the 2/hour mailer limit), on the plus-address pattern the user approved earlier. The service key is fetched at runtime into a shell variable only. The cleanup trap removes their files through the Storage API (the Task 4 trigger doesn't exist yet), then deletes the users. Only section #2 reaches an OCR provider, costing one request: Vision, or Gemini when Vision fails. Every other check is a replay, a rejection, or SQL. **While Vision billing is disabled, a `200` in section #2 can only have come from the Gemini fallback**, so a passing run proves the fallback end to end. Vision itself fails fast with a 403 and is not charged.
 
 Save as `<scratch>/ocr-live-test.sh`:
 ```bash
@@ -1062,7 +1114,11 @@ if [ "$FAILED" = "0" ]; then echo "ALL LIVE CHECKS PASSED"; else echo "SOME LIVE
 ```
 Run: `bash "<scratch>/ocr-live-test.sh"`
 Expected: every line `PASS: …`, then `ALL LIVE CHECKS PASSED`, then `cleanup: test files and users deleted`. Then confirm: `select count(*) from budget_tracker.ocr_scans;` → `0`, and `select count(*) from storage.objects where bucket_id = 'budget-tracker-ocr';` → `0`. Each run spends exactly 1 of the month's free Vision units.
-If `real image -> 200` fails with 502, read the function logs (Dashboard → Edge Functions → ocr → Logs) for the Vision status. A 400 from Vision there means it rejected the field mask: drop `?fields=…` from `VISION_URL`, redeploy, and rerun (a new run uses new users, so no stale state).
+If `real image -> 200` fails with 502, both providers failed. The function logs one `ocr: provider failed` line per provider, with `{ name, status, reason }`; read them in Dashboard → Edge Functions → ocr → Logs.
+- A Vision `400` with a field-mask complaint: drop `?fields=…` from `VISION_URL` in `ocrProviders.ts`, redeploy, and rerun. A new run uses new users, so there's no stale state.
+- A Gemini `404`/`NOT_FOUND`: the model ID was retired. Set the `GEMINI_MODEL` secret to a current Flash-Lite ID and rerun. No redeploy is needed.
+- A Gemini `403`/`PERMISSION_DENIED`: the API key is wrong or restricted. Stop and ask the user.
+- If the logs aren't reachable, don't deploy diagnostic variants. Report BLOCKED with the 502 and the steps you tried.
 
 - [ ] **Step 7: Commit**
 ```bash
@@ -2568,12 +2624,14 @@ Replace the stale **"The Overview FAB"** paragraph (it still says the FAB shows 
 ```markdown
 **The Add Transaction FAB** (`src/components/AddTransactionFab.tsx`) is rendered from `(tabs)/_layout.tsx` as a sibling *after* `<Tabs>`, shown on the 4 tab pages (`TAB_PAGES`), straddling the tab bar (`TAB_BAR_HEIGHT` in `src/constants/layout.ts`). Tapping it opens `AddTransactionSheet` (Take Photo / Upload Image / Manual Entry). Nested inside a screen it would be clipped by, or lose the stacking fight with, the tab bar — follow this pattern for any cross-tab floating element.
 
-**Receipt OCR:** picked images are normalized (`src/lib/prepareScanImage.ts`), tagged with a `requestId`, and handed to `app/(tabs)/transaction/new.tsx` through `src/stores/useScanStore.ts` — never a URL param (params are deep-link reachable). The only param is an opaque `visit` id; the screen uses the stored image only when its `requestId` matches that visit. That screen calls the `ocr` Edge Function (`supabase/functions/ocr/`). Google Vision is on the **free tier (1,000 images/month)**, so every design choice minimizes Vision calls: `budget_tracker.try_consume_ocr_quota` runs under one global advisory lock and returns `replay` (same `requestId` seen before, or the same image — SHA-256 — already scanned by this user: the function re-serves the saved `.txt` and never calls Vision), `blocked` (900/month global on the Pacific-Time calendar month, 40/day global, 20/day + 5/h per user), or `new`. The Vision request uses one feature and a text-only field mask. Don't add features (each one is another billed unit per image) or raise the 900 cap without checking the Vision billing tier. `budget_tracker.ocr_scans` is the quota ledger, scan history, and idempotency record; users can only SELECT it, deletes go through the function and keep the row. Object paths are always derived (`{user_id}/{scan_id}.txt`), never stored; rows stuck in `pending` are reconciled from `storage.objects` after 10 minutes. Deleting an `auth.users` row fires `on_auth_user_deleted_ocr_cleanup`, which calls the function's purge route through `pg_net` with a Vault-held shared secret. `supabase/functions/ocr/shared.ts` is imported by both the function and the app — keep it one file with no imports. 0001's default privileges grant every new `budget_tracker` function to `anon`/`authenticated`: revoke explicitly on anything privileged.
+**Receipt OCR:** picked images are normalized (`src/lib/prepareScanImage.ts`), tagged with a `requestId`, and handed to `app/(tabs)/transaction/new.tsx` through `src/stores/useScanStore.ts` — never a URL param (params are deep-link reachable). The only param is an opaque `visit` id; the screen uses the stored image only when its `requestId` matches that visit. That screen calls the `ocr` Edge Function (`supabase/functions/ocr/`). Google Vision is on the **free tier (1,000 images/month)**, so every design choice minimizes Vision calls: `budget_tracker.try_consume_ocr_quota` runs under one global advisory lock and returns `replay` (same `requestId` seen before, or the same image — SHA-256 — already scanned by this user: the function re-serves the saved `.txt` and never calls Vision), `blocked` (900/month global on the Pacific-Time calendar month, 40/day global, 20/day + 5/h per user), or `new`. The Vision request uses one feature and a text-only field mask. Don't add features (each one is another billed unit per image) or raise the 900 cap without checking the Vision billing tier. **If Vision fails for any reason, including billing being disabled, the same image goes to Gemini** (`generateContent`, default `gemini-3.5-flash-lite`, overridable with the `GEMINI_MODEL` secret). The providers' request/response logic and the fallback order are in the pure `supabase/functions/ocr/ocrProviders.ts`, which is unit-tested; `index.ts` only does the fetches. Gemini's free tier uses submitted content to improve Google's products, and the + sheet's privacy note says so. Keep that note accurate if providers change. `budget_tracker.ocr_scans` is the quota ledger, scan history, and idempotency record; users can only SELECT it, deletes go through the function and keep the row. Object paths are always derived (`{user_id}/{scan_id}.txt`), never stored; rows stuck in `pending` are reconciled from `storage.objects` after 10 minutes. Deleting an `auth.users` row fires `on_auth_user_deleted_ocr_cleanup`, which calls the function's purge route through `pg_net` with a Vault-held shared secret. `supabase/functions/ocr/shared.ts` is imported by both the function and the app — keep it one file with no imports. 0001's default privileges grant every new `budget_tracker` function to `anon`/`authenticated`: revoke explicitly on anything privileged.
 ```
 Add to **Commands**:
 ```bash
 npx supabase functions deploy ocr --use-api --no-verify-jwt --project-ref axcuqumgplgbuwlnzfpt   # no Docker needed
-npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt
+npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt   # primary OCR (needs GCP billing)
+npx supabase secrets set GEMINI_API_KEY=<key> --project-ref axcuqumgplgbuwlnzfpt          # fallback OCR (AI Studio key, no billing)
+# The Supabase CLI needs SUPABASE_ACCESS_TOKEN in the shell; it's in .env as EXPO_SUPABASE_ACCESS_TOKEN.
 ```
 Add to **Gotchas**:
 ```markdown
@@ -2590,10 +2648,15 @@ Add to **Gotchas**:
 
 Append to the `## Setup` list, after step 4 ("Start the dev server") and before `## Scripts`:
 ```markdown
-5. **Receipt scanning (optional):** in Google Cloud, enable the Cloud Vision API (it needs a billing account even on the free tier), create an API key restricted to the Vision API, and add a $1 budget alert. The app caps scans at 900/month to stay inside Vision's 1,000 free images. Then deploy the function and wire up account-deletion cleanup:
+5. **Receipt scanning (optional):** set up at least one OCR provider.
+   - **Cloud Vision (primary):** enable the API in Google Cloud. It needs a billing account even on the free tier. Create an API key restricted to the Vision API with no application restrictions, and add a $1 budget alert. The app caps scans at 900/month to stay inside Vision's 1,000 free images.
+   - **Gemini (fallback, no billing needed):** create a key at https://aistudio.google.com/apikey. On the free tier, Google may use the submitted images to improve its products.
+
+   With both set, Vision is tried first and Gemini takes over whenever Vision fails. Then deploy the function and wire up account-deletion cleanup:
 
    ```bash
    npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref <ref>
+   npx supabase secrets set GEMINI_API_KEY=<key> --project-ref <ref>
    npx supabase secrets set OCR_WEBHOOK_SECRET=<random-64-hex> --project-ref <ref>
    npx supabase functions deploy ocr --use-api --no-verify-jwt --project-ref <ref>
    ```
@@ -2609,7 +2672,7 @@ Append to the `## Setup` list, after step 4 ("Start the dev server") and before 
 - [ ] **Step 3: Full verification**
 
 Run: `npx tsc --noEmit && npx jest`
-Expected: tsc no output; all suites pass (26 existing + 42 new = 68 tests).
+Expected: tsc no output; all suites pass. That's 92 tests: the 80 now committed (26 pre-existing, the plan's 42, and the 12 FAB tests the user approved in Task 9), plus 12 from Task 13. Task 14 changes one assertion and adds no tests.
 
 Web smoke — restart the dev server, then:
 ```bash
@@ -2635,14 +2698,405 @@ Then append a summary to `.superpowers/sdd/progress.md` (gitignored local log).
 
 ---
 
+### Task 13: OCR provider module — Vision first, Gemini fallback (amendment)
+
+**Files:**
+- Create: `supabase/functions/ocr/ocrProviders.ts`
+- Test: `__tests__/functions/ocrProviders.test.ts`
+
+**Interfaces:**
+- Produces:
+  - Types: `type OcrProviderName = 'vision' | 'gemini'`; `type ProviderResult = { ok: true; text: string } | { ok: false; status: number; reason: string }`; `interface ProviderAttempt { name: OcrProviderName; run(): Promise<ProviderResult> }`; `interface ReadOutcome { provider: OcrProviderName | null; text: string | null; failures: { name; status; reason }[] }`.
+  - Vision: `VISION_URL`, `buildVisionBody(imageBase64)`, `parseVisionResponse(status, body): ProviderResult`.
+  - Gemini: `DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite'`, `geminiUrl(model)`, `buildGeminiBody(imageBase64, mimeType)`, `parseGeminiResponse(status, body): ProviderResult`.
+  - Fallback: `readWithFallback(attempts: ProviderAttempt[]): Promise<ReadOutcome>`.
+  - Task 3's `index.ts` consumes all of these.
+- Like `shared.ts`, this file must have **no imports**: Deno needs `.ts` specifiers, and the root tsconfig rejects them. It is type-checked through the test that imports it.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `__tests__/functions/ocrProviders.test.ts`:
+```typescript
+import {
+  VISION_URL,
+  buildVisionBody,
+  parseVisionResponse,
+  DEFAULT_GEMINI_MODEL,
+  geminiUrl,
+  buildGeminiBody,
+  parseGeminiResponse,
+  readWithFallback,
+  type OcrProviderName,
+  type ProviderResult,
+} from '../../supabase/functions/ocr/ocrProviders';
+
+describe('Vision request and response', () => {
+  it('asks for exactly one feature and only the text', () => {
+    expect(buildVisionBody('QUJD')).toEqual({
+      requests: [{ image: { content: 'QUJD' }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }],
+    });
+    expect(VISION_URL).toContain('fields=responses(fullTextAnnotation/text,error)');
+  });
+
+  it('returns the text, or empty text when the image has none', () => {
+    expect(parseVisionResponse(200, { responses: [{ fullTextAnnotation: { text: 'TOTAL 12.50\n' } }] })).toEqual({
+      ok: true,
+      text: 'TOTAL 12.50\n',
+    });
+    expect(parseVisionResponse(200, { responses: [{}] })).toEqual({ ok: true, text: '' });
+  });
+
+  it('fails with the most specific reason code Google gives', () => {
+    expect(
+      parseVisionResponse(403, {
+        error: { code: 403, status: 'PERMISSION_DENIED', details: [{ reason: 'BILLING_DISABLED' }] },
+      })
+    ).toEqual({ ok: false, status: 403, reason: 'BILLING_DISABLED' });
+    expect(parseVisionResponse(200, { responses: [{ error: { code: 3, message: 'Bad image data.' } }] })).toEqual({
+      ok: false,
+      status: 200,
+      reason: 'code_3',
+    });
+    expect(parseVisionResponse(500, null)).toEqual({ ok: false, status: 500, reason: 'http_error' });
+    expect(parseVisionResponse(200, { responses: [] })).toEqual({ ok: false, status: 200, reason: 'no_response' });
+  });
+});
+
+describe('Gemini request and response', () => {
+  it('targets generateContent on the given model', () => {
+    expect(geminiUrl(DEFAULT_GEMINI_MODEL)).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent'
+    );
+  });
+
+  it('sends the image inline with a transcription prompt and deterministic settings', () => {
+    const body = buildGeminiBody('QUJD', 'image/jpeg');
+    expect(body.contents[0].parts[0]).toEqual({ inline_data: { mime_type: 'image/jpeg', data: 'QUJD' } });
+    expect(body.contents[0].parts[1].text).toMatch(/transcribe/i);
+    expect(body.generationConfig).toEqual({ temperature: 0, maxOutputTokens: 8192 });
+  });
+
+  it('joins the answer parts, skipping thought parts and a wrapping code fence', () => {
+    expect(
+      parseGeminiResponse(200, {
+        candidates: [
+          {
+            finishReason: 'STOP',
+            content: { parts: [{ text: 'reasoning', thought: true }, { text: 'COFFEE SHOP\n' }, { text: 'TOTAL 12.50' }] },
+          },
+        ],
+      })
+    ).toEqual({ ok: true, text: 'COFFEE SHOP\nTOTAL 12.50' });
+    expect(
+      parseGeminiResponse(200, {
+        candidates: [{ finishReason: 'STOP', content: { parts: [{ text: '```text\nTOTAL 12.50\n```' }] } }],
+      })
+    ).toEqual({ ok: true, text: 'TOTAL 12.50' });
+  });
+
+  it('accepts an empty answer and output cut at the token limit', () => {
+    expect(parseGeminiResponse(200, { candidates: [{ finishReason: 'STOP', content: {} }] })).toEqual({
+      ok: true,
+      text: '',
+    });
+    expect(
+      parseGeminiResponse(200, { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: 'LONG' }] } }] })
+    ).toEqual({ ok: true, text: 'LONG' });
+  });
+
+  it('fails on HTTP errors, blocked prompts, other finish reasons, and missing candidates', () => {
+    expect(parseGeminiResponse(429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED' } })).toEqual({
+      ok: false,
+      status: 429,
+      reason: 'RESOURCE_EXHAUSTED',
+    });
+    expect(parseGeminiResponse(200, { promptFeedback: { blockReason: 'SAFETY' } })).toEqual({
+      ok: false,
+      status: 200,
+      reason: 'blocked_SAFETY',
+    });
+    expect(
+      parseGeminiResponse(200, { candidates: [{ finishReason: 'RECITATION', content: { parts: [{ text: 'x' }] } }] })
+    ).toEqual({ ok: false, status: 200, reason: 'RECITATION' });
+    expect(parseGeminiResponse(200, { candidates: [] })).toEqual({ ok: false, status: 200, reason: 'no_candidate' });
+  });
+});
+
+function attempt(name: OcrProviderName, result: ProviderResult | Error) {
+  return {
+    name,
+    run: jest.fn(async (): Promise<ProviderResult> => {
+      if (result instanceof Error) throw result;
+      return result;
+    }),
+  };
+}
+
+describe('readWithFallback', () => {
+  it('uses the first provider that succeeds and never calls the rest', async () => {
+    const vision = attempt('vision', { ok: true, text: 'A' });
+    const gemini = attempt('gemini', { ok: true, text: 'B' });
+
+    await expect(readWithFallback([vision, gemini])).resolves.toEqual({ provider: 'vision', text: 'A', failures: [] });
+    expect(gemini.run).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the next provider and records why the first one failed', async () => {
+    const vision = attempt('vision', { ok: false, status: 403, reason: 'BILLING_DISABLED' });
+    const gemini = attempt('gemini', { ok: true, text: 'B' });
+
+    await expect(readWithFallback([vision, gemini])).resolves.toEqual({
+      provider: 'gemini',
+      text: 'B',
+      failures: [{ name: 'vision', status: 403, reason: 'BILLING_DISABLED' }],
+    });
+  });
+
+  it('treats a thrown error (network, timeout) as a failure and moves on', async () => {
+    const outcome = await readWithFallback([
+      attempt('vision', new Error('fetch failed')),
+      attempt('gemini', { ok: true, text: 'B' }),
+    ]);
+
+    expect(outcome.provider).toBe('gemini');
+    expect(outcome.failures).toEqual([{ name: 'vision', status: 0, reason: 'network_error' }]);
+  });
+
+  it('reports no text when every provider fails', async () => {
+    await expect(
+      readWithFallback([
+        attempt('vision', { ok: false, status: 500, reason: 'http_error' }),
+        attempt('gemini', { ok: false, status: 429, reason: 'RESOURCE_EXHAUSTED' }),
+      ])
+    ).resolves.toEqual({
+      provider: null,
+      text: null,
+      failures: [
+        { name: 'vision', status: 500, reason: 'http_error' },
+        { name: 'gemini', status: 429, reason: 'RESOURCE_EXHAUSTED' },
+      ],
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx jest ocrProviders`
+Expected: FAIL — `Cannot find module '../../supabase/functions/ocr/ocrProviders'`.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Create `supabase/functions/ocr/ocrProviders.ts`:
+```typescript
+// Request builders and response parsers for the OCR providers, plus the fallback
+// order. Pure, so Jest can test it (Deno isn't installed locally) — index.ts does
+// the actual fetches. Like shared.ts, keep it free of imports: Deno needs `.ts`
+// specifiers and the root tsconfig rejects them.
+
+export type OcrProviderName = 'vision' | 'gemini';
+
+export type ProviderResult = { ok: true; text: string } | { ok: false; status: number; reason: string };
+
+export interface ProviderAttempt {
+  name: OcrProviderName;
+  run: () => Promise<ProviderResult>;
+}
+
+export interface ReadOutcome {
+  provider: OcrProviderName | null;
+  text: string | null;
+  failures: { name: OcrProviderName; status: number; reason: string }[];
+}
+
+interface GoogleError {
+  code?: number;
+  status?: string;
+  details?: { reason?: string }[];
+}
+
+// Most specific first (PERMISSION_DENIED + BILLING_DISABLED → BILLING_DISABLED).
+// Codes only — never the message, which can echo request details.
+function googleErrorReason(error: GoogleError | undefined, fallback: string): string {
+  const detailReason = error?.details?.find((detail) => detail.reason)?.reason;
+  if (detailReason) return detailReason;
+  if (error?.status) return error.status;
+  if (typeof error?.code === 'number') return `code_${error.code}`;
+  return fallback;
+}
+
+function isHttpOk(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+// Vision: free tier = 1,000 units/month, 1 unit per image per feature, so exactly
+// one feature. The field mask keeps only the text — by default Vision also returns
+// per-word geometry, often megabytes.
+export const VISION_URL =
+  'https://vision.googleapis.com/v1/images:annotate?fields=responses(fullTextAnnotation/text,error)';
+
+export function buildVisionBody(imageBase64: string) {
+  return { requests: [{ image: { content: imageBase64 }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }] };
+}
+
+export function parseVisionResponse(status: number, body: unknown): ProviderResult {
+  const parsed = body as {
+    error?: GoogleError;
+    responses?: { error?: GoogleError; fullTextAnnotation?: { text?: string } }[];
+  } | null;
+  if (!isHttpOk(status)) return { ok: false, status, reason: googleErrorReason(parsed?.error, 'http_error') };
+  const result = parsed?.responses?.[0];
+  if (!result) return { ok: false, status, reason: 'no_response' };
+  if (result.error) return { ok: false, status, reason: googleErrorReason(result.error, 'vision_error') };
+  return { ok: true, text: result.fullTextAnnotation?.text ?? '' };
+}
+
+// Gemini (Google AI Studio key) — the fallback when Vision fails, including when
+// Vision's billing is off: Gemini's free tier needs no billing account. That free
+// tier may use submitted content to improve Google's products; AddTransactionSheet's
+// privacy note says so. generateContent is the stable, stateless endpoint. Set the
+// GEMINI_MODEL secret to switch models when Google retires this one.
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
+export function geminiUrl(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+
+const GEMINI_PROMPT =
+  'Transcribe all text in this image exactly as it appears, preserving line breaks and reading order. ' +
+  'Output only the transcribed text, with no commentary or formatting. If the image has no text, output nothing.';
+
+export function buildGeminiBody(imageBase64: string, mimeType: string) {
+  return {
+    contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: GEMINI_PROMPT }] }],
+    // ~4 characters per token: 8192 tokens comfortably covers the 20,000-character clamp.
+    generationConfig: { temperature: 0, maxOutputTokens: 8192 },
+  };
+}
+
+const GEMINI_OK_FINISH_REASONS = new Set(['STOP', 'MAX_TOKENS']);
+
+// Models sometimes wrap plain output in a Markdown fence despite the prompt.
+function stripCodeFence(text: string): string {
+  const fenced = /^```[^\n]*\n([\s\S]*?)\n?```$/.exec(text);
+  return fenced ? fenced[1] : text;
+}
+
+export function parseGeminiResponse(status: number, body: unknown): ProviderResult {
+  const parsed = body as {
+    error?: GoogleError;
+    promptFeedback?: { blockReason?: string };
+    candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  } | null;
+  if (!isHttpOk(status)) return { ok: false, status, reason: googleErrorReason(parsed?.error, 'http_error') };
+  const blockReason = parsed?.promptFeedback?.blockReason;
+  if (blockReason) return { ok: false, status, reason: `blocked_${blockReason}` };
+  const candidate = parsed?.candidates?.[0];
+  if (!candidate) return { ok: false, status, reason: 'no_candidate' };
+  if (candidate.finishReason && !GEMINI_OK_FINISH_REASONS.has(candidate.finishReason)) {
+    return { ok: false, status, reason: candidate.finishReason };
+  }
+  const text = (candidate.content?.parts ?? [])
+    .filter((part) => !part.thought && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('');
+  return { ok: true, text: stripCodeFence(text.trim()) };
+}
+
+// Tries each provider in order; the first success wins. Any failure — billing off,
+// quota, outage, blocked content, network — moves on to the next one.
+export async function readWithFallback(attempts: ProviderAttempt[]): Promise<ReadOutcome> {
+  const failures: ReadOutcome['failures'] = [];
+  for (const attempt of attempts) {
+    let result: ProviderResult;
+    try {
+      result = await attempt.run();
+    } catch {
+      result = { ok: false, status: 0, reason: 'network_error' };
+    }
+    if (result.ok) return { provider: attempt.name, text: result.text, failures };
+    failures.push({ name: attempt.name, status: result.status, reason: result.reason });
+  }
+  return { provider: null, text: null, failures };
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npx jest ocrProviders && npx tsc --noEmit && npx jest`
+Expected: PASS, 12 tests; tsc no output; full suite 92/92.
+
+- [ ] **Step 5: Commit**
+```bash
+git add supabase/functions/ocr/ocrProviders.ts __tests__/functions/ocrProviders.test.ts
+git commit -m "feat: add OCR provider module with Vision-to-Gemini fallback
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 14: Privacy note discloses the Gemini fallback (amendment)
+
+**Files:**
+- Modify: `src/components/AddTransactionSheet.tsx` (privacy `Text` only)
+- Test: `__tests__/components/AddTransactionSheet.test.tsx` (the privacy assertion)
+
+**Interfaces:** none new. Wording chosen by the user: "Disclose it".
+
+- [ ] **Step 1: Update the test first**
+
+In `__tests__/components/AddTransactionSheet.test.tsx`, change the privacy assertion's expected string to:
+```
+Photos are sent to Google to read the text (Cloud Vision, or Gemini as a backup — Gemini's free tier may use them to improve Google's products). This app doesn't keep them.
+```
+Also `grep -rn "Google Cloud Vision to read the text" __tests__ src app`. If any other test asserts the old sentence, update it the same way.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx jest AddTransactionSheet`
+Expected: FAIL — `Unable to find an element with text: Photos are sent to Google to read the text (Cloud Vision, …`.
+
+- [ ] **Step 3: Update the component**
+
+In `src/components/AddTransactionSheet.tsx`, replace the privacy `Text`'s content with exactly the sentence above. Keep the `styles.privacy` style.
+
+- [ ] **Step 4: Run tests and type-check**
+
+Run: `npx jest AddTransactionSheet AddTransactionFab && npx tsc --noEmit && npx jest`
+Expected: PASS; tsc no output; full suite green (same count as before this task).
+
+- [ ] **Step 5: Commit**
+```bash
+git add src/components/AddTransactionSheet.tsx __tests__/components/AddTransactionSheet.test.tsx
+git commit -m "feat: disclose the Gemini fallback in the scan privacy note
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
 ## Out of scope / known limitations
 
 Auto-filling amount/category/date from the text; linking a `.txt` to a specific transaction; PDFs or multi-page documents; showing remaining quota in the UI. If Vision succeeds but the `.txt` upload fails, that `requestId` ends `failed` and its text is lost (quota still counted) — retrying needs a new scan. A `pg_net` cleanup call that fails isn't retried automatically; CLAUDE.md documents the orphan query. Image dedupe matches exact bytes only: two camera shots of the same receipt are different images and each costs a Vision unit. The 900/month cap is app-side; Google can't enforce a monthly cap for us, so the $1 budget alert is the only external backstop.
+
+**Gemini fallback limitations:**
+- Gemini's free-tier rate limits aren't published; they're visible only in AI Studio. A Gemini `429` after a Vision failure ends the scan as `502 ocr_failed`, and that scan still counts toward quota.
+- While Vision billing stays off, every scan makes a fast, uncharged, failing Vision call before Gemini. Unset `GOOGLE_VISION_API_KEY` to go Gemini-only and skip it.
+- Gemini transcription can differ slightly from Vision's (spacing, reading order). The note is user-editable, so that's acceptable.
+- The response doesn't say which provider answered. The function logs it as `ocr: text read { scanId, provider }`.
 
 ## Self-review (writing-plans checklist)
 
 - **Spec coverage:** camera (T9) · file upload (T9) · OCR via Vision (T3) · per-user + global limits (T2, verified T3) · **Vision free tier** — 900/month PT cap + 40/day global + 20/day & 5/h per user (T2; verified T3 #10, #11, #11b), identical-image dedupe (T2, T3; verified T3 #3b), one feature + text-only field mask + header key (T3), smaller images (T1 1.5 MiB cap, T6 1600px/0.6) · `.txt` in Storage (T3), download (T7, T11) · note prefill (T8, T10) · delete keeping quota (T3, T11) · 3-button sheet (T9) · deep-link image sink removed (T10) · **text limit** 20,000 chars (T1 clamp, T3 response, T10 notice) · **idempotency** (T2 unique key + replay, T3 replay paths, T5/T9 requestId, T7 single safe retry; verified T3 #3, #6, #7) · **storage failures** — upload ok/status failed (T3 retry + replay + T2 reconciliation; verified T3 #6, #8), missing object on delete (T3; verified T3 #9) · **account cleanup** (T4 trigger + purge; verified T4).
 - **Placeholder scan:** every code step has complete code; the only conditional is the manipulator API fallback in T6, which is spelled out.
+- **Amendment coverage (Gemini fallback):**
+  - "Integrate a Google AI endpoint if Vision isn't available": T13 adds the pure provider module and the Vision → Gemini fallback, unit-tested for success, fallback, a throw becoming a network failure, and all providers failing. T3's `index.ts` wires the fetches, and either key alone is valid.
+  - Live proof: while Vision billing is off, a `200` in T3 section #2 can only come from Gemini.
+  - Privacy disclosure (user-chosen): T14.
+  - Docs and setup: T12 and Prerequisite step 4.
+  - Facts verified against Google's docs on 2026-10-05: `generateContent` is still supported, model `gemini-3.5-flash-lite`, free tier needs no billing, free-tier content is used for product improvement, and Flash-Lite defaults to minimal thinking.
+  - Type consistency: `ProviderAttempt`, `ProviderResult` and `ReadOutcome` (T13) match their use in `index.ts`, where `runNewScan` now takes `mimeType` and `scanImage` no longer takes a key.
 - **Checked against the repo (second review):** `TransactionForm` already falls back per field (`initialValues?.x ?? default`), so the partial prefill only needs the type change; the existing form test file has 5 tests (→ 6); `app/_layout.tsx`'s `MutationCache.onError` toasts `error.message`, so `OcrRequestError` messages reach the user; `transactions.note` is unconstrained `text`; `supabase/config.toml` exists with no `[functions]` section; `.env` has `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_SUPABASE_ACCESS_TOKEN`; the project still has a legacy `service_role` key (the function's `SUPABASE_SERVICE_ROLE_KEY` and the scripts' Bearer auth rely on it); supabase-js exports `FunctionsFetchError`/`FunctionsRelayError`/`FunctionsHttpError`, and an `invoke` timeout surfaces as `FunctionsFetchError`. Fixed in this pass: tsconfig `exclude` now repeats the Expo base entries (T3), the list row's text column can shrink (T8), the iOS picker waits for the sheet to finish closing (T9), the README step position (T12).
 - **Third review (navigator, web, trigger runtime):** expo-router 57's bottom tabs keep `transaction/new` mounted between visits (no `unmountOnBlur`), so T9/T10 now key each visit on a `visit` param (second scan is read; stale amount/note can't carry over; foreign `visit` ids get a plain form — 2 new tests); the iOS picker deferral has an 800 ms fallback in case `onDismiss` never fires; the function reuses `corsHeaders` from `@supabase/supabase-js/cors` (pinned to the app's 2.110.7) instead of a hand-written list, and the live test checks the web preflight; the cleanup trigger's `pg_net` timeout is 30 s (default 5 s, never retried); the purge route refuses accounts that still exist (409, live-tested); the prerequisite spells out "Application restrictions → None". Verified read-only: `postgres` (the migration and `db query` role) can read `vault.decrypted_secrets`, call `vault.create_secret`, and add triggers on `auth.users`; the existing `on_auth_user_created` trigger is this app's `public.seed_default_categories`.
 - **Type consistency:** `OcrScanResult` (`truncated` included) and `OcrLimitReason` are defined once in `shared.ts` (T1) and used by T3, T5, T7, T10; `PreparedScanImage`/`PendingScanImage`/`useScanStore` (T6) used in T9–T10; `OcrScanRow` (`user_id`, nullable `char_count`) and `useOcrScan` variables `{ base64, mimeType, requestId }` (T7) match T10–T11; SQL `outcome`/`scan_status`/`reason` (T2) match the function's branches (T3), and `'global_monthly'` is in `OcrLimitReason` (T1) and handled by `formatOcrLimitMessage` (T5); `try_consume_ocr_quota(uuid, uuid, text)` signature matches the revoke/grant, the function's `rpc` call (`p_image_sha256`), and the live-test RPC calls; `validateImagePayload`'s `bytes` (T1) feeds `sha256Hex` (T3); every live-test insert supplies the `not null` `image_sha256`.
