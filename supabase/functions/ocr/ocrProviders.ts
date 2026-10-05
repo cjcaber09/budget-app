@@ -3,6 +3,12 @@
 // the actual fetches. Like shared.ts, keep it free of imports: Deno needs `.ts`
 // specifiers and the root tsconfig rejects them.
 
+// Per-provider fetch timeouts. Their sum plus about 3 s of DB/storage work stays
+// under the client's 30 s invoke timeout (OCR_TIMEOUT_MS in src/hooks/useOcr.ts),
+// so a hung Vision call still leaves Gemini time to answer before the client gives up.
+export const VISION_TIMEOUT_MS = 10_000;
+export const GEMINI_TIMEOUT_MS = 17_000;
+
 export type OcrProviderName = 'vision' | 'gemini';
 
 export type ProviderResult = { ok: true; text: string } | { ok: false; status: number; reason: string };
@@ -120,8 +126,10 @@ export async function readWithFallback(attempts: ProviderAttempt[]): Promise<Rea
     let result: ProviderResult;
     try {
       result = await attempt.run();
-    } catch {
-      result = { ok: false, status: 0, reason: 'network_error' };
+    } catch (error) {
+      // AbortSignal.timeout rejects with a DOMException named 'TimeoutError' (Deno and Node).
+      const timedOut = (error as { name?: unknown } | null)?.name === 'TimeoutError';
+      result = { ok: false, status: 0, reason: timedOut ? 'timeout' : 'network_error' };
     }
     if (result.ok) return { provider: attempt.name, text: result.text, failures };
     failures.push({ name: attempt.name, status: result.status, reason: result.reason });

@@ -143,6 +143,16 @@ describe('readWithFallback', () => {
     expect(outcome.failures).toEqual([{ name: 'vision', status: 0, reason: 'network_error' }]);
   });
 
+  it('records an aborted (timed-out) provider call as a timeout and moves on', async () => {
+    const outcome = await readWithFallback([
+      attempt('vision', Object.assign(new Error('timed out'), { name: 'TimeoutError' })),
+      attempt('gemini', { ok: true, text: 'B' }),
+    ]);
+
+    expect(outcome.provider).toBe('gemini');
+    expect(outcome.failures).toEqual([{ name: 'vision', status: 0, reason: 'timeout' }]);
+  });
+
   it('reports no text when every provider fails', async () => {
     await expect(
       readWithFallback([

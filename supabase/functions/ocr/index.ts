@@ -12,6 +12,8 @@ import {
 } from './shared.ts';
 import {
   DEFAULT_GEMINI_MODEL,
+  GEMINI_TIMEOUT_MS,
+  VISION_TIMEOUT_MS,
   VISION_URL,
   buildGeminiBody,
   buildVisionBody,
@@ -41,12 +43,18 @@ function noContent(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-// A definite "it isn't there" from auth-js (AuthApiError: status 404 / code 'user_not_found')
-// or storage-js (StorageApiError: statusCode '404', sometimes with HTTP status 400).
-// Anything else (network, 5xx, timeouts) is a failure, not an absence.
-function isNotFound(error: unknown): boolean {
-  const e = error as { status?: unknown; statusCode?: unknown; code?: unknown } | null;
-  return e?.status === 404 || e?.statusCode === '404' || e?.code === 'user_not_found';
+// A definite "that user doesn't exist" from auth-js (AuthApiError code 'user_not_found').
+// A bare HTTP 404 is not enough: purgeUserFolder wipes files on this answer, so a stray
+// 404 from a gateway or proxy must not count as proof.
+function isAuthUserNotFound(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === 'user_not_found';
+}
+
+// A definite "that object isn't there" from storage-js (StorageApiError: statusCode '404',
+// sometimes with HTTP status 400). Anything else (network, 5xx, timeouts) is a failure.
+function isStorageObjectNotFound(error: unknown): boolean {
+  const e = error as { status?: unknown; statusCode?: unknown } | null;
+  return e?.status === 404 || e?.statusCode === '404';
 }
 
 function sleep(ms: number): Promise<void> {
@@ -79,12 +87,19 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function postJson(url: string, apiKey: string, body: unknown): Promise<{ status: number; json: unknown }> {
+async function postJson(
+  url: string,
+  apiKey: string,
+  body: unknown,
+  timeoutMs: number
+): Promise<{ status: number; json: unknown }> {
   const res = await fetch(url, {
     method: 'POST',
     // Key in a header, not the URL, so it can't leak through logged URLs.
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey },
     body: JSON.stringify(body),
+    // A hung provider must not block the fallback (or outlast the client's own timeout).
+    signal: AbortSignal.timeout(timeoutMs),
   });
   return { status: res.status, json: await res.json().catch(() => null) };
 }
@@ -97,7 +112,7 @@ function ocrAttempts(imageBase64: string, mimeType: string): ProviderAttempt[] {
     attempts.push({
       name: 'vision',
       run: async () => {
-        const { status, json } = await postJson(VISION_URL, visionKey, buildVisionBody(imageBase64));
+        const { status, json } = await postJson(VISION_URL, visionKey, buildVisionBody(imageBase64), VISION_TIMEOUT_MS);
         return parseVisionResponse(status, json);
       },
     });
@@ -108,7 +123,12 @@ function ocrAttempts(imageBase64: string, mimeType: string): ProviderAttempt[] {
     attempts.push({
       name: 'gemini',
       run: async () => {
-        const { status, json } = await postJson(geminiUrl(model), geminiKey, buildGeminiBody(imageBase64, mimeType));
+        const { status, json } = await postJson(
+          geminiUrl(model),
+          geminiKey,
+          buildGeminiBody(imageBase64, mimeType),
+          GEMINI_TIMEOUT_MS
+        );
         return parseGeminiResponse(status, json);
       },
     });
@@ -163,7 +183,7 @@ async function replayScan(admin: AdminClient, userId: string, scanId: string, st
   const { data: file, error: downloadError } = await admin.storage.from(OCR_BUCKET).download(path);
   if (!file) {
     // A storage failure must not be reported as 'deleted' / 'in_progress'.
-    if (downloadError && !isNotFound(downloadError)) return json(500, { error: 'storage_failed' });
+    if (downloadError && !isStorageObjectNotFound(downloadError)) return json(500, { error: 'storage_failed' });
     // 'completed' without its .txt: gone. 'pending' without a .txt: the original
     // request is still running (or died before uploading).
     return status === 'completed' ? json(410, { error: 'deleted' }) : json(409, { error: 'in_progress' });
@@ -238,7 +258,7 @@ async function purgeUserFolder(admin: AdminClient, body: unknown): Promise<Respo
   const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(userId);
   if (existing?.user) return json(409, { error: 'user_exists' });
   // Fail closed: only a definite not-found proves the account is gone; any other lookup error deletes nothing.
-  if (lookupError && !isNotFound(lookupError)) return json(503, { error: 'lookup_failed' });
+  if (lookupError && !isAuthUserNotFound(lookupError)) return json(503, { error: 'lookup_failed' });
 
   let removed = 0;
   // Bounded: each pass lists then removes up to 100 files.
