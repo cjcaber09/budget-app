@@ -42,3 +42,6 @@ example
 # generated native folders
 /ios
 /android
+
+# user-provided sample receipts (real documents) — never commit
+assets/images/sample-receipts/
