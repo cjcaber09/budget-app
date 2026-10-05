@@ -56,4 +56,27 @@ describe('TransactionForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText('Amount must be a number greater than 0')).toBeTruthy();
   });
+
+  it('prefills only the note and keeps defaults for everything else', () => {
+    const onSubmit = jest.fn();
+    render(
+      <TransactionForm
+        categories={categories}
+        initialValues={{ note: 'COFFEE SHOP\nTOTAL 12.50' }}
+        submitLabel="Add Transaction"
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.getByDisplayValue('COFFEE SHOP\nTOTAL 12.50')).toBeTruthy();
+    fireEvent.changeText(screen.getByPlaceholderText('0.00'), '12.50');
+    fireEvent.press(screen.getByText('Add Transaction'));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      type: 'expense',
+      categoryId: 'cat-1',
+      amount: 12.5,
+      note: 'COFFEE SHOP\nTOTAL 12.50',
+    });
+  });
 });

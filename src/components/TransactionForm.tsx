@@ -11,7 +11,7 @@ export interface TransactionFormValues {
 
 interface Props {
   categories: Category[];
-  initialValues?: TransactionFormValues;
+  initialValues?: Partial<TransactionFormValues>;
   submitLabel: string;
   onSubmit: (values: {
     type: TransactionType;
@@ -93,7 +93,13 @@ export function TransactionForm({ categories, initialValues, submitLabel, onSubm
       <Text style={styles.label}>Amount</Text>
       <TextInput style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
       <Text style={styles.label}>Note (optional)</Text>
-      <TextInput style={styles.input} value={note} onChangeText={setNote} placeholder="Note" />
+      <TextInput
+        style={[styles.input, styles.noteInput]}
+        value={note}
+        onChangeText={setNote}
+        placeholder="Note"
+        multiline
+      />
       <Pressable style={styles.button} onPress={handleSubmit}>
         <Text style={styles.buttonText}>{submitLabel}</Text>
       </Pressable>
@@ -105,6 +111,7 @@ const styles = StyleSheet.create({
   container: {},
   label: { fontWeight: '600', marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12 },
+  noteInput: { minHeight: 80, textAlignVertical: 'top' },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: { borderWidth: 1, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
   categoryChipText: { color: '#333' },
