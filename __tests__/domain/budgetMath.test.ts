@@ -1,4 +1,9 @@
-import { sumTransactionsForCategory, computeBudgetStatus, didCrossThreshold } from '../../src/domain/budgetMath';
+import {
+  sumTransactionsForCategory,
+  computeBudgetStatus,
+  didCrossThreshold,
+  sumTransactionsByType,
+} from '../../src/domain/budgetMath';
 import type { Transaction } from '../../src/types/database';
 
 function makeTransaction(overrides: Partial<Transaction>): Transaction {
@@ -10,6 +15,7 @@ function makeTransaction(overrides: Partial<Transaction>): Transaction {
     note: null,
     occurred_at: '2026-07-01T00:00:00.000Z',
     recurring_rule_id: null,
+    type: 'expense',
     ...overrides,
   };
 }
@@ -27,6 +33,24 @@ describe('sumTransactionsForCategory', () => {
 
   it('returns 0 when there are no matching transactions', () => {
     expect(sumTransactionsForCategory([], 'groceries')).toBe(0);
+  });
+});
+
+describe('sumTransactionsByType', () => {
+  it('sums only transactions of the given type', () => {
+    const transactions = [
+      makeTransaction({ type: 'expense', amount: 25, category_id: 'groceries' }),
+      makeTransaction({ type: 'income', amount: 2000, category_id: null }),
+      makeTransaction({ type: 'expense', amount: 15, category_id: 'rent' }),
+      makeTransaction({ type: 'income', amount: 500, category_id: null }),
+    ];
+
+    expect(sumTransactionsByType(transactions, 'income')).toBe(2500);
+    expect(sumTransactionsByType(transactions, 'expense')).toBe(40);
+  });
+
+  it('returns 0 when there are no matching transactions', () => {
+    expect(sumTransactionsByType([], 'income')).toBe(0);
   });
 });
 

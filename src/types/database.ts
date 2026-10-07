@@ -1,4 +1,5 @@
 export type RecurringFrequency = 'weekly' | 'monthly';
+export type TransactionType = 'expense' | 'income';
 
 export interface Category {
   id: string;
@@ -20,11 +21,12 @@ export interface Budget {
 export interface Transaction {
   id: string;
   user_id: string;
-  category_id: string;
+  category_id: string | null; // null for income (income isn't budgeted per-category)
   amount: number;
   note: string | null;
   occurred_at: string; // ISO timestamp
   recurring_rule_id: string | null;
+  type: TransactionType;
 }
 
 export interface RecurringRule {

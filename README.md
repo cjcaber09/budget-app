@@ -59,11 +59,33 @@ full design, including what's explicitly out of scope for v1.
 
    Scan the QR code with Expo Go, or press `i`/`a` for the iOS/Android simulator.
 
+5. **Receipt scanning (optional):** set up at least one OCR provider.
+   - **Cloud Vision (primary):** enable the API in Google Cloud. It needs a billing account even on the free tier. Create an API key restricted to the Vision API with no application restrictions, and add a $1 budget alert. The app caps scans at 900/month to stay inside Vision's 1,000 free images.
+   - **Gemini (fallback, no billing needed):** create a key at https://aistudio.google.com/apikey. On the free tier, Google may use the submitted images to improve its products.
+
+   With both set, Vision is tried first and Gemini takes over whenever Vision fails. Then deploy the function and wire up account-deletion cleanup:
+
+   ```bash
+   npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref <ref>
+   npx supabase secrets set GEMINI_API_KEY=<key> --project-ref <ref>
+   npx supabase secrets set OCR_WEBHOOK_SECRET=<random-64-hex> --project-ref <ref>
+   npx supabase functions deploy ocr --use-api --no-verify-jwt --project-ref <ref>
+   ```
+
+   Then in the SQL editor, store the same secret and the function URL in Vault so the `auth.users` delete trigger can reach the function:
+
+   ```sql
+   select vault.create_secret('https://<ref>.supabase.co/functions/v1/ocr', 'budget_tracker_ocr_function_url');
+   select vault.create_secret('<same-random-64-hex>', 'budget_tracker_ocr_webhook_secret');
+   ```
+
 ## Scripts
 
 - `npm start` — start the Expo dev server
 - `npm test` — run the Jest test suite
 - `npx tsc --noEmit` — type-check the whole project
+- `bash scripts/ocr-live-test.sh` — live end-to-end test of the receipt-OCR backend (one real OCR provider call; throwaway users)
+- `bash scripts/ocr-cleanup-test.sh` — live test that deleting an account purges its OCR files
 
 ## Project Structure
 

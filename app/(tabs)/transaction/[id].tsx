@@ -5,6 +5,7 @@ import { useUpdateTransaction, useDeleteTransaction } from '../../../src/hooks/u
 import { useUiStore } from '../../../src/stores/useUiStore';
 import { TransactionForm } from '../../../src/components/TransactionForm';
 import { pageLayout } from '../../../src/styles/pageLayout';
+import type { TransactionType } from '../../../src/types/database';
 
 export default function EditTransactionScreen() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function EditTransactionScreen() {
     amount: string;
     note: string;
     occurredAt: string;
+    type: TransactionType;
   }>();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   const { data: categories } = useCategories();
@@ -33,11 +35,16 @@ export default function EditTransactionScreen() {
       <View style={pageLayout.card}>
         <TransactionForm
           categories={categories}
-          initialValues={{ categoryId: params.categoryId, amount: params.amount, note: params.note }}
+          initialValues={{
+            type: params.type,
+            categoryId: params.categoryId,
+            amount: params.amount,
+            note: params.note,
+          }}
           submitLabel="Save Changes"
-          onSubmit={({ categoryId, amount, note }) => {
+          onSubmit={({ type, categoryId, amount, note }) => {
             updateTransaction(
-              { id: params.id, categoryId, amount, note, occurredAt: params.occurredAt },
+              { id: params.id, type, categoryId, amount, note, occurredAt: params.occurredAt },
               { onSuccess: () => router.back() }
             );
           }}

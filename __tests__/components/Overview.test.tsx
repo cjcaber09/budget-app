@@ -22,8 +22,9 @@ jest.mock('../../src/hooks/useBudgets', () => ({
 jest.mock('../../src/hooks/useTransactions', () => ({
   useTransactions: () => ({
     data: [
-      { id: 't1', user_id: 'u1', category_id: 'cat-1', amount: 180, note: null, occurred_at: '2026-07-05T00:00:00.000Z', recurring_rule_id: null },
-      { id: 't2', user_id: 'u1', category_id: 'cat-2', amount: 1200, note: null, occurred_at: '2026-07-01T00:00:00.000Z', recurring_rule_id: null },
+      { id: 't1', user_id: 'u1', category_id: 'cat-1', amount: 180, note: null, occurred_at: '2026-07-05T00:00:00.000Z', recurring_rule_id: null, type: 'expense' },
+      { id: 't2', user_id: 'u1', category_id: 'cat-2', amount: 1200, note: null, occurred_at: '2026-07-01T00:00:00.000Z', recurring_rule_id: null, type: 'expense' },
+      { id: 't3', user_id: 'u1', category_id: null, amount: 2500, note: 'Paycheck', occurred_at: '2026-07-01T00:00:00.000Z', recurring_rule_id: null, type: 'income' },
     ],
   }),
 }));
@@ -52,5 +53,14 @@ describe('OverviewScreen', () => {
 
     expect(screen.getByText('Rent is over budget')).toBeTruthy();
     expect(screen.queryByText('Groceries is over budget')).toBeNull();
+  });
+
+  it('shows total income and total expenses for the month', () => {
+    render(<OverviewScreen />);
+
+    expect(screen.getByText('Income')).toBeTruthy();
+    expect(screen.getByText('$2500.00')).toBeTruthy();
+    expect(screen.getByText('Expenses')).toBeTruthy();
+    expect(screen.getByText('$1380.00')).toBeTruthy();
   });
 });

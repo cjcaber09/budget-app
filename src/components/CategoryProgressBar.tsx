@@ -6,7 +6,7 @@ interface Props {
   status: BudgetStatus;
 }
 
-const STATUS_COLORS: Record<BudgetStatus['status'], string> = {
+export const STATUS_COLORS: Record<BudgetStatus['status'], string> = {
   ok: '#4CAF50',
   warning: '#FF9800',
   over: '#D32F2F',

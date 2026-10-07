@@ -1,7 +1,11 @@
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { format } from 'date-fns';
+import { FileText, Trash } from 'lucide-react-native';
 import { useCategories } from '../../src/hooks/useCategories';
 import { useRecurringRules } from '../../src/hooks/useRecurringRules';
+import { useOcrScans, useDeleteOcrScan, getOcrDownloadUrl, type OcrScanRow } from '../../src/hooks/useOcr';
+import { useToastStore } from '../../src/stores/useToastStore';
 import { supabase } from '../../src/lib/supabase';
 import { pageLayout } from '../../src/styles/pageLayout';
 
@@ -9,6 +13,16 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { data: categories } = useCategories();
   const { data: recurringRules } = useRecurringRules();
+  const { data: scans } = useOcrScans();
+  const { mutate: deleteScan } = useDeleteOcrScan();
+
+  async function openScan(scan: OcrScanRow) {
+    try {
+      await Linking.openURL(await getOcrDownloadUrl(scan));
+    } catch {
+      useToastStore.getState().showToast("Couldn't open that scan.");
+    }
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={pageLayout.scrollContent}>
@@ -70,6 +84,25 @@ export default function SettingsScreen() {
         </View>
 
         <View style={pageLayout.card}>
+          <Text style={styles.heading}>Scanned Receipts</Text>
+          {(scans ?? []).length === 0 && <Text style={styles.emptyText}>No scans yet.</Text>}
+          {(scans ?? []).map((scan) => (
+            <View key={scan.id} style={styles.row}>
+              <Pressable style={styles.scanInfo} onPress={() => openScan(scan)}>
+                <FileText color="#2196F3" size={18} />
+                <Text style={styles.rowText}>
+                  {format(new Date(scan.created_at), 'MMM d, h:mm a')}
+                  {scan.char_count === null ? '' : ` · ${scan.char_count} chars`}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => deleteScan(scan.id)} accessibilityLabel="Delete scan" hitSlop={8}>
+                <Trash color="#D32F2F" size={18} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+
+        <View style={pageLayout.card}>
           <Pressable style={styles.signOutButton} onPress={() => supabase.auth.signOut()}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </Pressable>
@@ -88,6 +121,8 @@ const styles = StyleSheet.create({
   rowText: { fontSize: 16 },
   addButton: { paddingVertical: 12 },
   addButtonText: { color: '#2196F3', fontWeight: '600' },
+  emptyText: { color: '#888' },
+  scanInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   signOutButton: { alignItems: 'center' },
   signOutText: { color: '#D32F2F', fontWeight: '600' },
 });

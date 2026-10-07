@@ -1,4 +1,4 @@
-import { FlatList, Pressable, Text, View, StyleSheet } from 'react-native';
+import { FlatList, View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCategories } from '../../src/hooks/useCategories';
 import { useTransactions } from '../../src/hooks/useTransactions';
@@ -28,7 +28,8 @@ export default function TransactionsScreen() {
                     pathname: '/transaction/[id]',
                     params: {
                       id: item.id,
-                      categoryId: item.category_id,
+                      type: item.type,
+                      categoryId: item.category_id ?? '',
                       amount: String(item.amount),
                       note: item.note ?? '',
                       occurredAt: item.occurred_at,
@@ -40,9 +41,6 @@ export default function TransactionsScreen() {
           />
         </View>
       </View>
-      <Pressable style={styles.fab} onPress={() => router.push('/transaction/new')}>
-        <Text style={styles.fabText}>+</Text>
-      </Pressable>
     </View>
   );
 }
@@ -51,16 +49,4 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   centerWrap: { flex: 1, alignItems: 'center', padding: 16 },
   listCard: { flex: 1, width: '100%', maxWidth: 480 },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2196F3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
 });

@@ -6,10 +6,15 @@ import { useBudgetAlerts } from '../../src/hooks/useBudgetAlerts';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { BackButton } from '../../src/components/BackButton';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
+import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
 
 function renderBackButton() {
   return <BackButton />;
 }
+
+// The 4 tab-bar pages (not the hidden new/[id] detail screens nested under
+// (tabs) — the FAB doesn't belong on a screen that's already an editing form).
+const TAB_PAGES = new Set(['/', '/transactions', '/reports', '/settings']);
 
 type TabIconProps = { color: ColorValue; size: number };
 
@@ -37,7 +42,12 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tabs screenOptions={{ headerShown: true }}>
+      <Tabs
+        screenOptions={{
+          headerShown: true,
+          tabBarStyle: { height: TAB_BAR_HEIGHT, paddingBottom: 10, paddingTop: 10 },
+        }}
+      >
         <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: renderOverviewIcon }} />
         <Tabs.Screen
           name="transactions"
@@ -81,7 +91,7 @@ export default function TabsLayout() {
       {/* Rendered as a sibling of the whole Tabs navigator (not nested
           inside the Overview screen's own scene) so it can't be clipped
           by that screen's container and reliably paints above the tab bar. */}
-      {pathname === '/' && <AddTransactionFab />}
+      {TAB_PAGES.has(pathname) && <AddTransactionFab />}
     </View>
   );
 }
