@@ -1,151 +1,139 @@
-import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatISO } from 'date-fns';
-import { supabase } from '../lib/supabase';
-import type { RecurringRule, RecurringFrequency } from '../types/database';
-import { getDueOccurrences, computeNextOccurrence } from '../domain/recurring';
-
+import { useEffect } from "react";
+import { AppState } from "react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../lib/supabase";
+import { usePreferencesStore } from "../stores/usePreferencesStore";
+import { localDateKey } from "../domain/transactionDates";
+import {
+  centsToDecimal,
+  decimalToCents,
+} from "../../supabase/functions/ocr/shared";
+import type { RecurringRule, RecurringFrequency } from "../types/database";
 export function useRecurringRules() {
+  const profile = usePreferencesStore((s) => s.profile);
   return useQuery({
-    queryKey: ['recurringRules'],
+    queryKey: ["recurringRules", profile?.user_id],
     queryFn: async (): Promise<RecurringRule[]> => {
-      const { data, error } = await supabase.from('recurring_rules').select('*');
-
-      if (error) throw error;
-      return data;
+      const r = await supabase
+        .from("recurring_rules")
+        .select("*")
+        .eq("archived", false);
+      if (r.error) throw r.error;
+      return r.data;
     },
   });
 }
-
-async function materializeRule(rule: RecurringRule): Promise<void> {
-  const dueDates = getDueOccurrences(
-    new Date(rule.next_occurrence_date),
-    rule.frequency,
-    new Date()
-  );
-
-  if (dueDates.length === 0) return;
-
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-
-  const rows = dueDates.map((date) => ({
-    user_id: userData.user.id,
-    category_id: rule.category_id,
-    amount: rule.amount,
-    note: rule.note,
-    occurred_at: date.toISOString(),
-    recurring_rule_id: rule.id,
-    type: 'expense' as const,
-  }));
-
-  const { error: insertError } = await supabase.from('transactions').insert(rows);
-  if (insertError) throw insertError;
-
-  const lastDue = dueDates[dueDates.length - 1];
-  const nextOccurrence = computeNextOccurrence(lastDue, rule.frequency);
-
-  const { error: updateError } = await supabase
-    .from('recurring_rules')
-    .update({ next_occurrence_date: nextOccurrence.toISOString().slice(0, 10) })
-    .eq('id', rule.id);
-
-  if (updateError) throw updateError;
-}
-
-export function useRecurringCatchUp(): void {
-  const queryClient = useQueryClient();
-  const { data: rules } = useRecurringRules();
-
-  const { mutate: runCatchUp } = useMutation({
-    mutationFn: async (dueRules: RecurringRule[]) => {
-      for (const rule of dueRules) {
-        await materializeRule(rule);
-      }
+export function useRecurringRule(id: string) {
+  return useQuery({
+    queryKey: ["recurringRule", id],
+    queryFn: async (): Promise<RecurringRule> => {
+      const r = await supabase
+        .from("recurring_rules")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (r.error) throw r.error;
+      return r.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
-    },
+    refetchOnMount: "always",
   });
-
+}
+export function useRecurringCatchUp() {
+  const profile = usePreferencesStore((s) => s.profile);
+  const client = useQueryClient();
+  const owner = profile?.user_id;
+  const timezone = profile?.timezone;
   useEffect(() => {
-    const activeRules = (rules ?? []).filter((rule) => rule.active);
-    if (activeRules.length > 0) {
-      runCatchUp(activeRules);
-    }
-  }, [rules, runCatchUp]);
+    if (!owner || !timezone) return;
+    let cancelled = false;
+    const sync = async () => {
+      const day = localDateKey(new Date(), timezone);
+      const r = await supabase.rpc("prepare_dashboard", {
+        p_month: day.slice(0, 7) + "-01",
+      });
+      if (!cancelled && !r.error) {
+        void client.invalidateQueries({ queryKey: ["transactions"] });
+        void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
+        void client.invalidateQueries({ queryKey: ["dashboard"] });
+      }
+    };
+    void sync();
+    const listener = AppState.addEventListener("change", (s) => {
+      if (s === "active") void sync();
+    });
+    return () => {
+      cancelled = true;
+      listener.remove();
+    };
+  }, [owner, timezone, client]);
 }
-
 export interface AddRecurringRuleInput {
   categoryId: string;
   amount: number;
   note: string | null;
   frequency: RecurringFrequency;
+  nextDueDate?: string;
+  monthEnd?: boolean;
 }
-
-export function useAddRecurringRule() {
-  const queryClient = useQueryClient();
-
+function useRuleMutation() {
+  const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ categoryId, amount, note, frequency }: AddRecurringRuleInput) => {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-
-      const { error } = await supabase.from('recurring_rules').insert({
-        user_id: userData.user.id,
-        category_id: categoryId,
-        amount,
-        note,
-        frequency,
-        next_occurrence_date: formatISO(new Date(), { representation: 'date' }),
-        active: true,
+    mutationFn: async (
+      input: AddRecurringRuleInput & { id?: string; command?: string },
+    ) => {
+      const cents = decimalToCents(input.amount);
+      if (cents === null) throw Error("Invalid amount");
+      const r = await supabase.rpc("save_recurring_rule", {
+        p_rule: {
+          ...input,
+          amount: centsToDecimal(cents),
+          nextDueDate: input.nextDueDate ?? localDateKey(new Date()),
+        },
       });
-
-      if (error) throw error;
+      if (r.error) throw r.error;
+      return r.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
+      void client.invalidateQueries({ queryKey: ["recurringRules"] });
+      void client.invalidateQueries({ queryKey: ["recurringRule"] });
+      void client.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
-
-export interface UpdateRecurringRuleInput {
-  id: string;
-  categoryId: string;
-  amount: number;
-  note: string | null;
-  frequency: RecurringFrequency;
+export function useAddRecurringRule() {
+  return useRuleMutation();
 }
-
 export function useUpdateRecurringRule() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, categoryId, amount, note, frequency }: UpdateRecurringRuleInput) => {
-      const { error } = await supabase
-        .from('recurring_rules')
-        .update({ category_id: categoryId, amount, note, frequency })
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
-    },
-  });
+  return useRuleMutation();
 }
-
 export function useSetRecurringRuleActive() {
-  const queryClient = useQueryClient();
-
+  const client = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('recurring_rules').update({ active }).eq('id', id);
-      if (error) throw error;
+      const r = await supabase.rpc("save_recurring_rule", {
+        p_rule: { id, command: active ? "resume" : "pause" },
+      });
+      if (r.error) throw r.error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recurringRules'] });
+      void client.invalidateQueries({ queryKey: ["recurringRules"] });
+      void client.invalidateQueries({ queryKey: ["recurringRule"] });
+      void client.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+export function useArchiveRecurringRule() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await supabase.rpc("save_recurring_rule", {
+        p_rule: { id, command: "archive" },
+      });
+      if (r.error) throw r.error;
+    },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["recurringRules"] });
+      void client.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

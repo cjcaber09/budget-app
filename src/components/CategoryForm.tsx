@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
+import { Check } from 'lucide-react-native';
+import { MotionPressable } from './MotionPressable';
+import { useFormStyles } from '../styles/forms';
+import { useColors } from '../styles/theme';
 
 const COLOR_OPTIONS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4', '#607D8B'];
 
@@ -11,15 +15,19 @@ export interface CategoryFormValues {
 interface Props {
   initialValues?: CategoryFormValues;
   submitLabel: string;
+  submitting?: boolean;
   onSubmit: (values: CategoryFormValues) => void;
 }
 
-export function CategoryForm({ initialValues, submitLabel, onSubmit }: Props) {
+export function CategoryForm({ initialValues, submitLabel, submitting, onSubmit }: Props) {
+  const styles = useFormStyles();
+  const colors = useColors();
   const [name, setName] = useState(initialValues?.name ?? '');
   const [color, setColor] = useState(initialValues?.color ?? COLOR_OPTIONS[0]);
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit() {
+    if (submitting) return;
     if (!name.trim()) {
       setError('Name is required');
       return;
@@ -32,32 +40,22 @@ export function CategoryForm({ initialValues, submitLabel, onSubmit }: Props) {
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
       <Text style={styles.label}>Name</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Category name" />
+      <TextInput accessibilityLabel="Category name" placeholderTextColor={colors.subtle} style={styles.input} value={name} onChangeText={setName} placeholder="Category name" />
       <Text style={styles.label}>Color</Text>
-      <View style={styles.colorRow}>
+      <View style={styles.optionRow}>
         {COLOR_OPTIONS.map((option) => (
-          <Pressable
+          <MotionPressable
             key={option}
             onPress={() => setColor(option)}
-            style={[styles.swatch, { backgroundColor: option }, color === option && styles.swatchSelected]}
-          />
+            accessibilityLabel={`Select color ${option}`}
+            accessibilityState={{ selected: color === option }}
+            style={{ width: 48, height: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: option }}
+          >{color === option && <Check size={21} color="#162A1E" strokeWidth={2.5} />}</MotionPressable>
         ))}
       </View>
-      <Pressable style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>{submitLabel}</Text>
-      </Pressable>
+      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting}>
+        <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
+      </MotionPressable>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {},
-  label: { fontWeight: '600', marginTop: 12, marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12 },
-  colorRow: { flexDirection: 'row', gap: 10 },
-  swatch: { width: 32, height: 32, borderRadius: 16 },
-  swatchSelected: { borderWidth: 3, borderColor: '#000' },
-  button: { backgroundColor: '#2196F3', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 20 },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  error: { color: '#D32F2F', marginBottom: 12 },
-});

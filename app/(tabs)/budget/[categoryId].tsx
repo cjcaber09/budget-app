@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { View, ScrollView, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Text, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useBudgets, useSetBudget } from '../../../src/hooks/useBudgets';
 import { useUiStore } from '../../../src/stores/useUiStore';
-import { pageLayout } from '../../../src/styles/pageLayout';
+import { MotionPressable } from '../../../src/components/MotionPressable';
+import { useFormStyles } from '../../../src/styles/forms';
+import { useColors } from '../../../src/styles/theme';
+import { usePageLayout } from '../../../src/styles/pageLayout';
 
 export default function EditBudgetScreen() {
+  const pageLayout = usePageLayout();
+  const styles = useFormStyles();
+  const colors = useColors();
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
   const router = useRouter();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
@@ -33,23 +39,15 @@ export default function EditBudgetScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={pageLayout.scrollContent}>
+    <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
       <View style={pageLayout.card}>
         <Text style={styles.title}>{category?.name ?? 'Category'} Budget</Text>
         {error && <Text style={styles.error}>{error}</Text>}
-        <TextInput style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
-        <Pressable style={styles.button} onPress={handleSave}>
+        <TextInput accessibilityLabel="Budget amount" placeholderTextColor={colors.subtle} style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
+        <MotionPressable style={styles.button} onPress={handleSave}>
           <Text style={styles.buttonText}>Save Budget</Text>
-        </Pressable>
+        </MotionPressable>
       </View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 16 },
-  button: { backgroundColor: '#2196F3', borderRadius: 8, padding: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  error: { color: '#D32F2F', marginBottom: 12 },
-});

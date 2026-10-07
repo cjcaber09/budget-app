@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useCategories } from './useCategories';
 import { useBudgets } from './useBudgets';
@@ -21,7 +22,9 @@ export function useBudgetAlerts(month: string): void {
   const previousSpentRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
-    Notifications.requestPermissionsAsync();
+    if (Platform.OS !== 'web') {
+      void Notifications.requestPermissionsAsync().catch((error: unknown) => console.warn('Budget notification permission:', error));
+    }
   }, []);
 
   useEffect(() => {
@@ -34,16 +37,16 @@ export function useBudgetAlerts(month: string): void {
       const previousSpent = previousSpentRef.current.get(category.id) ?? 0;
 
       const crossing = didCrossThreshold(budgeted, previousSpent, spent);
-      if (crossing.crossed) {
+      if (crossing.crossed && Platform.OS !== 'web') {
         const message =
           crossing.threshold === 100
             ? `${category.name} is over budget`
             : `${category.name} is nearing its budget`;
 
-        Notifications.scheduleNotificationAsync({
+        void Notifications.scheduleNotificationAsync({
           content: { title: 'Budget Alert', body: message },
           trigger: null,
-        });
+        }).catch((error: unknown) => console.warn('Budget notification:', error));
       }
 
       previousSpentRef.current.set(category.id, spent);

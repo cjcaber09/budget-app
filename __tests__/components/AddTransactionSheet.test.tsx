@@ -29,7 +29,7 @@ describe('AddTransactionSheet', () => {
     renderSheet();
     expect(
       screen.getByText(
-        "Photos are sent to Google to read the text (Cloud Vision, or Gemini as a backup — Gemini's free tier may use them to improve Google's products). This app doesn't keep them."
+        "Photos are sent to Google to read the text (Gemini, with Cloud Vision as a backup — Gemini's free tier may use them to improve Google's products). This app doesn't keep them."
       )
     ).toBeTruthy();
   });

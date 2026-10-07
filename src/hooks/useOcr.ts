@@ -58,10 +58,11 @@ export function shouldRetryOcrScan(failureCount: number, error: unknown): boolea
   return failureCount < 1 && (error as { retryable?: unknown } | null)?.retryable === true;
 }
 
-export function useOcrScan() {
+export function useOcrScan(shouldNotify?: () => boolean) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { shouldNotify },
     mutationFn: async ({
       base64,
       mimeType,
@@ -72,7 +73,7 @@ export function useOcrScan() {
       requestId: string;
     }): Promise<OcrScanResult> => {
       const { data, error } = await supabase.functions.invoke<OcrScanResult>('ocr', {
-        body: { imageBase64: base64, mimeType, requestId },
+        body: { imageBase64: base64, mimeType, requestId, receiptSchemaVersion: 2 },
         timeout: OCR_TIMEOUT_MS,
       });
       if (error) throw await mapOcrInvokeError(error);

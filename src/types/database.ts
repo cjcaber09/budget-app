@@ -19,6 +19,10 @@ export interface Budget {
 }
 
 export interface Transaction {
+  occurrence_id?: string|null;
+  spending_source?: 'manual'|'recurring';
+  transaction_date?: string | null;
+  payment_details?: import('../../supabase/functions/ocr/shared').PaymentDetails | null;
   id: string;
   user_id: string;
   category_id: string | null; // null for income (income isn't budgeted per-category)
@@ -30,6 +34,10 @@ export interface Transaction {
 }
 
 export interface RecurringRule {
+  anchor_day?: number;
+  month_end?: boolean;
+  archived?: boolean;
+  paused_at?: string|null;
   id: string;
   user_id: string;
   category_id: string;

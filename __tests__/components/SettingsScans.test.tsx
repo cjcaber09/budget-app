@@ -33,3 +33,4 @@ describe('Settings — Scanned Receipts', () => {
     expect(mockDeleteScan).toHaveBeenCalledWith('scan-1');
   });
 });
+jest.mock('../../src/components/ProfileSettings',()=>({ProfileSettings:()=>null}));

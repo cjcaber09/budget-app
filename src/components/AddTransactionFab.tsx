@@ -1,5 +1,9 @@
-import { useRef, useState } from 'react';
-import { Platform, Pressable, Text, StyleSheet } from 'react-native';
+import { useContext, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import { Plus } from 'lucide-react-native';
+import { createThemedStyles, useColors } from '../styles/theme';
+import { MotionPressable } from './MotionPressable';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
@@ -32,6 +36,9 @@ async function pickImage(source: ImageSource) {
 }
 
 export function AddTransactionFab() {
+  const styles = useStyles();
+  const colors = useColors();
+  const insets = useContext(SafeAreaInsetsContext);
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const afterSheetClosesRef = useRef<(() => void) | null>(null);
@@ -101,14 +108,14 @@ export function AddTransactionFab() {
 
   return (
     <>
-      <Pressable
-        style={styles.fab}
+      <MotionPressable
+        style={[styles.fab, { bottom: TAB_BAR_HEIGHT + (insets?.bottom ?? 0) + 16 }]}
         onPress={() => setSheetOpen(true)}
         accessibilityRole="button"
         accessibilityLabel="Add transaction"
       >
-        <Text style={styles.fabText}>+</Text>
-      </Pressable>
+        <Plus color={colors.onPrimary} size={22} strokeWidth={2} />
+      </MotionPressable>
       <AddTransactionSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -121,25 +128,19 @@ export function AddTransactionFab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles(colors => ({
   fab: {
     position: 'absolute',
-    left: '50%',
-    marginLeft: -FAB_SIZE / 2,
-    // Rendered as a sibling to the whole Tabs navigator (not nested inside
-    // a single screen), so "bottom" here is relative to the full
-    // content+tab-bar height. This places the button's vertical center
-    // exactly on the tab bar's top edge, straddling content and tab bar.
-    bottom: TAB_BAR_HEIGHT - FAB_SIZE / 2,
+    right: 24,
+    // Position is relative to the navigator; the component adds safe-area insets.
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 12px rgba(33, 150, 243, 0.45)',
+    boxShadow: '0px 6px 18px rgba(16, 38, 25, 0.18)',
     elevation: 8,
     zIndex: 100,
   },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
-});
+}));

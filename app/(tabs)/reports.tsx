@@ -1,41 +1,32 @@
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, View, Text } from 'react-native';
 import { useCategories } from '../../src/hooks/useCategories';
 import { useTransactions } from '../../src/hooks/useTransactions';
 import { useMonthlyTotals } from '../../src/hooks/useMonthlyTotals';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { SpendByCategoryChart } from '../../src/components/SpendByCategoryChart';
 import { MonthlyTrendChart } from '../../src/components/MonthlyTrendChart';
-import { pageLayout } from '../../src/styles/pageLayout';
+import { ScreenHeading } from '../../src/components/ScreenHeading';
+import { MonthPicker } from '../../src/components/MonthPicker';
+import { QueryState } from '../../src/components/QueryState';
+import { usePageLayout } from '../../src/styles/pageLayout';
+import { createThemedStyles, type } from '../../src/styles/theme';
 
 export default function ReportsScreen() {
-  const selectedMonth = useUiStore((state) => state.selectedMonth);
-  const { data: categories } = useCategories();
-  const { data: transactions } = useTransactions(selectedMonth);
-  const { data: monthlyTotals } = useMonthlyTotals(6);
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={pageLayout.scrollContent}>
-      <View style={styles.column}>
-        <View style={pageLayout.card}>
-          <Text style={styles.heading}>Spend by Category</Text>
-          <View style={styles.chartWrap}>
-            <SpendByCategoryChart categories={categories ?? []} transactions={transactions ?? []} />
-          </View>
-        </View>
-        <View style={pageLayout.card}>
-          <Text style={styles.heading}>Last 6 Months</Text>
-          <View style={styles.chartWrap}>
-            <MonthlyTrendChart totals={monthlyTotals ?? []} />
-          </View>
-        </View>
-      </View>
-    </ScrollView>
-  );
+  const styles = useStyles();
+  const pageLayout = usePageLayout({ safeTop: true });
+  const selectedMonth = useUiStore(state => state.selectedMonth);
+  const categories = useCategories();
+  const transactions = useTransactions(selectedMonth);
+  const monthlyTotals = useMonthlyTotals(6);
+  return <ScrollView style={pageLayout.screen} contentContainerStyle={pageLayout.scrollContent}><View style={pageLayout.workspace}>
+    <ScreenHeading title="Reports" description="Find the patterns behind your spending." action={<MonthPicker />} />
+    <View style={styles.columns}>
+      <View style={pageLayout.section}><Text accessibilityRole="header" style={styles.heading}>Last 6 Months</Text><Text style={styles.caption}>Monthly expenses, including the current month.</Text><QueryState loading={monthlyTotals.isPending} error={monthlyTotals.isError} retry={() => void monthlyTotals.refetch()}><MonthlyTrendChart totals={monthlyTotals.data ?? []} /></QueryState></View>
+      <View style={pageLayout.section}><Text accessibilityRole="header" style={styles.heading}>Spend by Category</Text><Text style={styles.caption}>A breakdown of your selected month.</Text><QueryState loading={categories.isPending || transactions.isPending} error={categories.isError || transactions.isError} retry={() => { void categories.refetch(); void transactions.refetch(); }}><SpendByCategoryChart categories={categories.data ?? []} transactions={transactions.data ?? []} /></QueryState></View>
+    </View>
+  </View></ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  column: { width: '100%', maxWidth: 480, gap: 16 },
-  heading: { fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
-  chartWrap: { alignItems: 'center' },
-});
+const useStyles = createThemedStyles(colors => ({
+  columns: { gap: 24 },
+  heading: { ...type.heading, color: colors.text }, caption: { ...type.body, color: colors.muted, marginTop: 4 },
+}));

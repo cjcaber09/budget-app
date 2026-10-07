@@ -43,63 +43,49 @@ describe('Vision request and response', () => {
   });
 });
 
-describe('Gemini request and response', () => {
-  it('targets generateContent on the given model', () => {
-    expect(geminiUrl(DEFAULT_GEMINI_MODEL)).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent'
-    );
-  });
-
-  it('sends the image inline with a transcription prompt and deterministic settings', () => {
+describe('Gemini structured receipt request and response', () => {
+  const receipt = { merchant: 'Shop', text: 'TOTAL 12.50', items: [{ name: 'Coffee', amount: 12.5 }], deductions: [], taxes: [], fees: [], total: 12.5,
+    transactionType:'expense',documentKind:'purchase',paymentStatus:'completed',classificationReason:'Purchase receipt',ownAccountTransfer:false,paymentDetails:null,paymentSummary:null,
+    principal:null,netReceived:null,totalDebited:12.5,receiptDate:null,receiptDateRaw:null };
+  const answer = (value: unknown, finishReason = 'STOP') => ({ candidates: [{ finishReason, content: { parts: [{ text: 'reasoning', thought: true }, { text: JSON.stringify(value) }] } }] });
+  it('requests supported structured JSON with a bounded output budget', () => {
+    expect(geminiUrl(DEFAULT_GEMINI_MODEL)).toContain('generateContent');
     const body = buildGeminiBody('QUJD', 'image/jpeg');
     expect(body.contents[0].parts[0]).toEqual({ inline_data: { mime_type: 'image/jpeg', data: 'QUJD' } });
-    expect(body.contents[0].parts[1].text).toMatch(/transcribe/i);
-    expect(body.generationConfig).toEqual({ temperature: 0, maxOutputTokens: 8192 });
+    expect(body.generationConfig).toMatchObject({ temperature: 0, maxOutputTokens: 16384, responseMimeType: 'application/json' });
+    expect(body.generationConfig.responseJsonSchema.required).toContain('items');
   });
-
-  it('joins the answer parts, skipping thought parts and a wrapping code fence', () => {
-    expect(
-      parseGeminiResponse(200, {
-        candidates: [
-          {
-            finishReason: 'STOP',
-            content: { parts: [{ text: 'reasoning', thought: true }, { text: 'COFFEE SHOP\n' }, { text: 'TOTAL 12.50' }] },
-          },
-        ],
-      })
-    ).toEqual({ ok: true, text: 'COFFEE SHOP\nTOTAL 12.50' });
-    expect(
-      parseGeminiResponse(200, {
-        candidates: [{ finishReason: 'STOP', content: { parts: [{ text: '```text\nTOTAL 12.50\n```' }] } }],
-      })
-    ).toEqual({ ok: true, text: 'TOTAL 12.50' });
+  it('returns structurally valid JSON, ignoring thought parts', () => {
+    expect(parseGeminiResponse(200, answer(receipt))).toEqual({ ok: true, text: receipt.text, receipt });
   });
-
-  it('accepts an empty answer and output cut at the token limit', () => {
-    expect(parseGeminiResponse(200, { candidates: [{ finishReason: 'STOP', content: {} }] })).toEqual({
-      ok: true,
-      text: '',
-    });
-    expect(
-      parseGeminiResponse(200, { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: 'LONG' }] } }] })
-    ).toEqual({ ok: true, text: 'LONG' });
+  it('accepts a wrapping JSON fence', () => {
+    const body = answer(receipt);
+    body.candidates[0].content.parts[1].text = '\`\`\`json\n' + JSON.stringify(receipt) + '\n\`\`\`';
+    expect(parseGeminiResponse(200, body)).toMatchObject({ ok: true, receipt });
   });
-
-  it('fails on HTTP errors, blocked prompts, other finish reasons, and missing candidates', () => {
-    expect(parseGeminiResponse(429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED' } })).toEqual({
-      ok: false,
-      status: 429,
-      reason: 'RESOURCE_EXHAUSTED',
-    });
-    expect(parseGeminiResponse(200, { promptFeedback: { blockReason: 'SAFETY' } })).toEqual({
-      ok: false,
-      status: 200,
-      reason: 'blocked_SAFETY',
-    });
-    expect(
-      parseGeminiResponse(200, { candidates: [{ finishReason: 'RECITATION', content: { parts: [{ text: 'x' }] } }] })
-    ).toEqual({ ok: false, status: 200, reason: 'RECITATION' });
-    expect(parseGeminiResponse(200, { candidates: [] })).toEqual({ ok: false, status: 200, reason: 'no_candidate' });
+  it('leaves semantic invalid values to the reconciler', () => {
+    expect(parseGeminiResponse(200, answer({ ...receipt, items: [{ name: '', amount: -2 }] }))).toMatchObject({ ok: true });
+  });
+  test.each([{}, { ...receipt, items: 'wrong' }, { ...receipt, items: [{ name: 'Coffee', amount: '12.5' }] }, { ...receipt, taxes: [{ label: 'VAT', amount: 1 }] }])('rejects wrong structural fields', value => {
+    expect(parseGeminiResponse(200, answer(value))).toMatchObject({ ok: false, reason: 'invalid_receipt_json' });
+  });
+  it('rejects even valid JSON at MAX_TOKENS and falls back to Vision', async () => {
+    const failure = parseGeminiResponse(200, answer(receipt, 'MAX_TOKENS'));
+    expect(failure).toMatchObject({ ok: false, reason: 'MAX_TOKENS' });
+    const outcome = await readWithFallback([attempt('gemini', failure), attempt('vision', { ok: true, text: 'Fallback' })]);
+    expect(outcome).toMatchObject({ provider: 'vision', text: 'Fallback' });
+    expect(outcome.receipt).toBeUndefined();
+  });
+  it('rejects blocked, missing, empty and malformed output', () => {
+    expect(parseGeminiResponse(200, { promptFeedback: { blockReason: 'SAFETY' } })).toMatchObject({ ok: false, reason: 'blocked_SAFETY' });
+    expect(parseGeminiResponse(200, { candidates: [] })).toMatchObject({ ok: false, reason: 'no_candidate' });
+    expect(parseGeminiResponse(429, { error: { status: 'RESOURCE_EXHAUSTED' } })).toMatchObject({ ok: false, reason: 'RESOURCE_EXHAUSTED' });
+    expect(parseGeminiResponse(200, { candidates: [{ finishReason: 'STOP', content: {} }] })).toMatchObject({ ok: false });
+  });
+  it('parses a bounded large receipt with 100 detailed rows and the full transcription', () => {
+    const large = { ...receipt, text: 'Receipt line\n'.repeat(1500), items: Array.from({ length: 100 }, (_, i) => ({ name: 'Purchased item ' + i, quantity: 2, unitPrice: 6.25, amount: 12.5 })) };
+    expect(JSON.stringify(large).length).toBeLessThan(256 * 1024);
+    expect(parseGeminiResponse(200, answer(large))).toMatchObject({ ok: true, receipt: large });
   });
 });
 

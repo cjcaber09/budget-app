@@ -42,10 +42,10 @@ describe('OverviewScreen', () => {
   it('shows spend vs budget for each category', () => {
     render(<OverviewScreen />);
 
-    expect(screen.getByText('Groceries')).toBeTruthy();
+    expect(screen.getByLabelText('Edit Groceries budget')).toBeTruthy();
     expect(screen.getByText('$180.00 / $200.00')).toBeTruthy();
-    expect(screen.getByText('Rent')).toBeTruthy();
-    expect(screen.getByText('$1200.00 / $1000.00')).toBeTruthy();
+    expect(screen.getByLabelText('Edit Rent budget')).toBeTruthy();
+    expect(screen.getByText('$1,200.00 / $1,000.00')).toBeTruthy();
   });
 
   it('shows an alert banner only for categories that are over budget', () => {
@@ -59,8 +59,9 @@ describe('OverviewScreen', () => {
     render(<OverviewScreen />);
 
     expect(screen.getByText('Income')).toBeTruthy();
-    expect(screen.getByText('$2500.00')).toBeTruthy();
+    expect(screen.getByText('$2,500.00')).toBeTruthy();
     expect(screen.getByText('Expenses')).toBeTruthy();
-    expect(screen.getByText('$1380.00')).toBeTruthy();
+    expect(screen.getByText('$1,380.00')).toBeTruthy();
   });
 });
+jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>({data:undefined,isPending:false,isError:false,refetch:jest.fn()})}));

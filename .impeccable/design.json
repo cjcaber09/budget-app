@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T03:37:02.491Z",
+  "title": "Design System: Budget Tracker",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "background",
+        "canonical": "#F5F6F2",
+        "tonalRamp": [
+          "#0B0B09",
+          "#252522",
+          "#42423F",
+          "#61625E",
+          "#82837F",
+          "#A4A5A2",
+          "#C9CAC6",
+          "#EEEFEB"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "surface",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "surfaceAlt": {
+        "role": "neutral",
+        "displayName": "surface Alt",
+        "canonical": "#EDF0E9",
+        "tonalRamp": [
+          "#0A0C08",
+          "#242621",
+          "#41433D",
+          "#60625C",
+          "#81837D",
+          "#A3A6A0",
+          "#C7CAC4",
+          "#EDF0E9"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "text",
+        "canonical": "#202B26",
+        "tonalRamp": [
+          "#050E09",
+          "#1D2823",
+          "#394540",
+          "#58655F",
+          "#798680",
+          "#9BA9A2",
+          "#BFCDC6",
+          "#E4F3EC"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "canonical": "#626D65",
+        "tonalRamp": [
+          "#060D08",
+          "#1E2821",
+          "#3B453E",
+          "#5A645D",
+          "#7A867D",
+          "#9DA9A0",
+          "#C1CDC4",
+          "#E6F2E9"
+        ]
+      },
+      "subtle": {
+        "role": "neutral",
+        "displayName": "subtle",
+        "canonical": "#69736A",
+        "tonalRamp": [
+          "#060D07",
+          "#1F2820",
+          "#3C453D",
+          "#5A645B",
+          "#7B867C",
+          "#9EA89F",
+          "#C2CDC3",
+          "#E7F2E8"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "border",
+        "canonical": "#DDE3DA",
+        "tonalRamp": [
+          "#090C07",
+          "#222720",
+          "#3F443C",
+          "#5E635B",
+          "#7F847C",
+          "#A1A79F",
+          "#C5CBC2",
+          "#EBF1E8"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "primary",
+        "canonical": "#193C32",
+        "tonalRamp": [
+          "#001109",
+          "#072C23",
+          "#274A3F",
+          "#466A5E",
+          "#678B7F",
+          "#89AFA2",
+          "#ADD3C6",
+          "#D1F9EB"
+        ]
+      },
+      "primaryHover": {
+        "role": "primary",
+        "displayName": "primary Hover",
+        "canonical": "#285244",
+        "tonalRamp": [
+          "#001208",
+          "#002D21",
+          "#214B3D",
+          "#416B5C",
+          "#628D7D",
+          "#84B0A0",
+          "#A8D5C4",
+          "#CCFBE9"
+        ]
+      },
+      "onPrimary": {
+        "role": "primary",
+        "displayName": "on Primary",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "selected": {
+        "role": "tertiary",
+        "displayName": "selected",
+        "canonical": "#DFE9DD",
+        "tonalRamp": [
+          "#070D06",
+          "#20271F",
+          "#3D453B",
+          "#5C645A",
+          "#7C857B",
+          "#9FA89D",
+          "#C3CCC1",
+          "#E8F2E6"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "success",
+        "canonical": "#326449",
+        "tonalRamp": [
+          "#001302",
+          "#002F17",
+          "#1A4D34",
+          "#3B6D52",
+          "#5D8F72",
+          "#7FB395",
+          "#A3D8B8",
+          "#C7FEDD"
+        ]
+      },
+      "successBg": {
+        "role": "secondary",
+        "displayName": "success Bg",
+        "canonical": "#E6EFE7",
+        "tonalRamp": [
+          "#070D08",
+          "#202721",
+          "#3D443E",
+          "#5C645D",
+          "#7D857E",
+          "#9FA8A0",
+          "#C3CCC4",
+          "#E8F1E9"
+        ]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "warning",
+        "canonical": "#84591B",
+        "tonalRamp": [
+          "#210000",
+          "#401900",
+          "#603700",
+          "#825719",
+          "#A5783E",
+          "#CA9B61",
+          "#F0BF84",
+          "#FFE5A8"
+        ]
+      },
+      "warningBg": {
+        "role": "secondary",
+        "displayName": "warning Bg",
+        "canonical": "#F8EFDC",
+        "tonalRamp": [
+          "#100A01",
+          "#2B2416",
+          "#484132",
+          "#686050",
+          "#8A8170",
+          "#ADA492",
+          "#D1C8B6",
+          "#F7EEDB"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "danger",
+        "canonical": "#A33F36",
+        "tonalRamp": [
+          "#310000",
+          "#550000",
+          "#7A1613",
+          "#9F3C33",
+          "#C65E53",
+          "#ED8275",
+          "#FFA698",
+          "#FFCBBC"
+        ]
+      },
+      "dangerBg": {
+        "role": "secondary",
+        "displayName": "danger Bg",
+        "canonical": "#F9EAE5",
+        "tonalRamp": [
+          "#120906",
+          "#2D221F",
+          "#4B3F3B",
+          "#6B5E5A",
+          "#8C7F7B",
+          "#B0A29D",
+          "#D4C6C1",
+          "#FAEBE6"
+        ]
+      },
+      "scrim": {
+        "role": "neutral",
+        "displayName": "scrim",
+        "canonical": "rgba(14, 27, 20, 0.42)",
+        "tonalRamp": [
+          "#030E08",
+          "#1B2921",
+          "#38463E",
+          "#56655D",
+          "#77877E",
+          "#99AAA0",
+          "#BDCEC4",
+          "#E2F4E9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "platformFaces": {
+        "ios": "System",
+        "android": "sans-serif",
+        "web": "Segoe UI, system-ui, -apple-system, sans-serif"
+      },
+      "numericVariant": "tabular-nums",
+      "source": "src/styles/theme.ts"
+    },
+    "shadows": {
+      "fab": {
+        "css": "0px 6px 18px rgba(16, 38, 25, 0.18)",
+        "nativeElevation": 8
+      }
+    },
+    "motion": {
+      "press": {
+        "duration": 120,
+        "scale": 0.98,
+        "pressedOpacity": 0.88,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)"
+      },
+      "sheet": {
+        "enter": 240,
+        "exit": 180,
+        "translateY": 32,
+        "easing": "cubic-bezier(0.32, 0.72, 0, 1)"
+      },
+      "reducedMotion": "Suppress press scaling and sheet translation/duration; scrim opacity timing remains.",
+      "tabs": "180ms ease-out cubic cross-fade; disabled for Reduce Motion."
+    },
+    "components": [
+      {
+        "name": "ScreenHeading",
+        "html": "<header><h1>Overview</h1><p>Your month, at a glance.</p></header>",
+        "css": "h1{font:700 30px/38px var(--font-family);letter-spacing:-.8px;color:var(--text)}p{font:15px/23px var(--font-family);color:var(--muted)}"
+      },
+      {
+        "name": "MonthPicker",
+        "html": "<nav><button aria-label=\"Previous month\">Previous</button><span>October 2026</span><button aria-label=\"Next month\">Next</button></nav>",
+        "css": "nav{display:flex;align-items:center;border:1px solid var(--border);border-radius:10px;background:var(--surface)}button{width:48px;height:48px;border:0;background:transparent;color:var(--muted)}span{min-width:110px;text-align:center;font:600 13px/20px var(--font-family)}"
+      },
+      {
+        "name": "CategoryBudgetRow",
+        "html": "<article><strong>Groceries</strong><div><span>On track</span><output>$180.00 / $300.00</output></div><meter min=\"0\" max=\"300\" value=\"180\">60%</meter></article>",
+        "css": "article{padding:18px 0;border-bottom:1px solid var(--border);color:var(--text)}div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;margin:10px 0}span{color:var(--success)}output{font-variant-numeric:tabular-nums;color:var(--muted)}meter{width:100%;height:4px;accent-color:var(--success)}"
+      },
+      {
+        "name": "TransactionListItem",
+        "html": "<button><span class=\"icon\">Next</span><span class=\"info\"><strong>Groceries</strong><small>Weekly shop</small><small>Oct 7, 2026</small></span><b>-$45.00</b><span>?</span></button>",
+        "css": "button{display:flex;align-items:center;gap:12px;padding:18px 0;width:100%;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);text-align:left}.icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--surfaceAlt)}.info{flex:1;min-width:0;display:grid;gap:2px}small{color:var(--muted)}b{font-variant-numeric:tabular-nums}"
+      },
+      {
+        "name": "SharedForms",
+        "html": "<form><label for=\"amount\">Amount</label><input id=\"amount\" inputmode=\"decimal\" placeholder=\"0.00\"><button>Save Transaction</button></form>",
+        "css": "form{display:grid}label{margin:24px 0 8px;font:600 13px/20px var(--font-family);color:var(--text)}input{min-height:50px;padding:12px 14px;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:15px/23px var(--font-family)}button{min-height:52px;margin-top:28px;padding:16px;border:0;border-radius:10px;background:var(--primary);color:var(--onPrimary);font:600 15px/23px var(--font-family)}"
+      },
+      {
+        "name": "AddTransactionFab",
+        "html": "<button aria-label=\"Add transaction\">+</button>",
+        "css": "button{width:56px;height:56px;border:0;border-radius:28px;background:var(--primary);color:var(--onPrimary);font-size:22px;box-shadow:0px 6px 18px rgba(16,38,25,.18)}"
+      },
+      {
+        "name": "QueryState",
+        "html": "<section><p>Couldn't load your data. Check your connection and try again.</p><button>Try again</button></section>",
+        "css": "section{padding:28px 0;text-align:center;color:var(--muted);font:15px/23px var(--font-family)}button{min-height:48px;padding:0 20px;border:0;border-radius:8px;background:var(--selected);color:var(--primary)}"
+      }
+    ],
+    "narrative": {
+      "northStar": "Financial wayfinding on a phone: read the month, understand spending, choose the next action.",
+      "overview": "Financial wayfinding on a phone: read the month, understand spending, choose the next action.\n\nBudget Tracker uses a clear mobile hierarchy across authentication, Overview, Transactions, Reports, Settings, and nested editing screens. Warm surfaces, forest actions, system type, fine separators, and aligned amounts organize existing budgeting and receipt workflows. Web is a phone-layout development preview. No desktop layout is specified.\n\nThe independent finish review returned “Ship at verified mobile web-preview scope.” Phone previews at 390x844 and 360x800 used synthetic fixtures, including dark theme and reduced-motion interactions. Production iOS and Android Hermes exports pass. Native picker presentation, safe-area behavior, keyboard and screen-reader behavior, release-build motion feel, and performance still require device verification. No generated raster ships in this redesign; existing icon assets remain unchanged.",
+      "keyCharacteristics": [
+        "Warm surfaces, forest actions, system type, fine separators, and aligned amounts organize existing budgeting and receipt workflows.",
+        "Web is a phone-layout development preview. No desktop layout is specified."
+      ],
+      "rules": [
+        "Keep each screen’s ScrollView or FlatList and obtain themed styles from `usePageLayout()`. Main tab pages use an open `workspace` with 28px section gaps; focused forms use a padded `card`. Both have a 560px cap for the phone preview. Reports stack sections vertically. The sheet has a 520px cap and a 90% maximum height.\n\nPage padding is 24px; header controls wrap with a 16px gap. Headerless tab screens request `safeTop: true`, adding the top inset. Scroll content reserves 96px plus the bottom inset. Four bottom tabs remain visible on nested editing routes. Their height is 72px plus the bottom inset, with 10px top and bottom padding plus that inset at the bottom. The FAB sits 16px above the tab bar, 24px from the right edge, and appears only on the four primary tab routes.",
+        "Use surface tone, spacing, and thin borders to separate information. Page cards and sections have no stacked shadows. The FAB alone uses `0px 6px 18px rgba(16, 38, 25, 0.18)` with native elevation 8. The modal scrim establishes sheet depth.",
+        "Fields and option chips use 8px corners; primary buttons, month controls, and icon tiles use 10px; page surfaces and sheet top corners use 16px. The FAB is circular at 56px. Budget tracks are 4px tall with 2px corners. Small category swatches are 8px circles."
+      ],
+      "dos": [
+        "Keep the month, amounts, and next action easy to scan.",
+        "Pair budget status colors with explicit words.",
+        "Use shared theme, layout, and form styles.",
+        "Preserve safe areas, font scaling, focus visibility, and 48px-or-larger control targets.",
+        "Verify phone rendering and distinguish web-preview evidence from native-device evidence."
+      ],
+      "donts": [
+        "Add desktop rails or split layouts.",
+        "Wrap every section in another shadowed card.",
+        "Use category colors as action backgrounds.",
+        "Add sliding navigation or list entrance motion.",
+        "Remove OCR privacy disclosures or alter backend workflows as a styling change."
+      ]
+    },
+    "notes": [
+      "Normative primitives live only in DESIGN.md frontmatter; panel snippets reference roles as CSS variables.",
+      "HTML/CSS snippets illustrate the React Native components for the system visual panel; they are not production UI.",
+      "tonalRamp contains eight derived OKLCH lightness previews from 15% through 95%, preserving source hue/chroma before sRGB gamut clipping. These are panel previews, not shipping theme tokens."
+    ]
+  }
+}

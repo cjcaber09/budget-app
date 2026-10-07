@@ -1,9 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { reconcileReceipt } from '../../supabase/functions/ocr/shared';
 import NewTransactionScreen from '../../app/(tabs)/transaction/new';
 import { useScanStore } from '../../src/stores/useScanStore';
 import { useToastStore } from '../../src/stores/useToastStore';
 
 const mockRunOcr = jest.fn();
+const mockAddTransaction = jest.fn();
 
 jest.mock('../../src/hooks/useOcr', () => ({
   useOcrScan: () => ({ mutate: mockRunOcr }),
@@ -16,7 +18,7 @@ jest.mock('../../src/hooks/useCategories', () => ({
 }));
 
 jest.mock('../../src/hooks/useTransactions', () => ({
-  useAddTransaction: () => ({ mutate: jest.fn() }),
+  useAddTransaction: () => ({ mutate: mockAddTransaction }),
 }));
 
 jest.mock('../../src/stores/useUiStore', () => ({
@@ -27,6 +29,7 @@ jest.mock('../../src/stores/useUiStore', () => ({
 let mockParams: { visit?: string } = {};
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]),
   useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }));
@@ -41,6 +44,7 @@ const IMAGE = {
 describe('NewTransactionScreen', () => {
   beforeEach(() => {
     mockRunOcr.mockReset();
+    mockAddTransaction.mockReset();
     mockParams = { visit: IMAGE.requestId };
     useScanStore.getState().clearPendingImage();
     useToastStore.getState().dismissToast();
@@ -114,5 +118,35 @@ describe('NewTransactionScreen', () => {
     rerender(<NewTransactionScreen />);
 
     expect(screen.queryByDisplayValue('42')).toBeNull();
+  });
+
+  it('ignores late OCR after Skip, preserving edits and suppressing success notifications', () => {
+    useScanStore.getState().setPendingImage(IMAGE);
+    render(<NewTransactionScreen />);
+    const callback = mockRunOcr.mock.calls[0][1];
+    fireEvent.press(screen.getByText('Skip — enter manually'));
+    fireEvent.changeText(screen.getByLabelText('Amount'), '42');
+    fireEvent.changeText(screen.getByLabelText('Note'), 'My draft');
+    act(() => callback.onSuccess({ scanId: 's1', text: 'LONG', truncated: true, receipt: null }));
+    expect(screen.getByLabelText('Amount').props.value).toBe('42');
+    expect(screen.getByLabelText('Note').props.value).toBe('My draft');
+    expect(useToastStore.getState().message).toBeNull();
+  });
+  it('prefills receipt rows, merchant and manual total when rows are absent', () => {
+    const receipt = reconcileReceipt({ merchant: null, text: 'TOTAL 12.50', items: [], deductions: [], taxes: [], fees: [], total: 12.5 });
+    mockRunOcr.mockImplementation((_variables, options) => options.onSuccess({ scanId: 's1', text: 'TOTAL 12.50', truncated: false, receipt }));
+    useScanStore.getState().setPendingImage(IMAGE);
+    render(<NewTransactionScreen />);
+    expect(screen.getByLabelText('Note').props.value).toBe('');
+    expect(screen.getByLabelText('Amount').props.value).toBe('12.50');
+    expect(screen.getByText(/No usable items/)).toBeTruthy();
+  });
+  it('reuses the transaction ID and timestamp when retrying a create', () => {
+    render(<NewTransactionScreen />);
+    fireEvent.changeText(screen.getByLabelText('Amount'), '42');
+    fireEvent.press(screen.getByText('Add Transaction'));
+    fireEvent.press(screen.getByText('Add Transaction'));
+    expect(mockAddTransaction.mock.calls[0][0].id).toBe(mockAddTransaction.mock.calls[1][0].id);
+    expect(mockAddTransaction.mock.calls[0][0].occurredAt).toBe(mockAddTransaction.mock.calls[1][0].occurredAt);
   });
 });

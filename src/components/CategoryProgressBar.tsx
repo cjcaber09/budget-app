@@ -1,3 +1,4 @@
+import { formatMoney } from '../domain/money';
 import { View, Text, StyleSheet } from 'react-native';
 import type { BudgetStatus } from '../domain/budgetMath';
 
@@ -20,7 +21,7 @@ export function CategoryProgressBar({ categoryName, status }: Props) {
       <View style={styles.labelRow}>
         <Text style={styles.name}>{categoryName}</Text>
         <Text style={styles.amounts}>
-          ${status.spent.toFixed(2)} / ${status.budgeted.toFixed(2)}
+          {formatMoney(status.spent)} / {formatMoney(status.budgeted)}
         </Text>
       </View>
       <View style={styles.track}>

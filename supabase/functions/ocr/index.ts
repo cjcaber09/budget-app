@@ -8,6 +8,8 @@ import {
   ocrScanPath,
   timingSafeEqual,
   validateImagePayload,
+  reconcileReceipt,
+  receiptForClient,
   type OcrScanResult,
 } from './shared.ts';
 import {
@@ -23,6 +25,7 @@ import {
   readWithFallback,
   type ProviderAttempt,
 } from './ocrProviders.ts';
+import { publishReceipt, readReceipt, receiptPath } from './receiptStorage.ts';
 
 // deno-lint-ignore no-explicit-any
 type AdminClient = SupabaseClient<any, any, any>;
@@ -101,10 +104,24 @@ async function postJson(
     // A hung provider must not block the fallback (or outlast the client's own timeout).
     signal: AbortSignal.timeout(timeoutMs),
   });
-  return { status: res.status, json: await res.json().catch(() => null) };
+  const reader = res.body?.getReader();
+  if (!reader) return { status: res.status, json: null };
+  const decoder = new TextDecoder();
+  let responseText = ''; let bytes = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > 256 * 1024) { await reader.cancel(); return { status: 502, json: null }; }
+      responseText += decoder.decode(chunk.value, { stream: true });
+    }
+    responseText += decoder.decode();
+    return { status: res.status, json: JSON.parse(responseText) };
+  } catch { return { status: res.status, json: null }; }
 }
 
-// Vision first (when configured), Gemini as the fallback (when configured).
+// Gemini structured extraction first; Vision text fallback when configured.
 function ocrAttempts(imageBase64: string, mimeType: string): ProviderAttempt[] {
   const attempts: ProviderAttempt[] = [];
   const visionKey = Deno.env.get('GOOGLE_VISION_API_KEY');
@@ -133,7 +150,7 @@ function ocrAttempts(imageBase64: string, mimeType: string): ProviderAttempt[] {
       },
     });
   }
-  return attempts;
+  return attempts.sort((a, b) => a.name === b.name ? 0 : a.name === 'gemini' ? -1 : 1);
 }
 
 async function runNewScan(
@@ -141,7 +158,8 @@ async function runNewScan(
   userId: string,
   scanId: string,
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  receiptVersion: 1 | 2 = 1
 ): Promise<Response> {
   const outcome = await readWithFallback(ocrAttempts(imageBase64, mimeType));
   // Reason codes only (e.g. BILLING_DISABLED, RESOURCE_EXHAUSTED) — never messages or text.
@@ -154,13 +172,11 @@ async function runNewScan(
 
   const { text, truncated } = clampOcrText(outcome.text);
   const path = ocrScanPath(userId, scanId);
-  const { error: uploadError } = await admin.storage
-    .from(OCR_BUCKET)
-    .upload(path, new Blob([text], { type: 'text/plain;charset=utf-8' }), {
-      contentType: 'text/plain;charset=utf-8',
-      upsert: false,
-    });
-  if (uploadError) {
+  const receipt = outcome.receipt ? reconcileReceipt(outcome.receipt) : null;
+  const published = await publishReceipt(admin.storage.from(OCR_BUCKET), path, text, receipt);
+  if (receipt && !published.jsonSaved) console.error('ocr: receipt publication failed', { scanId });
+  if (!published.textSaved) {
+    if (published.cleanupFailed) console.error('ocr: failed artifact cleanup requires retry', { scanId });
     await markFailed(admin, scanId);
     console.error('ocr: upload failed', { scanId });
     return json(500, { error: 'storage_failed' });
@@ -169,14 +185,18 @@ async function runNewScan(
   if (!(await markCompleted(admin, scanId, text.length))) {
     console.error('ocr: status update failed after upload; left for reconciliation', { scanId });
   }
-  const result: OcrScanResult = { scanId, text, path, truncated };
+  const result: OcrScanResult = { scanId, text, path, truncated, receipt: receiptForClient(receipt,receiptVersion) };
   return json(200, result);
 }
 
 // Same requestId again (client retry, lost response) or an image this user already
 // scanned: never spend another Vision unit.
-async function replayScan(admin: AdminClient, userId: string, scanId: string, status: string): Promise<Response> {
-  if (status === 'failed') return json(502, { error: 'ocr_failed' });
+async function replayScan(admin: AdminClient, userId: string, scanId: string, status: string, receiptVersion: 1 | 2 = 1): Promise<Response> {
+  if (status === 'failed') {
+    // Explicit replay retry also retries an orphan JSON cleanup after failed text publication.
+    const { error } = await admin.storage.from(OCR_BUCKET).remove([receiptPath(userId, scanId)]);
+    return json(error ? 500 : 502, { error: error ? 'storage_failed' : 'ocr_failed' });
+  }
   if (status === 'deleted') return json(410, { error: 'deleted' });
 
   const path = ocrScanPath(userId, scanId);
@@ -191,13 +211,19 @@ async function replayScan(admin: AdminClient, userId: string, scanId: string, st
 
   const text = await file.text();
   if (status === 'pending') await markCompleted(admin, scanId, text.length); // upload landed, status didn't
-  const result: OcrScanResult = { scanId, text, path, truncated: text.length >= MAX_OCR_TEXT_CHARS };
+  let receipt;
+  try { receipt = await readReceipt(admin.storage.from(OCR_BUCKET), userId, scanId); }
+  catch { return json(500, { error: 'storage_failed' }); }
+  const result: OcrScanResult = { scanId, text, path, truncated: text.length >= MAX_OCR_TEXT_CHARS, receipt:receiptForClient(receipt,receiptVersion) };
   return json(200, result);
 }
 
 async function scanImage(admin: AdminClient, userId: string, body: unknown): Promise<Response> {
   const payload = validateImagePayload(body);
   if (!payload.ok) return json(400, { error: payload.error });
+  const requestedVersion = (body as { receiptSchemaVersion?: unknown }).receiptSchemaVersion;
+  if (requestedVersion !== undefined && requestedVersion !== 1 && requestedVersion !== 2) return json(400,{error:'invalid_request'});
+  const receiptVersion = requestedVersion === 2 ? 2 : 1;
 
   const { data: rows, error } = await admin.rpc('try_consume_ocr_quota', {
     p_user_id: userId,
@@ -217,8 +243,8 @@ async function scanImage(admin: AdminClient, userId: string, body: unknown): Pro
       { 'Retry-After': String(quota.retry_after_seconds) }
     );
   }
-  if (quota.outcome === 'replay') return replayScan(admin, userId, quota.scan_id, quota.scan_status);
-  return runNewScan(admin, userId, quota.scan_id, payload.imageBase64, payload.mimeType);
+  if (quota.outcome === 'replay') return replayScan(admin, userId, quota.scan_id, quota.scan_status,receiptVersion);
+  return runNewScan(admin, userId, quota.scan_id, payload.imageBase64, payload.mimeType,receiptVersion);
 }
 
 async function deleteScan(admin: AdminClient, userId: string, body: unknown): Promise<Response> {
@@ -234,11 +260,11 @@ async function deleteScan(admin: AdminClient, userId: string, body: unknown): Pr
   if (lookupError) return json(500, { error: 'lookup_failed' }); // a DB error is not 'not found'
   if (!scan) return json(404, { error: 'not_found' });
   if (scan.status === 'deleted') return noContent(); // idempotent
-  if (scan.status !== 'completed') return json(409, { error: 'not_deletable' });
+  if (scan.status !== 'completed' && scan.status !== 'failed') return json(409, { error: 'not_deletable' });
 
   // remove() succeeds for paths that don't exist, so a .txt that's already gone
   // (manual cleanup, or an earlier delete whose row update failed) just proceeds.
-  const { error: removeError } = await admin.storage.from(OCR_BUCKET).remove([ocrScanPath(userId, scanId)]);
+  const { error: removeError } = await admin.storage.from(OCR_BUCKET).remove([ocrScanPath(userId, scanId), receiptPath(userId, scanId)]);
   if (removeError) return json(500, { error: 'storage_failed' });
 
   // Keep the row: it still counts toward the rate limit.
@@ -261,16 +287,18 @@ async function purgeUserFolder(admin: AdminClient, body: unknown): Promise<Respo
   if (lookupError && !isAuthUserNotFound(lookupError)) return json(503, { error: 'lookup_failed' });
 
   let removed = 0;
+  for(const bucket of [OCR_BUCKET,'budget-tracker-avatars']) {
   // Bounded: each pass lists then removes up to 100 files.
   for (let pass = 0; pass < 100; pass++) {
-    const { data: files, error: listError } = await admin.storage.from(OCR_BUCKET).list(userId, { limit: 100 });
+    const { data: files, error: listError } = await admin.storage.from(bucket).list(userId, { limit: 100 });
     if (listError) return json(500, { error: 'storage_failed' });
     if (!files || files.length === 0) break;
     const { error: removeError } = await admin.storage
-      .from(OCR_BUCKET)
+      .from(bucket)
       .remove(files.map((file) => `${userId}/${file.name}`));
     if (removeError) return json(500, { error: 'storage_failed' });
     removed += files.length;
+  }
   }
   console.log('ocr: purged deleted account folder', { removed });
   return json(200, { removed });
