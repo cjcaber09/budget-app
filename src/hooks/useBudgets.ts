@@ -41,6 +41,7 @@ export function useSetBudget() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['budgets', variables.month] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

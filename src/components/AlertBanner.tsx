@@ -1,18 +1,13 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
+import { CircleAlert } from 'lucide-react-native';
+import { createThemedStyles, type, useColors } from '../styles/theme';
 
-interface Props {
-  message: string;
+export function AlertBanner({ message }: { message: string }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return <View accessibilityRole="alert" style={styles.banner}><CircleAlert size={16} color={colors.warning} /><Text style={styles.text}>{message}</Text></View>;
 }
-
-export function AlertBanner({ message }: Props) {
-  return (
-    <View style={styles.banner}>
-      <Text style={styles.text}>{message}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  banner: { backgroundColor: '#FFF3E0', borderRadius: 8, padding: 12, marginBottom: 12 },
-  text: { color: '#E65100', fontWeight: '600' },
-});
+const useStyles = createThemedStyles(colors => ({
+  banner: { backgroundColor: colors.warningBg, borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  text: { ...type.label, color: colors.warning, flex: 1 },
+}));

@@ -1,0 +1,105 @@
+﻿# AGENTS.md
+
+This file provides repository guidance to Codex and other coding agents working in this project. Read it before making changes. Use README.md for setup and CLAUDE.md for the original project notes; verify implementation details against the current code when they differ.
+
+## Working practices
+
+- Keep changes focused on the requested task and preserve existing user changes.
+- When reviewing code or designs, include a concrete suggested fix for every error or gap. State its impact, cite the relevant source, and suggest verification where useful. The user explicitly requested suggestions alongside future review findings.
+- Read `.superpowers/sdd/progress.md` before changing behavior covered by the build history, and consult the linked design spec and plan when scope or intent is unclear.
+- Follow the existing routing, data-layer, shared-form, and page-layout patterns described below.
+- Run checks appropriate to code changes: targeted Jest tests for affected behavior, `npx tsc --noEmit`, and lint where relevant. Documentation-only changes do not require app tests.
+- Check runtime behavior when a change affects navigation, charts, native pickers, or web rendering; static checks alone have missed bugs here. Report any verification limits honestly.
+- Treat environment/tool availability notes below as historical observations. Check the current session before assuming browser verification, Deno, or other tools are unavailable.
+- Never print or commit credentials from `.env`. Use placeholders in documentation and obtain the target project ref from the configured project rather than copying a deployment example blindly.
+- On Windows PowerShell, use `npm.cmd` / `npx.cmd` if execution policy blocks the corresponding `.ps1` shims. The OCR shell scripts require a Bash-capable environment.
+
+## Project
+
+Budget Tracker: an Expo (React Native + web) app in TypeScript, backed by Supabase (Postgres + Auth). Budgets per category per month, transactions, recurring rules with client-triggered atomic SQL catch-up, charts, and local push notifications on budget threshold crossings. Setup (env vars, Supabase project creation, exposed-schemas step) is in `README.md` — this file assumes that's already done. Full design/scope is in `docs/superpowers/specs/2026-07-17-budget-tracking-app-design.md`; the build plan (28 tasks, all complete) is in `docs/superpowers/plans/2026-07-17-budget-tracking-app.md`; a detailed log of what actually happened building it (including every bug hit and fixed) is in `.superpowers/sdd/progress.md` — read that before assuming something works as originally planned.
+
+## Commands
+
+```bash
+npm install
+npm run web              # expo start --web — fastest way to see a change (RN Web)
+npm start                # expo start — QR code for Expo Go / iOS / Android sim
+npm test                 # jest, full suite
+npx jest <pattern>       # run a single test file, e.g. npx jest budgetMath
+npx tsc --noEmit         # type-check the whole project
+npm run lint             # expo lint
+
+npx supabase login
+npx supabase link --project-ref <ref>   # must match EXPO_PUBLIC_SUPABASE_URL in .env — see gotcha below
+npx supabase db push                    # apply supabase/migrations/*.sql
+npx supabase migration list             # check local vs remote migration state
+bash scripts/ocr-live-test.sh      # live OCR backend test: one real provider call + throwaway users (needs your own receipt via OCR_TEST_IMAGE/OCR_TEST_EXPECT; see script header)
+bash scripts/ocr-cleanup-test.sh   # live test of the account-deletion OCR file purge (no provider calls)
+npx supabase functions deploy ocr --use-api --no-verify-jwt --project-ref <ref>   # no Docker needed
+npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref <ref>   # text fallback (needs GCP billing)
+npx supabase secrets set GEMINI_API_KEY=<key> --project-ref <ref>          # primary structured OCR (AI Studio key)
+# The Supabase CLI needs SUPABASE_ACCESS_TOKEN in the shell; it's in .env as EXPO_SUPABASE_ACCESS_TOKEN.
+```
+
+## Architecture
+
+Nested edit routes use the tab navigator's `backBehavior="history"`. Keep this setting so header/hardware Back returns to the originating screen, including Settings after category editing, rather than the initial Overview tab. Verify navigation behavior in the running app when changing this structure.
+
+Preferences must not gate signed-in screens. ProfileBootstrap supplies owner-scoped System/USD/device-timezone defaults while Supabase loads or creates missing preferences, then adopts saved settings. Keep auth authorization separate, preserve owner isolation, and avoid fabricated financial figures while data loads. Navigator cross-fades last 180ms and are disabled for Reduce Motion.
+
+**Routing (Expo Router, file-based):** `app/(auth)/` is the signed-out stack (sign-in/sign-up). `app/(tabs)/` is the signed-in area — `_layout.tsx` renders `<Tabs>` with 4 visible screens (`index`=Overview, `transactions`, `reports`, `settings`) plus 7 more nested under the same group (`transaction/new`, `transaction/[id]`, `budget/[categoryId]`, `category/new`, `category/[id]`, `recurring/new`, `recurring/[id]`) that are registered with `href: null` so they're reachable via `router.push` but excluded from the tab bar buttons. This nesting is deliberate: because they're still part of the same `<Tabs>` navigator, the tab bar stays rendered underneath them instead of disappearing — keeping these screens *outside* `(tabs)` would lose the tab bar entirely. Each of those 7 has a custom `headerLeft: renderBackButton` (from `src/components/BackButton.tsx`) since `<Tabs>` has no built-in back button the way `<Stack>` does. `app/_layout.tsx` is the root — a bare `<Slot />` (no Stack/Tabs), so there's no root-level header; `AuthGate` inside it redirects between `(auth)` and `/` based on session state via `useSession`.
+
+**The Add Transaction FAB** (`src/components/AddTransactionFab.tsx`) is rendered from `(tabs)/_layout.tsx` as a sibling *after* `<Tabs>`, shown on the 4 tab pages (`TAB_PAGES`), positioned as a 56px circular action 16px above the tab bar (`TAB_BAR_HEIGHT` plus the bottom safe-area inset), 24px from the right edge. Tapping it opens `AddTransactionSheet` (Take Photo / Upload Image / Manual Entry). Nested inside a screen it would be clipped by, or lose the stacking fight with, the tab bar — follow this pattern for any cross-tab floating element.
+
+**Receipt OCR and items:** images are normalized, assigned a request UUID, and handed through `useScanStore` to the matching fresh form visit. Deep links cannot supply images. The OCR function authenticates every request and preserves the quota ledger, request replay, same-image SHA-256 dedupe, and empty-scan exception from migration 0011. Caps remain 900/month globally (Pacific-Time calendar), 40/day globally, 20/day and 5/hour per user.
+
+Gemini structured JSON is tried first (17-second timeout; default `gemini-3.5-flash-lite`, overridable through `GEMINI_MODEL`). It returns merchant, bounded transcription, items, deductions, taxes, fees, and printed total. Malformed/blocked/truncated output, including MAX_TOKENS, falls back once to Vision text (10-second timeout, one feature and the existing text-only field mask). The provider body is bounded to 256 KiB before parsing. The 16384-token output budget was checked against the default model's advertised 65536 limit and an 8820-token large-receipt fixture. Verify schema and output-budget support when changing models. Gemini's free tier may use submitted images to improve Google's products; keep the sheet disclosure accurate. No image is retained.
+
+Import-free `supabase/functions/ocr/shared.ts` owns shared types, decimal-to-cent rounding (half away from zero), integer summation, reconciliation, and cached-envelope validation. Money transport is exact decimal strings. Included taxes contribute zero; deductions subtract; adjustments are already signed. Combined rows are capped at 100 with visible dropped/capped warnings. Objects are derived as `{user_id}/{scan_id}.json` and `.txt`. Settle JSON publication first and upload text last as the completion marker; no background JSON writer. JSON failure degrades replay to text only. Failed text publication cleans JSON; failed cleanup can be retried through replay or an owned failed-scan delete. Replay distinguishes missing JSON from Storage errors and recomputes cached totals. Delete removes both artifacts, then marks the ledger deleted. Account purge removes the entire folder and keeps the existing fail-closed auth lookup and nonblocking auth-deletion trigger.
+
+Migration 0012 adds owner-RLS `transaction_items` with a tenant-scoped parent FK. `save_transaction(p_transaction,p_items)` is SECURITY INVOKER, derives ownership from auth.uid(), locks the parent, and atomically replaces ordered rows. Stable create UUIDs support exact retries and reject conflicting payloads. Recurring provenance/created_at stay unchanged. Deferred constraint triggers and parent locks reject inconsistent direct writes, NaN, nonpositive/out-of-range totals, and excessive rows. SQL uses one arithmetic helper shared by the RPC and triggers. All new helpers explicitly revoke anonymous/public execution despite migration 0001's permissive defaults.
+
+New/edit share TransactionForm and a type-aware item editor. Income and expense both preserve rows; income subtracts deductions, withheld taxes and recipient fees. Informational rows are excluded. Rows compute a read-only amount; no rows permit manual amount. Mismatch adjustments use the current cent delta. Skip/navigation disqualify late scan prefill and notifications. Every list edit navigation gets a fresh visit UUID; the editor loads the current parent and items before enabling save, then owns its snapshot through background refetches. RPC mutations preserve optimistic rollback and refresh parent/item, transaction-list, and monthly-total caches.
+
+**Data layer split:**
+- `src/hooks/` — one file per entity, all TanStack Query. Read hooks (`useCategories`, `useBudgets(month)`, `useTransactions(month)`, `useRecurringRules`) plus mutations in the same file. `useTransactions`'s add/update mutations do optimistic updates via `onMutate`/`onError` rollback; everything else just invalidates on success.
+- `src/stores/useUiStore.ts` — Zustand, holds only `selectedMonth` (client-only UI state, not server data).
+- `src/domain/` — pure functions (`budgetMath.ts`, `recurring.ts`), no React/Supabase imports, unit-tested directly. Alert, date and spending-guidance calculations use pure helpers. Recurring scheduling and materialization are authoritative in owner-checked SQL RPCs, triggered by the client without a server cron.
+- `src/lib/supabase.ts` — the client. `db.schema: 'budget_tracker'` is set once here so no hook needs a per-call `.schema()`. Auth storage is a hand-rolled wrapper, not raw `AsyncStorage` — see gotcha below.
+
+**Shared page layout:** screens obtain themed styles from `usePageLayout()` in `src/styles/pageLayout.ts` and retain their own `ScrollView`/`FlatList` wrappers. Primary tab pages use an open `workspace` with 28px section gaps; focused forms use a 24px-padded, 16px-radius `card`. Both are capped at 560px for the mobile web preview, without page-card shadows. Headerless tab screens use `safeTop: true`; scroll content reserves 96px plus the bottom inset. This is a mobile-only UI: do not introduce desktop rails or split layouts. See `DESIGN.md` for the current system.
+
+**Shared forms:** `TransactionForm`, `CategoryForm`, `RecurringRuleForm` (`src/components/`) are each used by both a `new` and an `[id]` edit screen for that entity, with `initialValues` optional. They intentionally have no outer padding/margin — the parent screen's `pageLayout.card` provides that, so don't add padding back into the form components themselves.
+
+## Gotchas specific to this project (found by actually running it, not obvious from reading the code)
+
+- **Supabase CLI link vs. app's actual project can silently diverge.** `supabase link --project-ref` will happily link to any project you have access to; it does not check that it matches `EXPO_PUBLIC_SUPABASE_URL` in `.env`. If they diverge, `supabase db push` succeeds while the app keeps talking to a database with no schema. Always confirm the ref in the dashboard URL matches the `.env` URL's subdomain before pushing migrations.
+- **New non-`public` schemas must be added to PostgREST's exposed-schemas list** (Supabase Dashboard → Project Settings → API → Data API Settings), or every `supabase-js` call fails with `PGRST106: Invalid schema`, even though direct SQL access (`supabase db query --linked`) works fine and gives no indication anything is wrong. This project uses `budget_tracker`, not `public`.
+- **Expo Router's generated typed-routes (`.expo/types/router.d.ts`) go stale** after adding/removing/moving files under `app/`, and are *not* regenerated by `tsc` alone — only while the dev server is running, and only for routes actually requested. After restructuring routes, cycle the dev server (`expo start --web`) and hit the affected routes before trusting a `tsc` route-type error as real.
+- **`@react-native-async-storage/async-storage`'s web shim touches `window.localStorage`**, which doesn't exist during Expo Router's SSR (`web.output: "static"` in `app.json`). `src/lib/supabase.ts` wraps it in a storage adapter that no-ops when `typeof window === 'undefined'` — don't pass raw `AsyncStorage` to `createClient`'s `auth.storage`.
+- **React Native Web deprecations on the currently-installed RN version (0.86):** use `boxShadow` (a single string), not `shadowColor`/`shadowOpacity`/`shadowRadius`/`shadowOffset`. A `DimensionValue`-typed style (e.g. a percentage width computed from a template literal) needs an explicit `` `${number}%` `` type annotation or it widens to `string` and fails to type-check.
+- **`react-native-gifted-charts` requires a gradient package** (`expo-linear-gradient`, already installed) or it 500s at runtime with "Gradient package was not found" — this only shows up when actually rendering the Reports screen, not in `tsc`/`jest`.
+- **Phone web screenshot verification is available** through hidden Edge and the ignored `.impeccable/browser-check.mjs` harness. The redesign was reviewed at 390x844 and 360x800 with synthetic fixtures, including dark theme and reduced-motion interactions; this verifies the phone-layout web preview. Production iOS/Android Hermes exports also pass, but do not establish native device feel, performance, keyboard behavior, picker presentation, safe-area behavior, or screen-reader behavior. Check current tooling and run native-device verification for those concerns; retain appropriate Jest, TypeScript, and lint checks.
+- **Supabase's built-in email service is rate-limited** (2 sends/hour by default) and `mailer_autoconfirm` may be `true` on this project (check via the Management API, `GET /v1/projects/<ref>/config/auth`), meaning signups get an active session immediately regardless of whether a confirmation email arrives — the sign-up screen's "check your email" messaging may not match actual behavior.
+- **`ocr` runs with `verify_jwt = false`** (`supabase/config.toml`): the account-deletion trigger can't send a user JWT, so every path authenticates inside the function. Never add a route that skips that.
+- **`supabase/functions` is excluded from the root `tsconfig.json`** — it's Deno code. Deno isn't installed locally; test shared logic through `ocr/shared.ts` in Jest. Any `exclude` in `tsconfig.json` *replaces* `expo/tsconfig.base`'s list instead of merging, so it has to repeat `node_modules`, `android`, `ios`, etc. — drop them and `tsc` starts checking `node_modules`.
+- **Screens under `(tabs)` stay mounted after their first visit** — expo-router 57's bottom tabs have no `unmountOnBlur` (`popToTopOnBlur` only resets nested stacks), so `useState` initializers and mount effects run once, ever, and form state carries over to the next visit. `transaction/new` handles this by keying its content on a `visit` param that every navigation sets fresh. Any detail screen that must start clean per visit needs the same treatment.
+- **iOS can't present a native picker while a `Modal` is closing** — it fails silently. `AddTransactionFab` defers the camera/library launch to the sheet's `onDismiss` on iOS (RN only fires `onDismiss` on iOS and web). Do the same for any picker or system sheet opened from a modal.
+- **lucide in Jest:** its `react-native` entry is `.mjs`, which jest-expo never transforms — `jest.config.js` maps `lucide-react-native` to its CJS build via `moduleNameMapper`. Same class of problem as the gifted-charts `transformIgnorePatterns` fix.
+- **Orphaned OCR files** (if a cleanup `pg_net` call ever fails — check `net._http_response`): `select distinct split_part(name, '/', 1) from storage.objects o where bucket_id = 'budget-tracker-ocr' and not exists (select 1 from auth.users u where u.id::text = split_part(o.name, '/', 1));` — remove them via the Storage API, not SQL.
+- **Desktop web "Take Photo"** opens a file dialog (no webcam through a file input) — expected.
+
+
+## Payment receipts (migration 0013)
+
+OCR schema version 2 separates document kind, income/expense direction, completion status, principal, net received and total debited. Ambiguous/own-account transfers require a choice or skipping; pending/failed proofs require clearing OCR money for manual entry. Payment details preserve sender name, phone/account string and separate reference. A linked counted payment row supports a separate Payment amount field without double counting. When a printed financial summary accompanies earning detail, detail rows are informational; net summaries exclude already-reflected charges. Breakdown-only payments display the derived amount and edit through rows. Unknown fee ownership requires an explicit counting choice.
+
+Receipt calendar date is editable, using a readable explicit transaction/issue date or the stable local scan-start day. Ignore ambiguous/incomplete dates, due dates, payroll periods and screenshot clocks. transaction_date drives month membership; legacy null dates use local occurred_at boundaries. Date edits move optimistic rows between cached months with rollback. RPC payload_version 2 preserves omitted metadata/date, validates flags and sender JSON, and compares all new fields on exact retries. Version 1 cannot erase rich payment records. See docs/superpowers/specs/2026-10-07-payment-receipts-design.md.
+
+## Profile and spending guidance (migrations 0015-0017)
+
+Profiles sync display name, private avatar, appearance, currency unit and financial timezone. Currency changes relabel amounts without conversion and require confirmation. Use shared money formatting everywhere. System/Light/Dark applies to navigation and content. ProfileBootstrap keeps tab screens and deep links available with owner-scoped System/USD/device-timezone defaults while saved preferences load or a missing profile is created. Settings offers an inline retry on preference-load failure. Sign-out/account changes clear cached preferences and financial data. Password fields are component state only.
+
+Global monthly limits are independent of category allocations. Current months inherit the latest earlier saved limit once; future months preview inheritance until edited. dashboard_snapshot aggregates all monthly records in one SQL snapshot after prepare_dashboard atomically catches up bills. Safe to spend reserves outstanding/replacement occurrences; forecasts exclude duplicated future discretionary spending. Finance dates use the profile IANA timezone via @date-fns/tz, while explicit receipt dates and captured scan context remain stable. Transaction cache keys use owner/month/timezone through queryKeys; mutations also invalidate dashboard.
+
+Recurring schedules and bill associations are authoritative in SQL. Direct legacy schedule/linked-expense writes are rejected. Owner-checked RPCs implement anchored due dates, atomic catch-up, full settlement/link, skip, replacement, income conversion, pause/resume and archive. Ordinary save_transaction remains invoker; linked changes use bill_command. Replacement stays reserved without automatic regeneration. Amount changes away from the scheduled bill need confirmation. No partial payments or bank-balance claims. See docs/superpowers/specs/2026-10-07-profile-spending-guidance.md and scripts/profile-analytics-live-test.mjs. Isolated SQL checks: node scripts/receipt-sql-test.mjs --analytics. The app uses hosted Supabase; Docker is disposable test infrastructure only.

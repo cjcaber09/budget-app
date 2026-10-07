@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+.tools/
 
 # Expo
 .expo/
@@ -25,14 +26,34 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+logs/
+*.stackdump
+
+# test and tool caches
+coverage/
+.nyc_output/
+.jest-cache/
+.eslintcache
+.cache/
+
+# temporary files and editor state
+/tmp/
+/temp/
+.idea/
+*.swp
+*.swo
+*~
 
 # macOS
 .DS_Store
 *.pem
+Thumbs.db
+Desktop.ini
 
 # local env files
-.env
-.env*.local
+.env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -45,3 +66,25 @@ example
 
 # user-provided sample receipts (real documents) — never commit
 assets/images/sample-receipts/
+
+# Local design verification artifacts
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/build/
+.impeccable/review/
+.impeccable/browser-check.mjs
+.impeccable/receipt-browser-check.mjs
+.impeccable/payment-browser-check.mjs
+.impeccable/purchase-rpc-check.mjs
+.impeccable/analytics-browser-check.mjs
+.impeccable/analytics-failure-check.mjs
+.impeccable/preferences-runtime-check.mjs
+.impeccable/navigation-runtime-check.mjs
+.impeccable/preferences-motion-check.mjs
+.impeccable/preferences-motion-error-check.mjs
+.impeccable/direction-options.json
+.impeccable/native-build/
+.impeccable/questions/
+
+# Local agent execution reports (shared specs stay in docs/)
+.superpowers/

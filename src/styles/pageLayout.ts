@@ -1,18 +1,21 @@
-import { StyleSheet } from 'react-native';
+import { createThemedStyles } from './theme';
+import { useContext } from 'react';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
-// Shared "boxed" page layout: content centered horizontally in a
-// bordered/shadowed card capped at a comfortable reading width, used
-// across every screen so the app looks consistent regardless of viewport.
-export const pageLayout = StyleSheet.create({
-  scrollContent: { flexGrow: 1, alignItems: 'center', padding: 16 },
-  card: {
-    width: '100%',
-    maxWidth: 480,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-    padding: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.05)',
-  },
-});
+// Screens retain their own ScrollView/FlatList wrappers and share themed layout.
+const useLayoutStyles = createThemedStyles((colors) => ({
+  screen: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1, alignItems: 'center', padding: 24, paddingBottom: 96, backgroundColor: colors.background },
+  card: { width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+  workspace: { width: '100%', maxWidth: 560, gap: 28 },
+  section: { backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+}));
+
+export function usePageLayout({ safeTop = false }: { safeTop?: boolean } = {}) {
+  const styles = useLayoutStyles();
+  const insets = useContext(SafeAreaInsetsContext);
+  return {
+    ...styles,
+    scrollContent: { ...styles.scrollContent, paddingTop: 24 + (safeTop ? insets?.top ?? 0 : 0), paddingBottom: 96 + (insets?.bottom ?? 0) },
+  };
+}

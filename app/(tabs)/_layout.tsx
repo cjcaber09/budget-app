@@ -1,6 +1,10 @@
-import { View, type ColorValue } from 'react-native';
+import { Easing, View, type ColorValue } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useContext } from 'react';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { Tabs, usePathname } from 'expo-router';
 import { LayoutDashboard, Receipt, ChartColumn, Settings } from 'lucide-react-native';
+import { type, useColors } from '../../src/styles/theme';
 import { useRecurringCatchUp } from '../../src/hooks/useRecurringRules';
 import { useBudgetAlerts } from '../../src/hooks/useBudgetAlerts';
 import { useUiStore } from '../../src/stores/useUiStore';
@@ -35,26 +39,41 @@ function renderSettingsIcon({ color, size }: TabIconProps) {
 }
 
 export default function TabsLayout() {
+  const reducedMotion = useReducedMotion();
+  const colors = useColors();
+  const insets = useContext(SafeAreaInsetsContext);
   useRecurringCatchUp();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   useBudgetAlerts(selectedMonth);
   const pathname = usePathname();
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.background }}>
       <Tabs
+        backBehavior="history"
         screenOptions={{
           headerShown: true,
-          tabBarStyle: { height: TAB_BAR_HEIGHT, paddingBottom: 10, paddingTop: 10 },
+          animation: reducedMotion ? 'none' : 'fade',
+          transitionSpec: { animation: 'timing', config: { duration: reducedMotion ? 0 : 180, easing: Easing.out(Easing.cubic) } },
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerTitleStyle: { ...type.heading },
+          headerShadowVisible: false,
+          sceneStyle: { backgroundColor: colors.background },
+          tabBarPosition: 'bottom',
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.muted,
+          tabBarLabelStyle: { ...type.label, fontSize: 11 },
+          tabBarStyle: { height: TAB_BAR_HEIGHT + (insets?.bottom ?? 0), paddingBottom: 10 + (insets?.bottom ?? 0), paddingTop: 10, backgroundColor: colors.surface, borderTopColor: colors.border },
         }}
       >
-        <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: renderOverviewIcon }} />
+        <Tabs.Screen name="index" options={{ title: 'Overview', headerShown: false, tabBarIcon: renderOverviewIcon }} />
         <Tabs.Screen
           name="transactions"
-          options={{ title: 'Transactions', tabBarIcon: renderTransactionsIcon }}
+          options={{ title: 'Transactions', headerShown: false, tabBarIcon: renderTransactionsIcon }}
         />
-        <Tabs.Screen name="reports" options={{ title: 'Reports', tabBarIcon: renderReportsIcon }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: renderSettingsIcon }} />
+        <Tabs.Screen name="reports" options={{ title: 'Reports', headerShown: false, tabBarIcon: renderReportsIcon }} />
+        <Tabs.Screen name="settings" options={{ title: 'Settings', headerShown: false, tabBarIcon: renderSettingsIcon }} />
 
         {/* Detail/edit screens: nested inside (tabs) so the tab bar stays
             visible while on them, hidden from the tab bar itself via

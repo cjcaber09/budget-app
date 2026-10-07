@@ -3,12 +3,13 @@ import { useRouter } from 'expo-router';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useAddRecurringRule } from '../../../src/hooks/useRecurringRules';
 import { RecurringRuleForm } from '../../../src/components/RecurringRuleForm';
-import { pageLayout } from '../../../src/styles/pageLayout';
+import { usePageLayout } from '../../../src/styles/pageLayout';
 
 export default function NewRecurringRuleScreen() {
+  const pageLayout = usePageLayout();
   const router = useRouter();
   const { data: categories } = useCategories();
-  const { mutate: addRecurringRule } = useAddRecurringRule();
+  const { mutate: addRecurringRule, isPending: submitting } = useAddRecurringRule();
 
   if (!categories) {
     return (
@@ -19,11 +20,11 @@ export default function NewRecurringRuleScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={pageLayout.scrollContent}>
+    <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
       <View style={pageLayout.card}>
         <RecurringRuleForm
           categories={categories}
-          submitLabel="Add Recurring Rule"
+          submitting={submitting} submitLabel="Add Recurring Rule"
           onSubmit={(values) => addRecurringRule(values, { onSuccess: () => router.back() })}
         />
       </View>
