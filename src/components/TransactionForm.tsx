@@ -1,5 +1,6 @@
+import {CategoryPicker} from './CategoryPicker';
 import { formatMoney } from '../domain/money';
-import { useState } from 'react';
+import { useState,type ReactNode } from 'react';
 import { MotionPressable } from './MotionPressable';
 import { useFormStyles } from '../styles/forms';
 import { useColors } from '../styles/theme';
@@ -12,6 +13,7 @@ import { TransactionDateField } from './TransactionDateField';
 import { localDateKey } from '../domain/transactionDates';
 
 export interface TransactionFormValues {
+  paymentMethodId:string|null;
   transactionDate: string;
   paymentDetails: PaymentDetails | null;
   items: TransactionItemInput[];
@@ -22,6 +24,7 @@ export interface TransactionFormValues {
 }
 
 interface Props {
+  paymentMethodControl?:(value:string|null,onChange:(id:string|null)=>void)=>ReactNode;
   onDiscard?: () => void;
   scanDate?: string;
   scanned?: boolean;
@@ -32,6 +35,7 @@ interface Props {
   submitLabel: string;
   submitting?: boolean;
   onSubmit: (values: {
+    paymentMethodId:string|null;
     type: TransactionType;
     categoryId: string | null;
     amount: number;
@@ -44,7 +48,7 @@ interface Props {
 
 const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
 
-export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit }: Props) {
+export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
   const [type, setType] = useState<TransactionType|null>(() => initialValues?.type ?? (receipt?.transactionType === 'income' || receipt?.transactionType === 'expense' ? receipt.transactionType : scanned ? null : 'expense'));
@@ -52,6 +56,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
   const [transactionDate,setTransactionDate] = useState(initialValues?.transactionDate ?? receipt?.receiptDate ?? scanDate ?? localDateKey(new Date()));
   const [dateEdited,setDateEdited] = useState(false);
   const [paymentDetails,setPaymentDetails] = useState<PaymentDetails|null>(initialValues?.paymentDetails ?? receipt?.paymentDetails ?? null);
+  const [paymentMethodId,setPaymentMethodId]=useState<string|null>(initialValues?.paymentMethodId??null);
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? categories[0]?.id ?? '');
   const [amount, setAmount] = useState(initialValues?.amount ?? '');
   const [note, setNote] = useState(initialValues?.note ?? '');
@@ -106,6 +111,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
 
     setError(null);
     onSubmit({
+      paymentMethodId,
       type,
       categoryId: type === 'expense' ? categoryId : null,
       amount: parsedAmount,
@@ -136,26 +142,10 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
           </MotionPressable>
         ))}
       </View>
+      {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       {type === 'expense' && (
         <>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.optionRow}>
-            {categories.map((category) => (
-              <MotionPressable
-                key={category.id} accessibilityState={{ selected: categoryId === category.id }}
-                onPress={() => setCategoryId(category.id)}
-                style={[
-                  styles.chip,
-
-                  categoryId === category.id && styles.chipSelected,
-                ]}
-              >
-                <Text style={categoryId === category.id ? styles.chipTextSelected : styles.chipText}>
-                  {category.name}
-                </Text>
-              </MotionPressable>
-            ))}
-          </View>
+          <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
         </>
       )}
       <TransactionDateField value={transactionDate} onChange={day => {setTransactionDate(day);setDateEdited(true);}} hint={dateEdited ? 'Edited date' : receipt?.receiptDate ? 'Receipt date' : scanned ? receipt?.receiptDateRaw ? 'Receipt date was unclear; using the date this scan started.' : 'No receipt date found; using the date this scan started.' : undefined} />

@@ -13,6 +13,9 @@ export const currencies = [
 ] as const;
 export type Currency = (typeof currencies)[number];
 export interface Profile {
+  budget_notifications?: boolean;
+  bill_notifications?: boolean;
+  notification_private?: boolean;
   user_id: string;
   display_name: string;
   avatar_path: string | null;

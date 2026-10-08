@@ -1,4 +1,5 @@
 // Component tests verify behavior, not native worklet execution. Motion is
+jest.mock('@react-native-async-storage/async-storage',()=>require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 // inspected in the web build; native feel requires a device release build.
 jest.mock('react-native-reanimated', () => {
   const { View } = require('react-native');

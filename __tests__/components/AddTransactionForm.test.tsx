@@ -14,7 +14,7 @@ describe('TransactionForm', () => {
     fireEvent.changeText(screen.getByPlaceholderText('0.00'), '42.50');
     fireEvent.press(screen.getByText('Add Transaction'));
 
-    expect(onSubmit).toHaveBeenCalledWith({ type: 'expense', categoryId: 'cat-1', amount: 42.5, note: null, items: [], paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    expect(onSubmit).toHaveBeenCalledWith({ type: 'expense', categoryId: 'cat-1', amount: 42.5, note: null, items: [], paymentMethodId:null,paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   });
 
   it('defaults to Expense, and submits with categoryId null when Income is selected', () => {
@@ -25,7 +25,7 @@ describe('TransactionForm', () => {
     fireEvent.changeText(screen.getByPlaceholderText('0.00'), '2000');
     fireEvent.press(screen.getByText('Add Transaction'));
 
-    expect(onSubmit).toHaveBeenCalledWith({ type: 'income', categoryId: null, amount: 2000, note: null, items: [], paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    expect(onSubmit).toHaveBeenCalledWith({ type: 'income', categoryId: null, amount: 2000, note: null, items: [], paymentMethodId:null,paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   });
 
   it('hides category chips once Income is selected', () => {
@@ -78,7 +78,7 @@ describe('TransactionForm', () => {
       amount: 12.5,
       note: 'COFFEE SHOP\nTOTAL 12.50',
       items: [],
-      paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      paymentMethodId:null,paymentDetails:null,transactionDate:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
   });
 });

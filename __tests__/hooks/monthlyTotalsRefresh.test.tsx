@@ -11,7 +11,8 @@ let mockNextId = 0;
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
-    rpc: async (_name: string, { p_transaction: tx }: { p_transaction: { operation: string; id: string; amount: string; occurred_at: string; type: string } }) => {
+    rpc: async (_name: string, { p_transaction: tx,p_id }: { p_id?:string;p_transaction: { operation: string; id: string; amount: string; occurred_at: string; type: string } }) => {
+      if(_name==='delete_transaction'){mockTransactions=mockTransactions.filter(row=>row.id!==p_id);return {data:null,error:null};}
       const row = { ...tx, amount: Number(tx.amount) };
       if (tx.operation === 'create') mockTransactions.push(row);
       else mockTransactions = mockTransactions.map(existing => existing.id === tx.id ? row : existing);

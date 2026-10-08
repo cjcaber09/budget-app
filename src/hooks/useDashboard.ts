@@ -6,7 +6,7 @@ import { usePreferencesStore } from "../stores/usePreferencesStore";
 import { localDateKey } from "../domain/transactionDates";
 import type { DashboardSnapshot } from "../domain/spendingGuidance";
 
-export function useDashboard(month: string) {
+export function useDashboard(month: string, enabled = true) {
   const profile = usePreferencesStore((s) => s.profile);
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -23,7 +23,7 @@ export function useDashboard(month: string) {
   const day = localDateKey(new Date(clock), profile?.timezone);
   return useQuery({
     queryKey: ["dashboard", profile?.user_id, profile?.timezone, month, day],
-    enabled: !!profile,
+    enabled: enabled && !!profile,
     refetchOnMount: "always",
     queryFn: async (): Promise<DashboardSnapshot> => {
       const prepared = await supabase.rpc("prepare_dashboard", {
@@ -36,7 +36,7 @@ export function useDashboard(month: string) {
       if (result.error) throw result.error;
       const data = result.data as DashboardSnapshot;
       if (!data?.complete)
-        throw Error(
+        throw new Error(
           "Spending guidance is unavailable. Retry to refresh your bills.",
         );
       for (const [key, value] of Object.entries(data))
@@ -45,7 +45,7 @@ export function useDashboard(month: string) {
           value !== null &&
           !Number.isSafeInteger(value)
         )
-          throw Error("The total is outside the supported range.");
+          throw new Error("The total is outside the supported range.");
       return data;
     },
   });
@@ -55,7 +55,7 @@ export function useSetMonthlyLimit(month: string) {
   return useMutation({
     mutationFn: async (amount: string) => {
       const owner = usePreferencesStore.getState().profile?.user_id;
-      if (!owner) throw Error("Sign in again.");
+      if (!owner) throw new Error("Sign in again.");
       const result = await supabase
         .from("monthly_limits")
         .upsert(
@@ -89,7 +89,9 @@ export function useBillCommand() {
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
       void client.invalidateQueries({ queryKey: ["transactions"] });
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
     },
   });

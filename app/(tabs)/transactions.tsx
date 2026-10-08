@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { Search, Plus } from 'lucide-react-native';
 import { useCategories } from '../../src/hooks/useCategories';
 import { useTransactions } from '../../src/hooks/useTransactions';
+import { usePaymentMethods } from '../../src/hooks/usePaymentMethods';
+import { paymentMethodLabel } from '../../src/domain/paymentMethods';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { TransactionListItem } from '../../src/components/TransactionListItem';
 import { ScreenHeading } from '../../src/components/ScreenHeading';
@@ -22,6 +24,7 @@ export default function TransactionsScreen() {
   const selectedMonth = useUiStore(state => state.selectedMonth);
   const categoriesQuery = useCategories();
   const transactionsQuery = useTransactions(selectedMonth);
+  const paymentMethods = usePaymentMethods();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
   const categories = categoriesQuery.data ?? [];
@@ -44,7 +47,7 @@ export default function TransactionsScreen() {
     ListEmptyComponent={<View style={styles.empty}><QueryState loading={transactionsQuery.isPending || categoriesQuery.isPending} error={transactionsQuery.isError || categoriesQuery.isError} retry={() => { void transactionsQuery.refetch(); void categoriesQuery.refetch(); }} empty={search || filter !== 'all' ? 'No matching transactions. Try a different search or filter.' : 'No transactions this month. Add your first entry to start your record.'}>
       {!search && filter === 'all' && <MotionPressable onPress={() => router.push({ pathname: '/transaction/new', params: { visit: createRequestId() } })} style={styles.add}><Plus size={16} color={colors.primary} /><Text style={styles.activeFilterText}>Add Transaction</Text></MotionPressable>}
     </QueryState></View>}
-    renderItem={({ item }) => <View style={styles.item}><TransactionListItem transaction={item} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.id, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
+    renderItem={({ item }) => <View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.id, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
   /></View>;
 }
 const useStyles = createThemedStyles(colors => ({

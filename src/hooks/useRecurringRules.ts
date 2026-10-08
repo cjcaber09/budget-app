@@ -53,8 +53,10 @@ export function useRecurringCatchUp() {
       });
       if (!cancelled && !r.error) {
         void client.invalidateQueries({ queryKey: ["transactions"] });
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
         void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
         void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
       }
     };
     void sync();
@@ -68,6 +70,10 @@ export function useRecurringCatchUp() {
   }, [owner, timezone, client]);
 }
 export interface AddRecurringRuleInput {
+  paymentMethodId?:string|null;
+  reminderEnabled?: boolean;
+  reminderDaysBefore?: number;
+  reminderTime?: string;
   categoryId: string;
   amount: number;
   note: string | null;
@@ -82,7 +88,7 @@ function useRuleMutation() {
       input: AddRecurringRuleInput & { id?: string; command?: string },
     ) => {
       const cents = decimalToCents(input.amount);
-      if (cents === null) throw Error("Invalid amount");
+      if (cents === null) throw new Error("Invalid amount");
       const r = await supabase.rpc("save_recurring_rule", {
         p_rule: {
           ...input,
@@ -94,9 +100,11 @@ function useRuleMutation() {
       return r.data;
     },
     onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["recurringRule"] });
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
     },
   });
 }
@@ -116,9 +124,11 @@ export function useSetRecurringRuleActive() {
       if (r.error) throw r.error;
     },
     onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["recurringRule"] });
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
     },
   });
 }
@@ -132,8 +142,10 @@ export function useArchiveRecurringRule() {
       if (r.error) throw r.error;
     },
     onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
     },
   });
 }

@@ -12,7 +12,7 @@ export function useSession() {
     const attempt=++generation.current;
     let timeout:ReturnType<typeof setTimeout>|undefined;
     try{
-      const result=await Promise.race([supabase.auth.getSession(),new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(Error('Session loading timed out. Try again.')),12000);})]);
+      const result=await Promise.race([supabase.auth.getSession(),new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Session loading timed out. Try again.')),12000);})]);
       if(attempt!==generation.current)return;
       if(result.error)throw result.error;
       setSession(result.data.session);

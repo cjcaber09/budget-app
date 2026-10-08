@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { usePreferencesStore } from '../stores/usePreferencesStore';
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { formatOcrLimitMessage } from '../domain/ocr';
@@ -87,19 +88,28 @@ export function useOcrScan(shouldNotify?: () => boolean) {
 }
 
 export function useOcrScans() {
-  return useQuery({
-    queryKey: ['ocrScans'],
-    queryFn: async (): Promise<OcrScanRow[]> => {
-      const { data, error } = await supabase
+  const owner = usePreferencesStore(s => s.profile?.user_id);
+  const query = useInfiniteQuery({
+    queryKey: ['ocrScans', owner],
+    enabled: !!owner,
+    initialPageParam: null as Pick<OcrScanRow, 'created_at' | 'id'> | null,
+    queryFn: async ({pageParam, signal}) => {
+      let request = supabase
         .from('ocr_scans')
         .select('id, user_id, char_count, created_at')
+        .eq('user_id', owner!)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .order('id', { ascending: false });
+      if (pageParam) request = request.or(`created_at.lt.${pageParam.created_at},and(created_at.eq.${pageParam.created_at},id.lt.${pageParam.id})`);
+      const {data, error} = await request.limit(21).abortSignal(signal);
       if (error) throw error;
-      return data;
+      const rows = (data ?? []) as OcrScanRow[];
+      return {rows: rows.slice(0, 20), hasMore: rows.length > 20};
     },
+    getNextPageParam: page => page.hasMore ? page.rows[page.rows.length - 1] : undefined,
   });
+  return {...query, data: query.data?.pages.flatMap(page => page.rows)};
 }
 
 export function useDeleteOcrScan() {

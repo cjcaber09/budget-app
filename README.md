@@ -63,7 +63,7 @@ full design, including what's explicitly out of scope for v1.
    - **Cloud Vision (text fallback):** enable the API in Google Cloud. It needs a billing account even on the free tier. Create an API key restricted to the Vision API with no application restrictions, and add a $1 budget alert. The app caps scans at 900/month to stay inside Vision's 1,000 free images.
    - **Gemini (primary structured extraction, no billing needed):** create a key at https://aistudio.google.com/apikey. On the free tier, Google may use the submitted images to improve its products.
 
-   With both set, Gemini extracts merchant, receipt rows and total first; Vision provides text-only fallback if structured extraction fails. Push all migrations through 0017 before using the current profile, bill, and transaction forms. Then deploy the function and wire up account-deletion cleanup:
+   With both set, Gemini extracts merchant, receipt rows and total first; Vision provides text-only fallback if structured extraction fails. Push all migrations through 0018 before using the current profile, bill, and transaction forms. Then deploy the function and wire up account-deletion cleanup:
 
    ```bash
    npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref <ref>
@@ -163,3 +163,23 @@ Settings now includes display name/private avatar, password change, System/Light
 Migrations 0015-0017 add profiles, monthly limits, anchored recurring occurrences and consistent server aggregates. Legacy clients cannot write schedules or linked expenses outside the new RPCs; ordinary transaction saves remain compatible. Deploy schema plus the updated deleted-account purge before using these screens. Run `node scripts/receipt-sql-test.mjs --analytics` in the disposable test container, and `node scripts/profile-analytics-live-test.mjs` for synthetic-only hosted verification and cleanup. The latter creates temporary users and a synthetic Storage marker fixture, makes no OCR call, and changes only a temporary user password.
 
 See [the implementation spec](docs/superpowers/specs/2026-10-07-profile-spending-guidance.md). Native device photo permissions, keyboard, pickers and screen-reader behavior still require device verification.
+
+## Phone notifications
+
+In the iOS/Android app, open Settings -> Phone notifications to enable Budget alerts or Bill reminders and grant phone permission. Budget alerts check category and monthly 80%/100% thresholds when current-month spending syncs; existing spending is silent on first enable. Hide details on lock screen is on by default. Settings also offers a test notification, phone-settings recovery and reminder refresh. These controls are disabled in the web preview.
+
+Each recurring bill can opt into a due-day, 1-day-before or 3-days-before reminder at HH:MM in your financial timezone. Up to 48 nearest future reminders are scheduled for the next 30 days. Open the phone app to refresh after changes on another device; local schedules cannot react before that sync. Turning reminders off or signing out cancels scheduled bill reminders. Your phone may delay delivery. Recurring expenses still record automatically when you open the app.
+
+Scan history loads 20 records initially and offers Load more with retry. Other lists retain their existing presentation. See [the implementation spec](docs/superpowers/specs/2026-10-08-phone-notifications.md) for behavior and verification limits. Push migration 0018 before using notification settings. Guarded deployment uses `node scripts/deploy-phone-notifications.mjs`; rollback-only hosted checks use `node scripts/phone-notifications-sql-test.mjs --deployed`.
+
+## Payment methods and tracked balances
+
+Create independent cards, bank accounts, e-wallets and other methods from Settings or transaction review, including several from the same bank. Save the required initial balance first, then save the transaction separately; a failed transaction save leaves the created method available. Cash is the default and shows Balance not set until initialized. Card last-four is optional: exactly four digits or blank. Never enter a full card number, PIN or CVV.
+
+Tracked balances use a server baseline and subsequent assignments: old Cash history is not deducted again, newly recorded backdated transactions count once, and future records apply on their financial date. Credit cards show Amount owed or an overpayment Credit balance. These are manually tracked amounts without bank connectivity. Auditable corrections and transfers, including card repayment, do not add budget income/expenses. Editing the initial amount after activity requires confirmation.
+
+Bills inherit future method assignments while recorded history is preserved. Archive reassigns active/paused bill references and pending occurrences atomically; Cash cannot be archived. Restore is available.
+
+Migration 0019 is deployed to the configured Supabase project (remote 0001-0019 confirmed). See [implementation and verification](docs/superpowers/specs/2026-10-08-payment-methods.md). Run hosted rollback-only checks with `node scripts/payment-methods-sql-test.mjs --deployed`; run exact-retry concurrency checks with `node scripts/payment-methods-concurrency-test.mjs` (synthetic owner removed). No Docker or OCR provider call is needed. Phone web interactions and iOS/Android Hermes/web exports passed; physical-device keyboard, safe areas, native picker presentation and accessibility remain unverified.
+
+Script transport and safe-logging regression checks: `node --test scripts/lib/supabase-project.test.mjs`.

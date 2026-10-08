@@ -150,3 +150,5 @@ describe('NewTransactionScreen', () => {
     expect(mockAddTransaction.mock.calls[0][0].occurredAt).toBe(mockAddTransaction.mock.calls[1][0].occurredAt);
   });
 });
+
+jest.mock('../../src/components/PaymentMethodPicker',()=>({PaymentMethodPicker:()=>null}));

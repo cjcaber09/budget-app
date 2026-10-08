@@ -115,7 +115,7 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (patch: Partial<Omit<Profile, "user_id">>) => {
       const owner = usePreferencesStore.getState().profile?.user_id;
-      if (!owner) throw Error("Sign in again.");
+      if (!owner) throw new Error("Sign in again.");
       const result = await supabase
         .from("profiles")
         .update(patch)

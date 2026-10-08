@@ -7,8 +7,8 @@ import type { Transaction, Category } from '../types/database';
 import { createThemedStyles, type, useColors } from '../styles/theme';
 import { MotionPressable } from './MotionPressable';
 
-interface Props { transaction: Transaction; category: Category | undefined; onPress: () => void }
-export function TransactionListItem({ transaction, category, onPress }: Props) {
+interface Props { transaction: Transaction; category: Category | undefined; paymentMethodLabel?: string; onPress: () => void }
+export function TransactionListItem({ transaction, category, paymentMethodLabel, onPress }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const isIncome = transaction.type === 'income';
@@ -16,7 +16,7 @@ export function TransactionListItem({ transaction, category, onPress }: Props) {
   const Icon = isIncome ? ArrowDownLeft : /grocer/i.test(name) ? ShoppingBasket : /rent|home/i.test(name) ? House : /transport/i.test(name) ? Car : /dining|coffee/i.test(name) ? Utensils : /health/i.test(name) ? Heart : Tag;
   return <MotionPressable style={styles.row} onPress={onPress} accessibilityLabel={`Edit ${name}, ${isIncome ? 'income' : 'expense'} ${formatMoney(transaction.amount)}`}>
     <View style={styles.icon}><Icon size={19} strokeWidth={1.6} color={isIncome ? colors.success : category?.color ?? colors.muted} /></View>
-    <View style={styles.info}><Text style={styles.category}>{name}</Text>{transaction.note ? <Text style={styles.note} numberOfLines={1}>{transaction.note}</Text> : null}<Text style={styles.date}>{format(parseISO(effectiveDate(transaction)), 'MMM d, yyyy')}</Text></View>
+    <View style={styles.info}><Text style={styles.category}>{name}</Text>{transaction.note ? <Text style={styles.note} numberOfLines={1}>{transaction.note}</Text> : null}{paymentMethodLabel ? <Text style={styles.note} numberOfLines={1}>{paymentMethodLabel}</Text> : null}<Text style={styles.date}>{format(parseISO(effectiveDate(transaction)), 'MMM d, yyyy')}</Text></View>
     <Text style={[styles.amount, isIncome && styles.amountIncome]}>{isIncome ? '+' : '−'}{formatMoney(transaction.amount)}</Text><ChevronRight size={15} color={colors.subtle} />
   </MotionPressable>;
 }

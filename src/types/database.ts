@@ -19,6 +19,7 @@ export interface Budget {
 }
 
 export interface Transaction {
+  payment_method_id?:string|null;
   occurrence_id?: string|null;
   spending_source?: 'manual'|'recurring';
   transaction_date?: string | null;
@@ -34,6 +35,10 @@ export interface Transaction {
 }
 
 export interface RecurringRule {
+  payment_method_id?:string|null;
+  reminder_enabled?: boolean;
+  reminder_days_before?: number;
+  reminder_time?: string;
   anchor_day?: number;
   month_end?: boolean;
   archived?: boolean;

@@ -1,0 +1,56 @@
+import {readFileSync} from 'node:fs';
+import {loadLinkedProject,runSqlCheck} from './lib/supabase-project.mjs';
+const project = loadLinkedProject();
+const migration=process.argv.includes('--deployed')?'':readFileSync('supabase/migrations/0019_payment_methods.sql','utf8');
+const owner='00000000-0000-4000-8000-000000009901',other='00000000-0000-4000-8000-000000009902',category='00000000-0000-4000-8000-000000009903',otherCategory='00000000-0000-4000-8000-000000009904';
+const query=`begin;${migration}
+insert into auth.users(id) values ('${owner}'),('${other}');
+insert into budget_tracker.profiles(user_id,timezone) values ('${owner}','Asia/Manila'),('${other}','Asia/Manila');
+insert into budget_tracker.categories(id,user_id,name,color,icon,is_default) values ('${category}','${owner}','Synthetic payment','#55816A','cart',false),('${otherCategory}','${other}','Synthetic other','#55816A','cart',false);
+set local request.jwt.claim.sub='${owner}';set local role authenticated;
+do $$ declare m budget_tracker.payment_methods;c budget_tracker.payment_methods;t budget_tracker.transactions;s jsonb;v jsonb;today date:=(now() at time zone 'Asia/Manila')::date;account_payload jsonb;tx_payload jsonb; before_total numeric;after_total numeric;
+begin
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods') b where b->>'method'='cash';
+if v->'balance' is distinct from 'null'::jsonb then raise exception 'Unset Cash balance is fabricated';end if;
+select * into c from budget_tracker.payment_methods where method='cash';
+account_payload:=jsonb_build_object('id',gen_random_uuid(),'operation','create','method','card','name','Metrobank synthetic','paymentType','Debit card','lastFour','8035','openingBalance','40300.50','openingDate',(today-10)::text);
+m:=budget_tracker.save_payment_method(account_payload);
+if m.last_four<>'8035' or m.opening_balance<>40300.50 then raise exception 'Method metadata failed';end if;
+if (budget_tracker.save_payment_method(account_payload)).id<>m.id then raise exception 'Method exact retry failed';end if;
+begin perform budget_tracker.save_payment_method(account_payload||jsonb_build_object('openingBalance','40300.51'));raise exception 'Conflicting create retry accepted';exception when unique_violation then null;end;
+begin perform budget_tracker.save_payment_method(account_payload||jsonb_build_object('id',gen_random_uuid(),'lastFour','1234567890123456'));raise exception 'Full card number accepted';exception when check_violation then null;end;
+begin perform budget_tracker.save_payment_method(account_payload-'openingBalance'||jsonb_build_object('id',gen_random_uuid()));raise exception 'Missing initial balance accepted';exception when invalid_parameter_value then null;end;
+tx_payload:=jsonb_build_object('payload_version',3,'operation','create','id',gen_random_uuid(),'type','expense','category_id','${category}','amount','100.25','note',null,'occurred_at',((today+time '12:00') at time zone 'Asia/Manila')::text,'transaction_date',today::text,'payment_method_id',m.id);
+t:=budget_tracker.save_transaction(tx_payload,'[]');
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods')b where b->>'id'=m.id::text;if (v->>'balance')::numeric<>40200.25 then raise exception 'Expense balance incorrect';end if;
+if (budget_tracker.save_transaction(tx_payload,'[]')).id<>t.id then raise exception 'Transaction exact retry failed';end if;
+begin perform budget_tracker.save_transaction(tx_payload||jsonb_build_object('payment_method_id',null),'[]');raise exception 'Method mismatch retry accepted';exception when unique_violation then null;end;
+perform budget_tracker.save_payment_method(jsonb_build_object('id',c.id,'operation','update','method','cash','name','Cash','paymentType','Cash','openingBalance','1000.00','openingDate',(today-10)::text));
+select sum(amount) into before_total from budget_tracker.transactions where type='expense';
+t:=budget_tracker.save_transaction(tx_payload||jsonb_build_object('operation','update','payment_method_id',null),'[]');
+select sum(amount) into after_total from budget_tracker.transactions where type='expense';if before_total<>after_total then raise exception 'Account reassignment changed spending totals';end if;
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods')b where b->>'id'=m.id::text;if (v->>'balance')::numeric<>40300.50 then raise exception 'Old account balance not restored';end if;
+select b into v from jsonb_array_elements(s->'methods')b where b->>'method'='cash';if (v->>'balance')::numeric<>899.75 then raise exception 'Cash reassignment incorrect';end if;
+delete from budget_tracker.transactions where id=t.id;
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods')b where b->>'method'='cash';if (v->>'balance')::numeric<>1000 then raise exception 'Delete did not restore Cash balance';end if;
+tx_payload:=tx_payload||jsonb_build_object('id',gen_random_uuid(),'type','income','category_id',null,'amount','200.25','payment_method_id',m.id);
+t:=budget_tracker.save_transaction(tx_payload,'[]');
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods')b where b->>'id'=m.id::text;if (v->>'balance')::numeric<>40500.75 then raise exception 'Income balance incorrect';end if;
+t:=budget_tracker.save_transaction((tx_payload-'payment_method_id')||jsonb_build_object('payload_version',2,'operation','update'),'[]');if t.payment_method_id<>m.id then raise exception 'Old client erased assignment';end if;
+perform budget_tracker.save_payment_method(jsonb_build_object('id',m.id,'operation','archive'));
+begin perform budget_tracker.save_transaction(tx_payload||jsonb_build_object('id',gen_random_uuid()),'[]');raise exception 'Archived method newly assigned';exception when invalid_parameter_value then null;end;
+t:=budget_tracker.save_transaction(tx_payload||jsonb_build_object('operation','update'),'[]');if t.payment_method_id<>m.id then raise exception 'Existing archived assignment lost';end if;
+perform budget_tracker.save_payment_method(jsonb_build_object('id',m.id,'operation','restore'));
+perform set_config('request.jwt.claim.sub','${other}',true);
+if exists(select from budget_tracker.payment_methods where id=m.id) then raise exception 'Cross-owner method visible';end if;
+begin perform budget_tracker.save_transaction(tx_payload||jsonb_build_object('id',gen_random_uuid(),'type','expense','category_id','${otherCategory}'),'[]');raise exception 'Cross-owner method accepted';exception when insufficient_privilege then null;end;
+perform set_config('request.jwt.claim.sub','${owner}',true);
+delete from budget_tracker.transactions where id=t.id;
+insert into budget_tracker.transactions(id,user_id,type,category_id,amount,note,occurred_at,transaction_date,payment_method_id)
+select gen_random_uuid(),'${owner}','expense','${category}',1,'Synthetic completeness',now(),today,m.id from generate_series(1,1001);
+insert into budget_tracker.transactions(id,user_id,type,category_id,amount,occurred_at,transaction_date,payment_method_id)values(gen_random_uuid(),'${owner}','expense','${category}',100,now(),today-11,m.id),(gen_random_uuid(),'${owner}','expense','${category}',100,now(),today+1,m.id);
+s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_elements(s->'methods')b where b->>'id'=m.id::text;if (v->>'balance')::numeric<>39199.50 then raise exception 'Complete aggregate/date boundary failed';end if;
+end $$;
+${readFileSync('scripts/payment-methods-cases.sql','utf8')}
+reset role;set constraints all immediate;rollback;select 'PASS required balance, last-four privacy, exact retries, income/expense/reassignment/delete, legacy preservation, archive, owner isolation 1001-row/date aggregates, credit, transfers, corrections, Cash baseline and recurring assignments' as result;`;
+await runSqlCheck(project, query, "PASS required balance, last-four privacy, exact retries, income/expense/reassignment/delete, legacy preservation, archive, owner isolation 1001-row/date aggregates, credit, transfers, corrections, Cash baseline and recurring assignments");
