@@ -88,7 +88,7 @@ function useRuleMutation() {
       input: AddRecurringRuleInput & { id?: string; command?: string },
     ) => {
       const cents = decimalToCents(input.amount);
-      if (cents === null) throw Error("Invalid amount");
+      if (cents === null) throw new Error("Invalid amount");
       const r = await supabase.rpc("save_recurring_rule", {
         p_rule: {
           ...input,

@@ -1,3 +1,4 @@
+import {CategoryPicker} from './CategoryPicker';
 import { useState,type ReactNode } from 'react';
 import { MotionPressable } from './MotionPressable';
 import { useFormStyles } from '../styles/forms';
@@ -77,24 +78,7 @@ export function RecurringRuleForm({ categories, initialValues, submitLabel, subm
   return (
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.optionRow}>
-        {categories.map((category) => (
-          <MotionPressable
-            key={category.id} accessibilityState={{ selected: categoryId === category.id }}
-            onPress={() => setCategoryId(category.id)}
-            style={[
-              styles.chip,
-
-              categoryId === category.id && styles.chipSelected,
-            ]}
-          >
-            <Text style={categoryId === category.id ? styles.chipTextSelected : styles.chipText}>
-              {category.name}
-            </Text>
-          </MotionPressable>
-        ))}
-      </View>
+      <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       <Text style={styles.label}>Amount</Text>
       <TextInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />

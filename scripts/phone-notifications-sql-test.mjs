@@ -1,4 +1,7 @@
-﻿import {loadEnvFile} from 'node:process';import {readFileSync} from 'node:fs';loadEnvFile();const ref=new URL(process.env.EXPO_PUBLIC_SUPABASE_URL).hostname.split('.')[0];if(readFileSync('supabase/.temp/project-ref','utf8').trim()!==ref)throw Error('Project mismatch');const sql=process.argv.includes('--deployed')?'':readFileSync('supabase/migrations/0018_phone_notifications.sql','utf8');const user='00000000-0000-4000-8000-000000009801';const category='00000000-0000-4000-8000-000000009803';const query=`begin; ${sql}
+import {readFileSync} from 'node:fs';
+import {loadLinkedProject,runSqlCheck} from './lib/supabase-project.mjs';
+const project = loadLinkedProject();
+const sql=process.argv.includes('--deployed')?'':readFileSync('supabase/migrations/0018_phone_notifications.sql','utf8');const user='00000000-0000-4000-8000-000000009801';const category='00000000-0000-4000-8000-000000009803';const query=`begin; ${sql}
 insert into auth.users(id) values ('${user}');
 set local request.jwt.claim.sub='${user}';
 set local role authenticated;
@@ -19,20 +22,4 @@ end $$;
 set local request.jwt.claim.sub='00000000-0000-4000-8000-000000009802';
 do $$ begin begin perform budget_tracker.phone_notification_snapshot();raise exception 'Other owner snapshot accepted';exception when insufficient_privilege then null;end;end $$;
 reset role; set constraints all immediate; rollback; select 'PASS rollback-only migration, config validation, timezone, skipped/paused cancellation, owner isolation and integrity' as result;`;
-// Remote response content is validated but never written to logs.
-try {
-  const response = await fetch('https://api.supabase.com/v1/projects/'+ref+'/database/query', {
-    method:'POST', headers:{Authorization:'Bearer '+process.env.EXPO_SUPABASE_ACCESS_TOKEN,'Content-Type':'application/json'},
-    body:JSON.stringify({query}), signal:AbortSignal.timeout(30000),
-  });
-  const body = await response.json();
-  if (!response.ok || !Array.isArray(body) || !body.some(row => row?.result === 'PASS rollback-only migration, config validation, timezone, skipped/paused cancellation, owner isolation and integrity')) {
-    console.error('FAIL phone notifications SQL checks. The server response was not logged.');
-    process.exitCode = 1;
-  } else {
-    console.log('PASS phone notifications SQL checks.');
-  }
-} catch {
-  console.error('FAIL phone notifications SQL request or response. Check connectivity and configuration.');
-  process.exitCode = 1;
-}
+await runSqlCheck(project, query, "PASS rollback-only migration, config validation, timezone, skipped/paused cancellation, owner isolation and integrity");

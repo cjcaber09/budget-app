@@ -181,3 +181,5 @@ Tracked balances use a server baseline and subsequent assignments: old Cash hist
 Bills inherit future method assignments while recorded history is preserved. Archive reassigns active/paused bill references and pending occurrences atomically; Cash cannot be archived. Restore is available.
 
 Migration 0019 is deployed to the configured Supabase project (remote 0001-0019 confirmed). See [implementation and verification](docs/superpowers/specs/2026-10-08-payment-methods.md). Run hosted rollback-only checks with `node scripts/payment-methods-sql-test.mjs --deployed`; run exact-retry concurrency checks with `node scripts/payment-methods-concurrency-test.mjs` (synthetic owner removed). No Docker or OCR provider call is needed. Phone web interactions and iOS/Android Hermes/web exports passed; physical-device keyboard, safe areas, native picker presentation and accessibility remain unverified.
+
+Script transport and safe-logging regression checks: `node --test scripts/lib/supabase-project.test.mjs`.

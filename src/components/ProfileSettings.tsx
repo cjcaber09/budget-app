@@ -66,7 +66,7 @@ export function ProfileSettings() {
         const permission =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted)
-          throw Error("Allow photo access to choose a profile image.");
+          throw new Error("Allow photo access to choose a profile image.");
         const picked = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
@@ -76,7 +76,7 @@ export function ProfileSettings() {
         if (picked.canceled) return;
         const asset = picked.assets[0];
         if ((asset.fileSize ?? 0) > 10485760)
-          throw Error("Choose an image smaller than 10 MB.");
+          throw new Error("Choose an image smaller than 10 MB.");
         const image = await ImageManipulator.manipulateAsync(
           asset.uri,
           [{ resize: { width: 512 } }],
@@ -86,11 +86,11 @@ export function ProfileSettings() {
             base64: true,
           },
         );
-        if (!image.base64) throw Error("Could not prepare the image.");
+        if (!image.base64) throw new Error("Could not prepare the image.");
         const bytes = Uint8Array.from(atob(image.base64), (ch) =>
           ch.charCodeAt(0),
         );
-        if (bytes.byteLength > 2097152) throw Error("Choose a smaller image.");
+        if (bytes.byteLength > 2097152) throw new Error("Choose a smaller image.");
         uploaded = `${owner}/${createRequestId()}.jpg`;
         const result = await supabase.storage
           .from(AVATARS)
@@ -101,7 +101,7 @@ export function ProfileSettings() {
         if (result.error) throw result.error;
       }
       if (usePreferencesStore.getState().profile?.user_id !== owner)
-        throw Error("Account changed. Try again.");
+        throw new Error("Account changed. Try again.");
       let query = supabase
         .from("profiles")
         .update({ avatar_path: uploaded })
@@ -112,7 +112,7 @@ export function ProfileSettings() {
       const saved = await query.select("*").maybeSingle();
       if (saved.error) throw saved.error;
       if (!saved.data)
-        throw Error(
+        throw new Error(
           "Your photo changed on another device. Refresh and try again.",
         );
       usePreferencesStore.getState().setProfile(saved.data);
@@ -161,16 +161,16 @@ export function ProfileSettings() {
     setBusy(true);
     try {
       if (!session?.user.email)
-        throw Error("Sign in again before changing your password.");
+        throw new Error("Sign in again before changing your password.");
       if (!nonceNeeded) {
         const verified = await supabase.auth.signInWithPassword({
           email: session.user.email,
           password: current,
         });
         if (verified.error)
-          throw Error("Your current password was not accepted.");
+          throw new Error("Your current password was not accepted.");
         if (verified.data.user?.id !== profile!.user_id)
-          throw Error("Account changed. Sign in again.");
+          throw new Error("Account changed. Sign in again.");
       }
       const result = await supabase.auth.updateUser({
         password,

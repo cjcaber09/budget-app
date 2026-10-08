@@ -36,7 +36,7 @@ export function useDashboard(month: string, enabled = true) {
       if (result.error) throw result.error;
       const data = result.data as DashboardSnapshot;
       if (!data?.complete)
-        throw Error(
+        throw new Error(
           "Spending guidance is unavailable. Retry to refresh your bills.",
         );
       for (const [key, value] of Object.entries(data))
@@ -45,7 +45,7 @@ export function useDashboard(month: string, enabled = true) {
           value !== null &&
           !Number.isSafeInteger(value)
         )
-          throw Error("The total is outside the supported range.");
+          throw new Error("The total is outside the supported range.");
       return data;
     },
   });
@@ -55,7 +55,7 @@ export function useSetMonthlyLimit(month: string) {
   return useMutation({
     mutationFn: async (amount: string) => {
       const owner = usePreferencesStore.getState().profile?.user_id;
-      if (!owner) throw Error("Sign in again.");
+      if (!owner) throw new Error("Sign in again.");
       const result = await supabase
         .from("monthly_limits")
         .upsert(

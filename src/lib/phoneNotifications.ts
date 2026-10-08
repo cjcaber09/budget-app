@@ -5,7 +5,7 @@ import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {alertMessage,budgetAlertLevels,type BudgetAlertInput} from '../domain/budgetNotifications';
 import {formatMoney} from '../domain/money';
 
-if(Platform.OS!=='web')Notifications.setNotificationHandler({handleNotification:async()=>({shouldShowBanner:true,shouldShowList:true,shouldPlaySound:true,shouldSetBadge:false})});
+if(Platform.OS!=='web')Notifications.setNotificationHandler({handleNotification:()=>Promise.resolve({shouldShowBanner:true,shouldShowList:true,shouldPlaySound:true,shouldSetBadge:false})});
 let work:Promise<unknown>=Promise.resolve();
 export function serializeNotifications(task:()=>Promise<void>) {
   const next=work.catch(()=>{}).then(task);work=next;return next;

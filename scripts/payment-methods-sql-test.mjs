@@ -1,4 +1,6 @@
-﻿import {loadEnvFile} from 'node:process';import {readFileSync} from 'node:fs';loadEnvFile();const ref=new URL(process.env.EXPO_PUBLIC_SUPABASE_URL).hostname.split('.')[0];if(readFileSync('supabase/.temp/project-ref','utf8').trim()!==ref)throw Error('Project mismatch');
+import {readFileSync} from 'node:fs';
+import {loadLinkedProject,runSqlCheck} from './lib/supabase-project.mjs';
+const project = loadLinkedProject();
 const migration=process.argv.includes('--deployed')?'':readFileSync('supabase/migrations/0019_payment_methods.sql','utf8');
 const owner='00000000-0000-4000-8000-000000009901',other='00000000-0000-4000-8000-000000009902',category='00000000-0000-4000-8000-000000009903',otherCategory='00000000-0000-4000-8000-000000009904';
 const query=`begin;${migration}
@@ -51,20 +53,4 @@ s:=budget_tracker.payment_method_snapshot();select b into v from jsonb_array_ele
 end $$;
 ${readFileSync('scripts/payment-methods-cases.sql','utf8')}
 reset role;set constraints all immediate;rollback;select 'PASS required balance, last-four privacy, exact retries, income/expense/reassignment/delete, legacy preservation, archive, owner isolation 1001-row/date aggregates, credit, transfers, corrections, Cash baseline and recurring assignments' as result;`;
-// Remote response content is validated but never written to logs.
-try {
-  const response = await fetch('https://api.supabase.com/v1/projects/'+ref+'/database/query', {
-    method:'POST', headers:{Authorization:'Bearer '+process.env.EXPO_SUPABASE_ACCESS_TOKEN,'Content-Type':'application/json'},
-    body:JSON.stringify({query}), signal:AbortSignal.timeout(30000),
-  });
-  const body = await response.json();
-  if (!response.ok || !Array.isArray(body) || !body.some(row => row?.result === 'PASS required balance, last-four privacy, exact retries, income/expense/reassignment/delete, legacy preservation, archive, owner isolation 1001-row/date aggregates, credit, transfers, corrections, Cash baseline and recurring assignments')) {
-    console.error('FAIL payment methods SQL checks. The server response was not logged.');
-    process.exitCode = 1;
-  } else {
-    console.log('PASS payment methods SQL checks.');
-  }
-} catch {
-  console.error('FAIL payment methods SQL request or response. Check connectivity and configuration.');
-  process.exitCode = 1;
-}
+await runSqlCheck(project, query, "PASS required balance, last-four privacy, exact retries, income/expense/reassignment/delete, legacy preservation, archive, owner isolation 1001-row/date aggregates, credit, transfers, corrections, Cash baseline and recurring assignments");

@@ -17,7 +17,7 @@ export function NotificationSettings() {
   const change=async(key:'budget_notifications'|'bill_notifications'|'notification_private',value:boolean)=>{
     if(busy||update.isPending)return;setBusy(true);setError('');const owner=profile.user_id;
     try {
-      if(value&&key!=='notification_private'){const permitted=await phonePermission(true);setAllowed(permitted);if(!permitted)throw Error('Phone notifications are disabled. Allow them in your phone settings.');}
+      if(value&&key!=='notification_private'){const permitted=await phonePermission(true);setAllowed(permitted);if(!permitted)throw new Error('Phone notifications are disabled. Allow them in your phone settings.');}
       if(usePreferencesStore.getState().profile?.user_id!==owner)return;
       await update.mutateAsync({[key]:value});
     }catch(e){setError(e instanceof Error?e.message:'Could not save notification settings. Try again.');}finally{setBusy(false);}
@@ -31,7 +31,7 @@ export function NotificationSettings() {
     {Platform.OS!=='web'&&<View>
       {profile.bill_notifications&&<MotionPressable style={styles.secondaryButton} onPress={()=>void client.invalidateQueries({queryKey:['phoneReminders']})}><Text style={styles.chipTextSelected}>Refresh bill reminders</Text></MotionPressable>}
       {!allowed&&<MotionPressable style={styles.secondaryButton} onPress={()=>{void Linking.openSettings().catch(()=>setError('Open your phone settings and allow notifications for Budget Tracker.'));}}><Text style={styles.chipTextSelected}>Open phone settings</Text></MotionPressable>}
-      <MotionPressable style={styles.secondaryButton} disabled={busy} onPress={()=>{setBusy(true);setError('');void (async()=>{if(!await phonePermission(true))throw Error('Allow phone notifications first.');await Notifications.scheduleNotificationAsync({content:{title:'Budget Tracker',body:'Phone notifications are working.',sound:'default'},trigger:Platform.OS==='android'?{channelId:'budget-alerts'}:null});setAllowed(true);})().catch(e=>setError(e instanceof Error?e.message:'Could not send a test notification.')).finally(()=>setBusy(false));}}><Text style={styles.chipTextSelected}>Send test notification</Text></MotionPressable>
+      <MotionPressable style={styles.secondaryButton} disabled={busy} onPress={()=>{setBusy(true);setError('');void (async()=>{if(!await phonePermission(true))throw new Error('Allow phone notifications first.');await Notifications.scheduleNotificationAsync({content:{title:'Budget Tracker',body:'Phone notifications are working.',sound:'default'},trigger:Platform.OS==='android'?{channelId:'budget-alerts'}:null});setAllowed(true);})().catch(e=>setError(e instanceof Error?e.message:'Could not send a test notification.')).finally(()=>setBusy(false));}}><Text style={styles.chipTextSelected}>Send test notification</Text></MotionPressable>
     </View>}
   </View>;
 }

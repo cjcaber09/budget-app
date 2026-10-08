@@ -1,3 +1,4 @@
+import {CategoryPicker} from './CategoryPicker';
 import { formatMoney } from '../domain/money';
 import { useState,type ReactNode } from 'react';
 import { MotionPressable } from './MotionPressable';
@@ -144,24 +145,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       {type === 'expense' && (
         <>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.optionRow}>
-            {categories.map((category) => (
-              <MotionPressable
-                key={category.id} accessibilityState={{ selected: categoryId === category.id }}
-                onPress={() => setCategoryId(category.id)}
-                style={[
-                  styles.chip,
-
-                  categoryId === category.id && styles.chipSelected,
-                ]}
-              >
-                <Text style={categoryId === category.id ? styles.chipTextSelected : styles.chipText}>
-                  {category.name}
-                </Text>
-              </MotionPressable>
-            ))}
-          </View>
+          <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
         </>
       )}
       <TransactionDateField value={transactionDate} onChange={day => {setTransactionDate(day);setDateEdited(true);}} hint={dateEdited ? 'Edited date' : receipt?.receiptDate ? 'Receipt date' : scanned ? receipt?.receiptDateRaw ? 'Receipt date was unclear; using the date this scan started.' : 'No receipt date found; using the date this scan started.' : undefined} />

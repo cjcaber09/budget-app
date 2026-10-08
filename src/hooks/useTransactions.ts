@@ -7,6 +7,14 @@ import { monthFilter, effectiveDate } from '../domain/transactionDates';
 import { usePreferencesStore } from '../stores/usePreferencesStore';
 import { transactionListKey } from '../domain/queryKeys';
 
+function refreshSavedTransaction(client:QueryClient,saved:Transaction) {
+  client.setQueryData(['transaction',saved.id],saved);
+  for(const key of [
+    ['transaction',saved.id],['transactionItems',saved.id],['transactions'],
+    ['monthlyTotals'],['dashboard'],['paymentMethods'],['phoneReminders'],
+  ]) void client.invalidateQueries({queryKey:key});
+}
+
 interface ListSnapshot { key: QueryKey; data: Transaction[] | undefined }
 function listSnapshots(client:QueryClient,targetMonth:string):ListSnapshot[] {
   const snapshots=client.getQueriesData<Transaction[]>({queryKey:['transactions']}).map(([key,data])=>({key,data}));
@@ -143,16 +151,7 @@ export function useAddTransaction(_month: string) {
       }
     },
     onSettled: () => { void queryClient.invalidateQueries({queryKey:['transactions']}); },
-    onSuccess: saved => {
-      queryClient.setQueryData(['transaction', saved.id], saved);
-      queryClient.invalidateQueries({ queryKey: ['transaction', saved.id] });
-      queryClient.invalidateQueries({ queryKey: ['transactionItems', saved.id] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['monthlyTotals'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
-      queryClient.invalidateQueries({ queryKey: ['phoneReminders'] });
-    },
+    onSuccess: saved => refreshSavedTransaction(queryClient,saved),
   });
 }
 
@@ -204,16 +203,7 @@ export function useUpdateTransaction(_month: string) {
       }
     },
     onSettled: () => { void queryClient.invalidateQueries({queryKey:['transactions']}); },
-    onSuccess: saved => {
-      queryClient.setQueryData(['transaction', saved.id], saved);
-      queryClient.invalidateQueries({ queryKey: ['transaction', saved.id] });
-      queryClient.invalidateQueries({ queryKey: ['transactionItems', saved.id] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['monthlyTotals'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
-      queryClient.invalidateQueries({ queryKey: ['phoneReminders'] });
-    },
+    onSuccess: saved => refreshSavedTransaction(queryClient,saved),
   });
 }
 

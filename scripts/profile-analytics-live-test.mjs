@@ -103,7 +103,7 @@ try {
 } finally {
   let cleanupFailed=false;
   for(const user of users){
-    try{const removed=await api(`/auth/v1/admin/users/${user.id}`,'DELETE');if(!removed.ok)throw Error('user cleanup');}
+    try{const removed=await api(`/auth/v1/admin/users/${user.id}`,'DELETE');if(!removed.ok)throw new Error('user cleanup');}
     catch{cleanupFailed=true;console.error(`Cleanup needs retry for synthetic user ${user.id}`);}
   }
   for(const path of avatarFiles){
@@ -115,6 +115,6 @@ try {
     if(!gone){const removed=await api('/storage/v1/object/budget-tracker-avatars','DELETE',{prefixes:[path]});if(!removed.ok)cleanupFailed=true;console.error('Deleted-account avatar purge did not complete automatically; explicit cleanup attempted.');}
     else console.log('PASS deleted-account avatar purge');
   }
-  if(cleanupFailed)throw Error('Synthetic test cleanup incomplete; resolve before finishing.');
+  if(cleanupFailed)throw new Error('Synthetic test cleanup incomplete; resolve before finishing.');
   console.log('Cleanup: synthetic users and avatar fixture removed');
 }
