@@ -56,6 +56,7 @@ export function SpendingGuidance({
       params: {
         visit: createRequestId(),
         occurrenceId: bill.id,
+        paymentMethodId:bill.payment_method_id??undefined,
         categoryId: bill.category_id ?? "",
         billAmount: String(bill.amount),
         billNote: bill.label ?? "Scheduled expense",

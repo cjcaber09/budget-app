@@ -1,3 +1,4 @@
+import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, Image, Text, ActivityIndicator } from 'react-native';
 import { MotionPressable } from '../../../src/components/MotionPressable';
@@ -11,7 +12,7 @@ import { useScanStore, type PendingScanImage } from '../../../src/stores/useScan
 import { useToastStore } from '../../../src/stores/useToastStore';
 import { TransactionForm } from '../../../src/components/TransactionForm';
 import { usePageLayout } from '../../../src/styles/pageLayout';
-import { MAX_OCR_TEXT_CHARS, centsToDecimal, type OcrScanResult } from '../../../supabase/functions/ocr/shared';
+import { MAX_OCR_TEXT_CHARS, centsToDecimal,isUuid, type OcrScanResult } from '../../../supabase/functions/ocr/shared';
 import { createRequestId } from '../../../src/domain/ocr';
 import { localDateKey, occurrenceForDate } from '../../../src/domain/transactionDates';
 import { activeTimezone } from '../../../src/stores/usePreferencesStore';
@@ -27,14 +28,14 @@ function showToast(message: string) {
 // The pending image is only used when it was picked for this visit.
 export default function NewTransactionScreen() {
 
-  const { visit,occurrenceId,categoryId,billAmount,billNote } = useLocalSearchParams<{ visit?: string;occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string }>();
+  const { visit,occurrenceId,categoryId,billAmount,billNote,paymentMethodId } = useLocalSearchParams<{ visit?: string;occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string;paymentMethodId?:string }>();
   const pendingImage = useScanStore((state) => state.pendingImage);
   const scanImage = pendingImage && pendingImage.requestId === visit ? pendingImage : null;
 
-  return <NewTransactionContent key={visit ?? 'direct'} scanImage={scanImage} bill={{occurrenceId,categoryId,billAmount,billNote}} />;
+  return <NewTransactionContent key={visit ?? 'direct'} scanImage={scanImage} bill={{occurrenceId,categoryId,billAmount,billNote,paymentMethodId}} />;
 }
 
-function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage: PendingScanImage | null;bill:{occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string} }) {
+function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage: PendingScanImage | null;bill:{occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string;paymentMethodId?:string} }) {
   const pageLayout = usePageLayout();
   const styles = useStyles();
   const colors = useColors();
@@ -115,18 +116,18 @@ function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage
         ) : (
           <>
           <View style={billReview?{display:'none'}:undefined}>
-          <TransactionForm
+          <TransactionForm paymentMethodControl={(value,onChange)=><PaymentMethodPicker value={value} onChange={onChange}/>}
             categories={categories}
             receipt={scanResult?.receipt}
             receiptText={scanResult?.text}
             scanned={!!scanResult}
             onDiscard={() => router.back()}
             scanDate={scanContext.day}
-            initialValues={{categoryId:bill.categoryId,note: prefillNote ?? bill.billNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : bill.billAmount??'' }}
+            initialValues={{paymentMethodId:bill.occurrenceId&&isUuid(bill.paymentMethodId)?bill.paymentMethodId:null,categoryId:bill.categoryId,note: prefillNote ?? bill.billNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : bill.billAmount??'' }}
             submitting={submitting} submitLabel="Add Transaction"
-            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails }) => {
+            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId }) => {
               if(bill.occurrenceId && type!=='expense'){showToast('Record a bill as an expense.');return;}
-              const input={id:transactionId,occurrenceId:bill.occurrenceId,type,categoryId,amount,note,items,transactionDate,paymentDetails,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
+              const input={id:transactionId,occurrenceId:bill.occurrenceId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
               if(bill.occurrenceId && amount!==Number(bill.billAmount)){setBillReview(input);return;}
               addTransaction(
                 input,

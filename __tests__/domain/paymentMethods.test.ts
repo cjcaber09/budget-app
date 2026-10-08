@@ -1,0 +1,7 @@
+import {validatePaymentMethod,paymentMethodLabel,isCreditCard,type PaymentMethodValues} from '../../src/domain/paymentMethods';
+const base:PaymentMethodValues={id:'id',method:'card',paymentType:'Debit card',name:'Metrobank',lastFour:'',openingBalance:'40300.50'};
+test.each(['','NaN','Infinity','1e3','0.001','10000000000.00'])('rejects invalid required balance %s',openingBalance=>expect(validatePaymentMethod({...base,openingBalance})).toBeTruthy());
+test.each(['803','80355','1234567890123456','８０３５'])('rejects invalid last digits %s',lastFour=>expect(validatePaymentMethod({...base,lastFour})).toBeTruthy());
+test('zero and negative funds balances are valid; credit debt is nonnegative',()=>{expect(validatePaymentMethod({...base,openingBalance:'0'})).toBeNull();expect(validatePaymentMethod({...base,openingBalance:'-50'})).toBeNull();expect(validatePaymentMethod({...base,paymentType:'Credit card',openingBalance:'-50'})).toBeTruthy();});
+test('full numbers cannot be hidden in name or type',()=>{expect(validatePaymentMethod({...base,name:'1234 5678 9012 3456'})).toBeTruthy();expect(validatePaymentMethod({...base,paymentType:'1234567890123456'})).toBeTruthy();});
+test('label includes only optional last four and funding kind is explicit',()=>{expect(paymentMethodLabel({name:'Metrobank',payment_type:'Debit card',last_four:'8035'})).toContain('****8035');expect(isCreditCard({method:'card',payment_type:'Credit card'})).toBe(true);});

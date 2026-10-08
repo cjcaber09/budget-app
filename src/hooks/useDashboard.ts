@@ -6,7 +6,7 @@ import { usePreferencesStore } from "../stores/usePreferencesStore";
 import { localDateKey } from "../domain/transactionDates";
 import type { DashboardSnapshot } from "../domain/spendingGuidance";
 
-export function useDashboard(month: string) {
+export function useDashboard(month: string, enabled = true) {
   const profile = usePreferencesStore((s) => s.profile);
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -23,7 +23,7 @@ export function useDashboard(month: string) {
   const day = localDateKey(new Date(clock), profile?.timezone);
   return useQuery({
     queryKey: ["dashboard", profile?.user_id, profile?.timezone, month, day],
-    enabled: !!profile,
+    enabled: enabled && !!profile,
     refetchOnMount: "always",
     queryFn: async (): Promise<DashboardSnapshot> => {
       const prepared = await supabase.rpc("prepare_dashboard", {
@@ -89,7 +89,9 @@ export function useBillCommand() {
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["phoneReminders"] });
       void client.invalidateQueries({ queryKey: ["transactions"] });
+      void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
     },
   });

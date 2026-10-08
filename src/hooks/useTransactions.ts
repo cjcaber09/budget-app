@@ -49,9 +49,10 @@ async function saveTransaction(operation: 'create' | 'update', input: AddTransac
   const cents = items.length ? sumItemCents(items,input.type) : decimalToCents(input.amount);
   if (cents === null || cents <= 0 || cents > MAX_MONEY_CENTS) throw new Error('Amount must be positive and in range.');
   const payload = {
-    p_transaction: { operation, payload_version: 2, id: input.id ?? createRequestId(), type: input.type, category_id: input.categoryId,
+    p_transaction: { operation, payload_version: 3, id: input.id ?? createRequestId(), type: input.type, category_id: input.categoryId,
       amount: centsToDecimal(cents), note: input.note, occurred_at: input.occurredAt,
       ...(input.transactionDate !== undefined ? { transaction_date: input.transactionDate } : {}),
+      ...(input.paymentMethodId !== undefined ? { payment_method_id: input.paymentMethodId } : {}),
       ...(input.paymentDetails !== undefined ? { payment_details: input.paymentDetails } : {}) },
     p_items: items.map(row => ({ kind: row.kind, label: row.label.trim(), amount: centsToDecimal(row.amountCents),
       quantity: row.quantity, unit_price: row.unitPriceCents === null ? null : centsToDecimal(row.unitPriceCents), tax_included: row.taxIncluded,
@@ -87,6 +88,7 @@ export function useTransactions(month: string) {
 }
 
 export interface AddTransactionInput {
+  paymentMethodId?:string|null;
   occurrenceId?:string;
   confirmDifference?:boolean;
   transactionDate?: string | null;
@@ -125,6 +127,7 @@ export function useAddTransaction(_month: string) {
         type: newTransaction.type,
         transaction_date: newTransaction.transactionDate,
         payment_details: newTransaction.paymentDetails,
+        payment_method_id: newTransaction.paymentMethodId??null,
       };
 
       queryClient.setQueryData<Transaction[]>(transactionListKey(targetMonth), (old) => [
@@ -147,11 +150,14 @@ export function useAddTransaction(_month: string) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['monthlyTotals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
+      queryClient.invalidateQueries({ queryKey: ['phoneReminders'] });
     },
   });
 }
 
 export interface UpdateTransactionInput {
+  paymentMethodId?:string|null;
   occurrenceId?:string;
   confirmDifference?:boolean;
   transactionDate?: string | null;
@@ -183,7 +189,8 @@ export function useUpdateTransaction(_month: string) {
       const snapshots=listSnapshots(queryClient,targetMonth);
       if(original) {
         const optimistic={...original,category_id:updated.categoryId,amount:inputAmount(updated),note:updated.note,occurred_at:updated.occurredAt,type:updated.type,
-          transaction_date:transactionDate,payment_details:updated.paymentDetails===undefined ? original.payment_details : updated.paymentDetails};
+          transaction_date:transactionDate,payment_details:updated.paymentDetails===undefined ? original.payment_details : updated.paymentDetails,
+          payment_method_id:updated.paymentMethodId===undefined?original.payment_method_id:updated.paymentMethodId};
         for(const snapshot of snapshots) queryClient.setQueryData<Transaction[]>(snapshot.key,()=>{
           const rows=(snapshot.data??[]).filter(row=>row.id!==updated.id);
           return JSON.stringify(snapshot.key)===JSON.stringify(transactionListKey(targetMonth)) ? [optimistic,...rows] : rows;
@@ -204,6 +211,8 @@ export function useUpdateTransaction(_month: string) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['monthlyTotals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
+      queryClient.invalidateQueries({ queryKey: ['phoneReminders'] });
     },
   });
 }
@@ -215,7 +224,7 @@ export function useDeleteTransaction(month: string) {
     mutationFn: async (id: string) => {
       const row=queryClient.getQueryData<Transaction>(['transaction',id]) ?? queryClient.getQueriesData<Transaction[]>({queryKey:['transactions']}).flatMap(([,rows])=>rows??[]).find(t=>t.id===id);
       if(row?.occurrence_id) {const result=await supabase.rpc('bill_command',{p_occurrence:row.occurrence_id,p_command:'skip'});if(result.error)throw result.error;return;}
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase.rpc('delete_transaction',{p_id:id});
       if (error) throw error;
     },
     onSuccess: (_, id) => {
@@ -224,6 +233,8 @@ export function useDeleteTransaction(month: string) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['monthlyTotals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
+      queryClient.invalidateQueries({ queryKey: ['phoneReminders'] });
     },
   });
 }

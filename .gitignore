@@ -84,6 +84,7 @@ assets/images/sample-receipts/
 .impeccable/preferences-motion-error-check.mjs
 .impeccable/direction-options.json
 .impeccable/native-build/
+.impeccable/payment-export*/
 .impeccable/questions/
 
 # Local agent execution reports (shared specs stay in docs/)

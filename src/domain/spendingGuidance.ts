@@ -1,4 +1,5 @@
 export interface BillOccurrence {
+  payment_method_id?:string|null;
   id: string;
   rule_id: string;
   scheduled_date: string;

@@ -1,3 +1,4 @@
+import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
 import { useBillCommand } from '../../../src/hooks/useDashboard';
 import { createRequestId } from '../../../src/domain/ocr';
 import { formatMoney } from '../../../src/domain/money';
@@ -53,8 +54,8 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
   return <>
     {snapshot.transaction.occurrence_id&&<Text style={styles.subtitle}>Linked to a scheduled bill. Changing this expense to income skips that occurrence.</Text>}
     <View style={confirmation?{display:'none'}:undefined}>
-    <TransactionForm categories={categories}
-      initialValues={{ type: snapshot.transaction.type, categoryId: snapshot.transaction.category_id ?? '', amount: String(snapshot.transaction.amount), note: snapshot.transaction.note ?? '', items: snapshot.items, paymentDetails:snapshot.transaction.payment_details ?? null,transactionDate:effectiveDate(snapshot.transaction) }}
+    <TransactionForm paymentMethodControl={(value,onChange)=><PaymentMethodPicker value={value} onChange={onChange}/>} categories={categories}
+      initialValues={{ paymentMethodId:snapshot.transaction.payment_method_id??null,type: snapshot.transaction.type, categoryId: snapshot.transaction.category_id ?? '', amount: String(snapshot.transaction.amount), note: snapshot.transaction.note ?? '', items: snapshot.items, paymentDetails:snapshot.transaction.payment_details ?? null,transactionDate:effectiveDate(snapshot.transaction) }}
       submitting={saving} submitLabel="Save Changes"
       onSubmit={values => {const input={ ...values, occurrenceId:snapshot.transaction.occurrence_id??undefined,id: snapshot.transaction.id, occurredAt:values.transactionDate === effectiveDate(snapshot.transaction) ? snapshot.transaction.occurred_at : occurrenceForDate(values.transactionDate,snapshot.transaction.occurred_at) };if(snapshot.transaction.occurrence_id&&values.type==='expense'&&values.amount!==snapshot.transaction.amount){setConfirmation(input);return;}update.mutate(input,{onSuccess:()=>router.back()});}} />
     </View>
@@ -62,6 +63,6 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
     <MotionPressable style={styles.secondaryButton} disabled={saving} onPress={() => remove.mutate(snapshot.transaction.id, { onSuccess: () => router.back() })}>
       <Text style={styles.secondaryText}>{snapshot.transaction.occurrence_id ? 'Delete and skip this bill' : 'Delete Transaction'}</Text>
     </MotionPressable>
-    {snapshot.transaction.occurrence_id&&<MotionPressable disabled={saving} style={styles.secondaryButton} onPress={()=>billCommand.mutate({id:snapshot.transaction.occurrence_id!,command:'replace'},{onSuccess:data=>router.replace({pathname:'/transaction/new',params:{visit:createRequestId(),occurrenceId:data.occurrence.id,categoryId:data.occurrence.category_id??'',billAmount:String(data.occurrence.amount),billNote:data.occurrence.label??'Scheduled expense'}})})}><Text style={styles.chipText}>Replace this expense</Text></MotionPressable>}
+    {snapshot.transaction.occurrence_id&&<MotionPressable disabled={saving} style={styles.secondaryButton} onPress={()=>billCommand.mutate({id:snapshot.transaction.occurrence_id!,command:'replace'},{onSuccess:data=>router.replace({pathname:'/transaction/new',params:{visit:createRequestId(),occurrenceId:data.occurrence.id,paymentMethodId:data.occurrence.payment_method_id??undefined,categoryId:data.occurrence.category_id??'',billAmount:String(data.occurrence.amount),billNote:data.occurrence.label??'Scheduled expense'}})})}><Text style={styles.chipText}>Replace this expense</Text></MotionPressable>}
   </>;
 }

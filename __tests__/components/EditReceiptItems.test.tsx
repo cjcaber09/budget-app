@@ -57,3 +57,5 @@ it('requires confirmation for a linked amount edit and retains the draft on canc
   expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({amount:8,occurrenceId:'bill-id',confirmDifference:true}),expect.any(Object));
 });
 jest.mock('../../src/hooks/useDashboard',()=>({useBillCommand:()=>({mutate:jest.fn(),isPending:false})}));
+
+jest.mock('../../src/components/PaymentMethodPicker',()=>({PaymentMethodPicker:()=>null}));

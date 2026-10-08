@@ -7,6 +7,7 @@ import { LayoutDashboard, Receipt, ChartColumn, Settings } from 'lucide-react-na
 import { type, useColors } from '../../src/styles/theme';
 import { useRecurringCatchUp } from '../../src/hooks/useRecurringRules';
 import { useBudgetAlerts } from '../../src/hooks/useBudgetAlerts';
+import { usePhoneNotifications } from '../../src/hooks/usePhoneNotifications';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { BackButton } from '../../src/components/BackButton';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
@@ -43,6 +44,7 @@ export default function TabsLayout() {
   const colors = useColors();
   const insets = useContext(SafeAreaInsetsContext);
   useRecurringCatchUp();
+  usePhoneNotifications();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   useBudgetAlerts(selectedMonth);
   const pathname = usePathname();
@@ -100,11 +102,11 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="recurring/new"
-          options={{ href: null, title: 'Add Recurring Rule', headerLeft: renderBackButton }}
+          options={{ href: null, title: 'Add Recurring Bill', headerLeft: renderBackButton }}
         />
         <Tabs.Screen
           name="recurring/[id]"
-          options={{ href: null, title: 'Edit Recurring Rule', headerLeft: renderBackButton }}
+          options={{ href: null, title: 'Edit Recurring Bill', headerLeft: renderBackButton }}
         />
       </Tabs>
       {/* Rendered as a sibling of the whole Tabs navigator (not nested

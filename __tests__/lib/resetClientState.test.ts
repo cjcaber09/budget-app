@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { resetClientState } from '../../src/lib/resetClientState';
 import { useScanStore } from '../../src/stores/useScanStore';
+jest.mock('../../src/lib/phoneNotifications',()=>({cancelPhoneReminders:jest.fn().mockResolvedValue(undefined),serializeNotifications:jest.fn(task=>task())}));
 
 describe('resetClientState', () => {
   it("drops every cached query and the pending scan image so the next user can't see them", () => {

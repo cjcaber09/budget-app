@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { Budget } from '../types/database';
 
-export function useBudgets(month: string) {
+export function useBudgets(month: string, enabled = true) {
   return useQuery({
     queryKey: ['budgets', month],
+    enabled,
     queryFn: async (): Promise<Budget[]> => {
       const { data, error } = await supabase.from('budgets').select('*').eq('month', month);
       if (error) throw error;
