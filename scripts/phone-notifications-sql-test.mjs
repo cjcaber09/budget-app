@@ -19,4 +19,20 @@ end $$;
 set local request.jwt.claim.sub='00000000-0000-4000-8000-000000009802';
 do $$ begin begin perform budget_tracker.phone_notification_snapshot();raise exception 'Other owner snapshot accepted';exception when insufficient_privilege then null;end;end $$;
 reset role; set constraints all immediate; rollback; select 'PASS rollback-only migration, config validation, timezone, skipped/paused cancellation, owner isolation and integrity' as result;`;
-const response=await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`,{method:'POST',headers:{Authorization:`Bearer ${process.env.EXPO_SUPABASE_ACCESS_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({query}),signal:AbortSignal.timeout(30000)});const body=await response.json();if(!response.ok){console.log(JSON.stringify(body));process.exit(1);}console.log(JSON.stringify(body));
+// Remote response content is validated but never written to logs.
+try {
+  const response = await fetch('https://api.supabase.com/v1/projects/'+ref+'/database/query', {
+    method:'POST', headers:{Authorization:'Bearer '+process.env.EXPO_SUPABASE_ACCESS_TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify({query}), signal:AbortSignal.timeout(30000),
+  });
+  const body = await response.json();
+  if (!response.ok || !Array.isArray(body) || !body.some(row => row?.result === 'PASS rollback-only migration, config validation, timezone, skipped/paused cancellation, owner isolation and integrity')) {
+    console.error('FAIL phone notifications SQL checks. The server response was not logged.');
+    process.exitCode = 1;
+  } else {
+    console.log('PASS phone notifications SQL checks.');
+  }
+} catch {
+  console.error('FAIL phone notifications SQL request or response. Check connectivity and configuration.');
+  process.exitCode = 1;
+}
