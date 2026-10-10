@@ -1,3 +1,4 @@
+jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import SettingsScreen from '../../app/(tabs)/settings';
 

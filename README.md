@@ -1,5 +1,32 @@
 # Budget Tracker
 
+## CSV exports and account access
+
+Reports offers **Export CSV** for the selected month or twelve months ending there,
+with monthly spending, category breakdowns and payment-account amounts/counts.
+Transactions offers a separate CSV respecting its month, Income/Expenses filter
+and search, including transaction notes. Exports exclude transfers and balance
+corrections from spending and disclose included future-dated entries.
+
+Login's **Forgot password?** sends an eight-digit recovery code through hosted
+Supabase's Gmail SMTP. Use a Google App Password with 2-Step Verification, host
+`smtp.gmail.com`, port `587`, and matching sender/username. Enter credentials only
+in Supabase SMTP settings. The reusable recovery email is
+[recovery-code.html](supabase/templates/recovery-code.html); it uses `{{ .Token }}`.
+Set `EXPO_PUBLIC_AUTH_OTP_LENGTH` to match hosted Auth (default `8`).
+
+Settings' **Delete account** requires the current password and explicit permanent
+deletion acknowledgment. A durable server job blocks writes/uploads, waits for
+active scans, removes Storage files and deletes Auth/financial records. Cleanup
+continues if the app closes; lost/expired sessions do not imply completion.
+The private cleanup cron runs every five minutes. Recurring bills still prepare
+from the client. See [implementation and verification](docs/superpowers/plans/2026-10-10-mvp-exports-recovery-deletion.md).
+
+Migrations 0023/0024 and updated `ocr`/`delete-account` functions are deployed.
+Run `node scripts/mvp-exports-account-sql-test.mjs --deployed` for rollback checks
+and `node scripts/mvp-account-live-test.mjs` for synthetic hosted verification
+without emails or OCR calls. Physical-device file sharing remains unverified.
+
 A personal budget-tracking app built with Expo, TypeScript, and Supabase. Set a
 monthly budget per category, log transactions, see spend vs. budget with
 charts, get alerted when you're close to or over budget, and set up recurring
@@ -63,7 +90,7 @@ full design, including what's explicitly out of scope for v1.
    - **Cloud Vision (text fallback):** enable the API in Google Cloud. It needs a billing account even on the free tier. Create an API key restricted to the Vision API with no application restrictions, and add a $1 budget alert. The app caps scans at 900/month to stay inside Vision's 1,000 free images.
    - **Gemini (primary structured extraction, no billing needed):** create a key at https://aistudio.google.com/apikey. On the free tier, Google may use the submitted images to improve its products.
 
-   With both set, Gemini extracts merchant, receipt rows and total first; Vision provides text-only fallback if structured extraction fails. Push all migrations through 0018 before using the current profile, bill, and transaction forms. Then deploy the function and wire up account-deletion cleanup:
+   With both set, Gemini extracts merchant, receipt rows and total first; Vision provides text-only fallback if structured extraction fails. Push all migrations through 0022 before using the current profile, bill, transaction, and budget forms. Then deploy the function and wire up account-deletion cleanup:
 
    ```bash
    npx supabase secrets set GOOGLE_VISION_API_KEY=<key> --project-ref <ref>
@@ -158,7 +185,7 @@ Use the printed receipt transaction/issue date when clear; otherwise use the loc
 
 Signed-in screens open with System appearance, USD and the device timezone while saved preferences load. Missing profiles are created without overwriting an existing profile; saved settings replace the temporary defaults. Preference failures offer a retry in Settings and do not block navigation. Financial data retains its own loading and error states. A loaded timezone corrects the displayed current month when necessary while preserving a selected historical month. Screen changes use a 180ms fade, disabled for Reduce Motion, and Back follows navigation history.
 
-Settings now includes display name/private avatar, password change, System/Light/Dark appearance, currency-unit selection and a financial timezone. Currency changes do not convert existing amounts. Overview adds an independent monthly limit, Safe to spend after scheduled bills, a daily allowance and spending forecast. Upcoming bills support recording, linking, skipping and replacement; different payment amounts require full-settlement confirmation.
+Settings now includes display name/private avatar, password change, System/Light/Dark appearance, currency-unit selection and a financial timezone. Currency changes do not convert existing amounts. Overview shows a monthly allowance that caps combined category budgets, Safe to spend after scheduled bills, a daily allowance and spending forecast. Its top-right bell opens upcoming bills for the selected month and shows a red dot for outstanding/replacement bills. Recording, linking, skipping and replacement remain available; different payment amounts require full-settlement confirmation.
 
 Migrations 0015-0017 add profiles, monthly limits, anchored recurring occurrences and consistent server aggregates. Legacy clients cannot write schedules or linked expenses outside the new RPCs; ordinary transaction saves remain compatible. Deploy schema plus the updated deleted-account purge before using these screens. Run `node scripts/receipt-sql-test.mjs --analytics` in the disposable test container, and `node scripts/profile-analytics-live-test.mjs` for synthetic-only hosted verification and cleanup. The latter creates temporary users and a synthetic Storage marker fixture, makes no OCR call, and changes only a temporary user password.
 
@@ -183,3 +210,31 @@ Bills inherit future method assignments while recorded history is preserved. Arc
 Migration 0019 is deployed to the configured Supabase project (remote 0001-0019 confirmed). See [implementation and verification](docs/superpowers/specs/2026-10-08-payment-methods.md). Run hosted rollback-only checks with `node scripts/payment-methods-sql-test.mjs --deployed`; run exact-retry concurrency checks with `node scripts/payment-methods-concurrency-test.mjs` (synthetic owner removed). No Docker or OCR provider call is needed. Phone web interactions and iOS/Android Hermes/web exports passed; physical-device keyboard, safe areas, native picker presentation and accessibility remain unverified.
 
 Script transport and safe-logging regression checks: `node --test scripts/lib/supabase-project.test.mjs`.
+
+## Monthly allowance and category budgets
+
+Combined category budgets may equal, but cannot exceed, the monthly allowance. Set an allowance before adding or increasing positive budgets; reducing the allowance below combined allocations is rejected. Saving against a future inherited allowance freezes that month's allowance. Existing excessive or allowance-less allocations can be repaired through strict budget reductions without silently rewriting saved amounts. Automatic inheritance skips an invalid lower allowance so legacy data cannot block Overview.
+
+Tapping a category budget opens its read-only value and all category transactions for the selected month; Edit opens a fresh draft with available capacity and retry recovery. Shared date fields retain native pickers and use the browser calendar on web, including correctly labeled Next due date fields. Email remains noneditable without the redundant helper sentence.
+
+Migration 0020 is deployed to the configured Supabase project (remote 0001-0020 confirmed). Budget and allowance saves use owner-locked RPCs; authenticated table access is read-only. See [the implemented spec](docs/superpowers/specs/2026-10-08-combined-budget-cap.md). Hosted rollback checks: `node scripts/combined-budget-cap-sql-test.mjs --deployed`; concurrent cap checks: `node scripts/combined-budget-concurrency-test.mjs` (synthetic owner removed). No Docker or OCR provider call is needed.
+
+Verification passed 250 Jest tests across 40 suites, TypeScript, lint, synthetic 390px light/dark phone interactions, and production iOS/Android Hermes and web 28-route exports. Physical-device picker presentation, keyboard, safe areas and accessibility remain unverified.
+
+## Overview and Reports
+
+Overview keeps monthly allowance, Safe to Spend/per-day allowance, Income/Expenses/Net Income, tappable over-budget alerts above a centered month selector, and the upcoming bills bell. Reports holds Budget vs Actual in a three-column category doughnut grid, the categorized-expense doughnut with its list legend, current-month Daily Spending Pace with forecast/allowance comparison, and a responsive twelve-month line/area trend. The trend ends in the selected month and includes recorded future-dated entries; readable monthly amounts identify the current month as in progress. Section-local errors offer retry without fabricated totals.
+
+Implementation and verification: [dashboard report move](docs/superpowers/plans/2026-10-09-dashboard-reports-move.md). The additional analytics are implemented in the [Reports expansion plan](docs/superpowers/plans/2026-10-09-reports-expansion.md).
+
+## Optional demo report data
+
+For an existing test account, preview with `node scripts/seed-demo-reports.mjs --email=<account-email>`, then add `--apply` to write. The configured-project guard and owner-checked RPCs preserve existing transactions, budgets and allowances. Demo notes identify up to 60 examples across six months; deterministic IDs prevent duplicate reruns. No account, credentials, payment balance or bill configuration is replaced.
+
+## Expanded Reports and income sources
+
+Reports now opens detailed cash flow, income breakdown/history, individual account expenses, previous-month comparison and daily/weekly/monthly trends. Category detail adds remaining/overage, spending share, transaction count and history while retaining Edit budget. All categories, including zero spending and Uncategorized, use total expenses for their percentages. Internal transfers have a separate read-only history and never affect income, expenses or net amounts.
+
+Optional income sources can be created in Settings or income review, renamed, archived and restored. Existing income stays Unspecified; OCR sender details do not infer a source. Failed creation retains the same UUID and name for retry, and a created source survives a failed transaction save.
+
+Migrations 0021–0022 are deployed; configured remote 0001–0022 confirmed. Run `node scripts/reports-expansion-sql-test.mjs --deployed` for rollback checks and `node scripts/reports-expansion-concurrency-test.mjs` for synthetic retry/archive checks with cleanup. `node scripts/deploy-reports-expansion.mjs` previews migrations; `--apply` deploys them after checking the app/CLI project match. No Docker or OCR call is required. See [implemented plan and verification](docs/superpowers/plans/2026-10-09-reports-expansion.md).

@@ -19,6 +19,9 @@ export interface Budget {
 }
 
 export interface Transaction {
+  payment_method_kind?:string;
+  financial_date?:string;
+  income_source_id?:string|null;
   payment_method_id?:string|null;
   occurrence_id?: string|null;
   spending_source?: 'manual'|'recurring';

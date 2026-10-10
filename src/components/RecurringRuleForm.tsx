@@ -84,7 +84,7 @@ export function RecurringRuleForm({ categories, initialValues, submitLabel, subm
       <TextInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
       <Text style={styles.label}>Note (optional)</Text>
       <TextInput placeholderTextColor={colors.subtle} style={styles.input} value={note} onChangeText={setNote} accessibilityLabel="Note" placeholder="What was it for?" />
-      <TransactionDateField value={nextDueDate} onChange={setNextDueDate} hint="Next bill due date. Due expenses are recorded automatically when you open the app." />
+      <TransactionDateField label="Next due date" accessibilityLabel="Next due date" value={nextDueDate} onChange={setNextDueDate} hint="Next bill due date. Due expenses are recorded automatically when you open the app." />
       {frequency==='monthly' && <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:16}}><Text style={styles.label}>Last day of each month</Text><Switch accessibilityLabel="Month-end schedule" value={monthEnd} onValueChange={setMonthEnd}/></View>}
       <Text style={styles.label}>Frequency</Text>
       <View style={styles.optionRow}>

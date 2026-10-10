@@ -6,8 +6,10 @@ import { createRequestId } from '../domain/ocr';
 import { monthFilter, effectiveDate } from '../domain/transactionDates';
 import { usePreferencesStore } from '../stores/usePreferencesStore';
 import { transactionListKey } from '../domain/queryKeys';
+import {invalidateReports} from '../lib/reportCache';
 
 function refreshSavedTransaction(client:QueryClient,saved:Transaction) {
+  invalidateReports(client);
   client.setQueryData(['transaction',saved.id],saved);
   for(const key of [
     ['transaction',saved.id],['transactionItems',saved.id],['transactions'],
@@ -57,10 +59,11 @@ async function saveTransaction(operation: 'create' | 'update', input: AddTransac
   const cents = items.length ? sumItemCents(items,input.type) : decimalToCents(input.amount);
   if (cents === null || cents <= 0 || cents > MAX_MONEY_CENTS) throw new Error('Amount must be positive and in range.');
   const payload = {
-    p_transaction: { operation, payload_version: 3, id: input.id ?? createRequestId(), type: input.type, category_id: input.categoryId,
+    p_transaction: { operation, payload_version: 4, id: input.id ?? createRequestId(), type: input.type, category_id: input.categoryId,
       amount: centsToDecimal(cents), note: input.note, occurred_at: input.occurredAt,
       ...(input.transactionDate !== undefined ? { transaction_date: input.transactionDate } : {}),
       ...(input.paymentMethodId !== undefined ? { payment_method_id: input.paymentMethodId } : {}),
+      ...(input.incomeSourceId !== undefined ? { income_source_id: input.type==='income'?input.incomeSourceId:null } : {}),
       ...(input.paymentDetails !== undefined ? { payment_details: input.paymentDetails } : {}) },
     p_items: items.map(row => ({ kind: row.kind, label: row.label.trim(), amount: centsToDecimal(row.amountCents),
       quantity: row.quantity, unit_price: row.unitPriceCents === null ? null : centsToDecimal(row.unitPriceCents), tax_included: row.taxIncluded,
@@ -82,11 +85,12 @@ async function saveTransaction(operation: 'create' | 'update', input: AddTransac
   return { ...saved, amount: Number(saved.amount) };
 }
 
-export function useTransactions(month: string) {
+export function useTransactions(month: string, enabled = true) {
   const profile=usePreferencesStore(s=>s.profile);
 
   return useQuery({
     queryKey: transactionListKey(month),
+    enabled,
     queryFn: async (): Promise<Transaction[]> => {
       const rows:Transaction[]=[];
       for(let start=0;;start+=1000){const {data,error}=await supabase.from('transactions').select('*').or(monthFilter(month,profile?.timezone)).order('occurred_at',{ascending:false}).order('id',{ascending:false}).range(start,start+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
@@ -96,6 +100,7 @@ export function useTransactions(month: string) {
 }
 
 export interface AddTransactionInput {
+  incomeSourceId?:string|null;
   paymentMethodId?:string|null;
   occurrenceId?:string;
   confirmDifference?:boolean;
@@ -125,6 +130,7 @@ export function useAddTransaction(_month: string) {
       const snapshots=listSnapshots(queryClient,targetMonth);
 
       const optimisticTransaction: Transaction = {
+        income_source_id:newTransaction.type==='income'?newTransaction.incomeSourceId??null:null,
         id: newTransaction.id ?? `optimistic-${Date.now()}`,
         user_id: '',
         category_id: newTransaction.categoryId,
@@ -156,6 +162,7 @@ export function useAddTransaction(_month: string) {
 }
 
 export interface UpdateTransactionInput {
+  incomeSourceId?:string|null;
   paymentMethodId?:string|null;
   occurrenceId?:string;
   confirmDifference?:boolean;
@@ -188,6 +195,7 @@ export function useUpdateTransaction(_month: string) {
       const snapshots=listSnapshots(queryClient,targetMonth);
       if(original) {
         const optimistic={...original,category_id:updated.categoryId,amount:inputAmount(updated),note:updated.note,occurred_at:updated.occurredAt,type:updated.type,
+          income_source_id:updated.type==='expense'?null:updated.incomeSourceId===undefined?original.income_source_id:updated.incomeSourceId,
           transaction_date:transactionDate,payment_details:updated.paymentDetails===undefined ? original.payment_details : updated.paymentDetails,
           payment_method_id:updated.paymentMethodId===undefined?original.payment_method_id:updated.paymentMethodId};
         for(const snapshot of snapshots) queryClient.setQueryData<Transaction[]>(snapshot.key,()=>{
@@ -218,6 +226,7 @@ export function useDeleteTransaction(month: string) {
       if (error) throw error;
     },
     onSuccess: (_, id) => {
+      invalidateReports(queryClient);
       queryClient.removeQueries({ queryKey: ['transaction', id] });
       queryClient.removeQueries({ queryKey: ['transactionItems', id] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });

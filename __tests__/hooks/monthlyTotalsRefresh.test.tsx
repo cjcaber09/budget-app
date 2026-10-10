@@ -4,6 +4,7 @@ import { formatISO, startOfMonth } from 'date-fns';
 import type { PropsWithChildren } from 'react';
 import { useMonthlyTotals } from '../../src/hooks/useMonthlyTotals';
 import { useAddTransaction, useUpdateTransaction, useDeleteTransaction } from '../../src/hooks/useTransactions';
+import { usePreferencesStore, defaultProfile } from '../../src/stores/usePreferencesStore';
 
 interface StoredTransaction { id: string; amount: number; occurred_at: string; type: string }
 let mockTransactions: StoredTransaction[] = [];
@@ -11,7 +12,8 @@ let mockNextId = 0;
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
-    rpc: async (_name: string, { p_transaction: tx,p_id }: { p_id?:string;p_transaction: { operation: string; id: string; amount: string; occurred_at: string; type: string } }) => {
+    rpc: async (_name: string, { p_transaction: tx,p_id,p_start }: { p_start?:string;p_id?:string;p_transaction: { operation: string; id: string; amount: string; occurred_at: string; type: string } }) => {
+      if (_name === 'monthly_expense_totals') return { data: [{ month: p_start, total: mockTransactions.filter(row => row.type === 'expense').reduce((sum, row) => sum + row.amount, 0) }], error: null };
       if(_name==='delete_transaction'){mockTransactions=mockTransactions.filter(row=>row.id!==p_id);return {data:null,error:null};}
       const row = { ...tx, amount: Number(tx.amount) };
       if (tx.operation === 'create') mockTransactions.push(row);
@@ -50,6 +52,7 @@ jest.mock('../../src/lib/supabase', () => ({
 }));
 
 it('refreshes an already-loaded spending report after add, update, and delete', async () => {
+  usePreferencesStore.setState({ profile: defaultProfile('user-1') });
   const now = new Date().toISOString();
   const month = formatISO(startOfMonth(new Date()), { representation: 'date' });
   mockTransactions = [{ id: 'original', amount: 10, occurred_at: now, type: 'expense' }];
@@ -77,4 +80,5 @@ it('refreshes an already-loaded spending report after add, update, and delete', 
   await waitFor(() => expect(total()).toBe(5));
   unmount();
   client.clear();
+  usePreferencesStore.setState({ profile: null });
 });

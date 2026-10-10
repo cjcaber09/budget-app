@@ -1,3 +1,4 @@
+import {invalidateReports} from '../lib/reportCache';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { Category } from '../types/database';
@@ -41,6 +42,7 @@ export function useAddCategory() {
       if (error) throw error;
     },
     onSuccess: () => {
+      invalidateReports(queryClient);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
@@ -61,6 +63,7 @@ export function useUpdateCategory() {
       if (error) throw error;
     },
     onSuccess: () => {
+      invalidateReports(queryClient);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });

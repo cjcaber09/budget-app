@@ -73,6 +73,9 @@ assets/images/sample-receipts/
 .impeccable/build/
 .impeccable/review/
 .impeccable/browser-check.mjs
+.impeccable/reports-expansion-check.mjs
+.impeccable/mvp-browser-check.mjs
+.impeccable/mvp-inspect.mjs
 .impeccable/receipt-browser-check.mjs
 .impeccable/payment-browser-check.mjs
 .impeccable/purchase-rpc-check.mjs
@@ -85,6 +88,7 @@ assets/images/sample-receipts/
 .impeccable/direction-options.json
 .impeccable/native-build/
 .impeccable/payment-export*/
+.impeccable/allowance-export*/
 .impeccable/questions/
 
 # Local agent execution reports (shared specs stay in docs/)

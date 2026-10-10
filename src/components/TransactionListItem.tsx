@@ -12,7 +12,7 @@ export function TransactionListItem({ transaction, category, paymentMethodLabel,
   const styles = useStyles();
   const colors = useColors();
   const isIncome = transaction.type === 'income';
-  const name = isIncome ? 'Income' : category?.name ?? 'Unknown';
+  const name = isIncome ? 'Income' : category?.name ?? (transaction.category_id===null?'Uncategorized':'Category unavailable');
   const Icon = isIncome ? ArrowDownLeft : /grocer/i.test(name) ? ShoppingBasket : /rent|home/i.test(name) ? House : /transport/i.test(name) ? Car : /dining|coffee/i.test(name) ? Utensils : /health/i.test(name) ? Heart : Tag;
   return <MotionPressable style={styles.row} onPress={onPress} accessibilityLabel={`Edit ${name}, ${isIncome ? 'income' : 'expense'} ${formatMoney(transaction.amount)}`}>
     <View style={styles.icon}><Icon size={19} strokeWidth={1.6} color={isIncome ? colors.success : category?.color ?? colors.muted} /></View>

@@ -22,6 +22,6 @@ export function monthFilter(month: string,zone=activeTimezone()): string {
   const range = localMonthRange(month,zone);
   return `and(transaction_date.gte.${range.startDay},transaction_date.lt.${range.endDay}),and(transaction_date.is.null,occurred_at.gte.${range.start},occurred_at.lt.${range.end})`;
 }
-export function effectiveDate(row: { transaction_date?: string | null; occurred_at: string }): string {
-  return row.transaction_date ?? localDateKey(new Date(row.occurred_at));
+export function effectiveDate(row: { transaction_date?: string | null; financial_date?:string; occurred_at: string }): string {
+  return row.transaction_date ?? row.financial_date ?? localDateKey(new Date(row.occurred_at));
 }

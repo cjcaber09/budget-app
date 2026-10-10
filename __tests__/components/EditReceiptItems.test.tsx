@@ -1,3 +1,4 @@
+jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import EditTransactionScreen from '../../app/(tabs)/transaction/[id]';
 const id = '00000000-0000-4000-8000-000000000010';

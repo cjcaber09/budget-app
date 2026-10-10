@@ -15,6 +15,8 @@ import { MotionPressable } from '../../src/components/MotionPressable';
 import { usePageLayout } from '../../src/styles/pageLayout';
 import { createThemedStyles, type, useColors } from '../../src/styles/theme';
 import { createRequestId } from '../../src/domain/ocr';
+import {CsvExport} from '../../src/components/CsvExport';
+import {matchesTransactionSearch} from '../../src/domain/csv';
 
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -30,7 +32,7 @@ export default function TransactionsScreen() {
   const categories = categoriesQuery.data ?? [];
   const transactions = useMemo(() => (transactionsQuery.data ?? []).filter(item => {
     const category = categoriesQuery.data?.find(category => category.id === item.category_id);
-    return (filter === 'all' || item.type === filter) && `${category?.name ?? ''} ${item.note ?? ''} ${item.type} ${item.amount}`.toLowerCase().includes(search.toLowerCase().trim());
+    return matchesTransactionSearch(item,category?.name??'',filter,search);
   }), [transactionsQuery.data, categoriesQuery.data, filter, search]);
   return <View style={pageLayout.screen}><FlatList
     data={transactionsQuery.isPending || transactionsQuery.isError ? [] : transactions}
@@ -38,6 +40,7 @@ export default function TransactionsScreen() {
     contentContainerStyle={[pageLayout.scrollContent, styles.content]}
     ListHeaderComponent={<View style={styles.header}>
       <ScreenHeading title="Transactions" description="Every entry, in one place." action={<MonthPicker />} />
+      <CsvExport month={selectedMonth} kind="transactions" filter={filter} search={search}/>
       <View style={styles.toolbar}>
         <View style={styles.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Search transactions" value={search} onChangeText={setSearch} placeholder="Search transactions" placeholderTextColor={colors.subtle} style={styles.searchInput} /></View>
         <View style={styles.filters}>{(['all', 'expense', 'income'] as const).map(option => <MotionPressable key={option} accessibilityState={{ selected: option === filter }} onPress={() => setFilter(option)} style={[styles.filter, filter === option && styles.activeFilter]}><Text style={[styles.filterText, filter === option && styles.activeFilterText]}>{option === 'all' ? 'All' : option === 'expense' ? 'Expenses' : 'Income'}</Text></MotionPressable>)}</View>

@@ -54,7 +54,7 @@ try {
   const foreign=await api(`/rest/v1/profiles?user_id=eq.${a.id}`,'GET',undefined,b.token,true);
   check(foreign.ok&&foreign.body.length===0,'profile owner isolation');
   check(!(await api(`/rest/v1/profiles?user_id=eq.${a.id}`,'PATCH',{timezone:'Invalid/Zone'},a.token,true)).ok,'invalid timezone rejected');
-  check((await api('/rest/v1/monthly_limits','POST',{user_id:a.id,month:previous.toISOString().slice(0,10),amount:5000},a.token,true)).ok,'prior monthly limit');
+  check((await api('/rest/v1/rpc/set_monthly_allowance','POST',{p_month:previous.toISOString().slice(0,10),p_amount:'5000.00'},a.token,true)).ok,'prior monthly limit');
   const rpc=(name,body,token=a.token)=>api('/rest/v1/rpc/'+name,'POST',body,token,true);
   check((await rpc('prepare_dashboard',{p_month:month})).ok,'prepare and inherit limit');
   let snapshot=await rpc('dashboard_snapshot',{p_month:month});

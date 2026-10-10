@@ -1,7 +1,7 @@
 import {useEffect} from 'react';
 import {AppState,Platform} from 'react-native';
 import {useQuery} from '@tanstack/react-query';
-import {useRouter,type Href} from 'expo-router';
+import {useRouter} from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import {supabase} from '../lib/supabase';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
@@ -34,7 +34,7 @@ export function usePhoneNotifications() {
       if(!data||data.owner!==owner){void Notifications.clearLastNotificationResponseAsync().catch(()=>{});return;}
       if(typeof data.month==='string'&&/^\d{4}-(0[1-9]|1[0-2])-01$/.test(data.month))useUiStore.getState().setSelectedMonth(data.month);
       if(data.kind==='bill'&&isUuid(data.ruleId))router.push({pathname:'/recurring/[id]',params:{id:data.ruleId as string,visit:createRequestId()}});
-      else if(data.kind==='category'&&isUuid(data.categoryId))router.push(`/budget/${data.categoryId}` as Href);
+      else if(data.kind==='category'&&isUuid(data.categoryId))router.push({pathname:'/budget/[categoryId]',params:{categoryId:data.categoryId as string,visit:createRequestId()}});
       else if(data.kind==='monthly')router.push('/');
       void Notifications.clearLastNotificationResponseAsync().catch(()=>{});
     };

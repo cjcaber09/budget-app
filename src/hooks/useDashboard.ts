@@ -1,3 +1,4 @@
+import {invalidateReports} from '../lib/reportCache';
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -5,8 +6,10 @@ import { supabase } from "../lib/supabase";
 import { usePreferencesStore } from "../stores/usePreferencesStore";
 import { localDateKey } from "../domain/transactionDates";
 import type { DashboardSnapshot } from "../domain/spendingGuidance";
+import {decimalToCents,centsToDecimal} from '../../supabase/functions/ocr/shared';
 
 export function useDashboard(month: string, enabled = true) {
+  const client = useQueryClient();
   const profile = usePreferencesStore((s) => s.profile);
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -30,6 +33,10 @@ export function useDashboard(month: string, enabled = true) {
         p_month: month,
       });
       if (prepared.error) throw prepared.error;
+      invalidateReports(client);
+      // Preparation can materialize bill expenses after a trend request finished.
+      // Refresh only aggregate history; never invalidate our own dashboard query.
+      void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
       const result = await supabase.rpc("dashboard_snapshot", {
         p_month: month,
       });
@@ -56,15 +63,13 @@ export function useSetMonthlyLimit(month: string) {
     mutationFn: async (amount: string) => {
       const owner = usePreferencesStore.getState().profile?.user_id;
       if (!owner) throw new Error("Sign in again.");
-      const result = await supabase
-        .from("monthly_limits")
-        .upsert(
-          { user_id: owner, month, amount, inherited_from: null },
-          { onConflict: "user_id,month" },
-        );
-      if (result.error) throw result.error;
+      const cents=decimalToCents(amount);
+      if(cents===null||cents<0)throw new Error('Enter a valid monthly allowance.');
+      const result=await supabase.rpc('set_monthly_allowance',{p_month:month,p_amount:centsToDecimal(cents)});
+      if(result.error)throw new Error(result.error.code==='22023'?result.error.message:'Could not save your allowance. Your draft is still here; retry.');
     },
-    onSuccess: () => void client.invalidateQueries({ queryKey: ["dashboard"] }),
+    onSuccess: () => {
+      invalidateReports(client);void client.invalidateQueries({queryKey:["dashboard"]});},
   });
 }
 export function useBillCommand() {

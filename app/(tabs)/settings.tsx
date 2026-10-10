@@ -29,6 +29,8 @@ import { useFormStyles } from "../../src/styles/forms";
 import { NotificationSettings } from "../../src/components/NotificationSettings";
 import { createRequestId } from "../../src/domain/ocr";
 import { PaymentMethodsSettings } from "../../src/components/PaymentMethodPicker";
+import {IncomeSourcesSettings} from '../../src/components/IncomeSources';
+import {AccountDeletionSettings} from '../../src/components/AccountDeletion';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -58,6 +60,7 @@ export default function SettingsScreen() {
           description="Make your budget work for you."
         />
         <ProfileSettings />
+        <View style={pageLayout.section}><IncomeSourcesSettings/></View>
         <View style={pageLayout.section}>
           <PaymentMethodsSettings />
         </View>
@@ -260,7 +263,7 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
-        <View style={styles.account}>
+        <View><View style={styles.account}>
           <Text style={styles.description}>Ready to step away?</Text>
           <MotionPressable
             style={styles.signOutButton}
@@ -269,7 +272,7 @@ export default function SettingsScreen() {
             <LogOut size={17} color={colors.danger} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </MotionPressable>
-        </View>
+        </View><AccountDeletionSettings /></View>
       </View>
     </ScrollView>
   );

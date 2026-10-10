@@ -1,0 +1,36 @@
+import {createThemedStyles,type} from './theme';
+export const useSpendingGuidanceStyles = createThemedStyles((c) => ({
+  container: { gap: 20 },
+  section: {
+    gap: 12,
+    backgroundColor:c.surfaceAlt,
+    borderRadius:16,
+    padding:20,
+  },
+  headingRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  heading: { ...type.heading, color: c.text },
+  limit: { ...type.number, fontSize: 30, color: c.text },
+  caption: { ...type.label, fontWeight: "400", color: c.muted },
+  label: { ...type.body, color: c.text, flexShrink: 1 },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    minHeight: 44,
+  },
+  number: { ...type.number, color: c.text, fontSize: 15 },
+  value: { ...type.number, color: c.primary, fontSize: 22 },
+  action: { ...type.label, color: c.primary },
+  editButton:{borderWidth:1,borderColor:c.border,borderRadius:8,minHeight:44,paddingHorizontal:14,justifyContent:'center'},
+  saveButton:{backgroundColor:c.primary,borderRadius:10,minHeight:48,paddingHorizontal:18,justifyContent:'center',alignItems:'center',marginTop:12},
+  saveButtonText:{...type.label,color:c.onPrimary},
+  bill: { gap: 8, paddingVertical: 12 },
+}));

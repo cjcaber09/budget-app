@@ -1,4 +1,5 @@
 import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
+import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, Image, Text, ActivityIndicator } from 'react-native';
 import { MotionPressable } from '../../../src/components/MotionPressable';
@@ -116,7 +117,7 @@ function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage
         ) : (
           <>
           <View style={billReview?{display:'none'}:undefined}>
-          <TransactionForm paymentMethodControl={(value,onChange)=><PaymentMethodPicker value={value} onChange={onChange}/>}
+          <TransactionForm incomeSourceControl={(value,onChange)=><IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=><PaymentMethodPicker value={value} onChange={onChange}/>}
             categories={categories}
             receipt={scanResult?.receipt}
             receiptText={scanResult?.text}

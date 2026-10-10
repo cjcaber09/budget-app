@@ -6,6 +6,7 @@ import { AuthFrame } from '../../src/components/AuthFrame';
 import { MotionPressable } from '../../src/components/MotionPressable';
 import { useFormStyles } from '../../src/styles/forms';
 import { useColors } from '../../src/styles/theme';
+import {PendingDeletionNotice} from '../../src/components/AccountDeletion';
 
 export default function SignInScreen() {
   const styles = useFormStyles();
@@ -27,10 +28,12 @@ export default function SignInScreen() {
   return <AuthFrame><View>
     <Text accessibilityRole="header" style={[styles.title, { fontSize: 26, lineHeight: 34 }]}>Welcome back.</Text>
     <Text style={styles.subtitle}>Sign in to pick up where you left off.</Text>
+    <PendingDeletionNotice />
     {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Email" style={styles.input} placeholder="you@example.com" placeholderTextColor={colors.subtle} autoCapitalize="none" autoComplete="email" keyboardType="email-address" value={email} onChangeText={setEmail} />
     <Text style={styles.label}>Password</Text><TextInput accessibilityLabel="Password" style={styles.input} placeholder="Your password" placeholderTextColor={colors.subtle} secureTextEntry autoComplete="current-password" value={password} onChangeText={setPassword} onSubmitEditing={() => void handleSignIn()} />
     <MotionPressable style={styles.button} onPress={() => void handleSignIn()} disabled={submitting}><Text style={styles.buttonText}>{submitting ? 'Signing in…' : 'Sign In'}</Text></MotionPressable>
+    <Link href={{pathname:'/forgot-password',params:{email:email.trim()}}} style={{color:colors.primary,fontSize:14,textAlign:'center',marginTop:16,paddingVertical:12}}>Forgot password?</Link>
     <Link href="/sign-up" style={{ color: colors.primary, fontSize: 14, textAlign: 'center', marginTop: 24, paddingVertical: 12 }}>Don&apos;t have an account? Sign up</Link>
   </View></AuthFrame>;
 }
