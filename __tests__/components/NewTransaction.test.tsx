@@ -1,3 +1,4 @@
+jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { reconcileReceipt } from '../../supabase/functions/ocr/shared';
 import NewTransactionScreen from '../../app/(tabs)/transaction/new';

@@ -8,9 +8,9 @@ THESIS: Financial wayfinding on a phone: read the month, understand spending, ch
 
 OWN-WORLD: Warm neutral surfaces, deep forest green actions, system sans typography, aligned tabular amounts, fine separators, and compact consistent controls. Category colors are data, not button backgrounds.
 
-STORY: Choose a month, read income and expenses, inspect budget status, then log or edit a transaction. Preserve existing Supabase and OCR workflows.
+STORY: Choose a month, read allowance and Safe to Spend with income and expenses on Overview, inspect category budgets, spending pace and trend in Reports, explore cash flow, income sources, accounts and prior-month comparisons, then log or edit a transaction. Preserve existing Supabase and OCR workflows.
 
-FIRST VIEWPORT: Phone screen with a title, month selector, paired income and expense totals, and a compact net-income row. Budget lanes follow, with category spending further down. Four bottom tabs provide persistent navigation; the add action sits above them. There is no desktop rail or split layout.
+FIRST VIEWPORT: Overview starts with title, bills bell, budget alerts above a centered month selector, and monthly allowance/Safe to Spend cards; Income/Expenses and a compact Net Income row follow. Reports starts with title, month selector and a three-column grid of category spending-versus-budget doughnuts; categorized spending, current-month pace, focused report links and the selected-month twelve-month trend follow. Four bottom tabs provide persistent navigation; the add action sits above them. There is no desktop rail or split layout.
 
 FORM: Clear route, grounded candidate 7; seed 4dc36295. Wayfinding hierarchy without transit decoration. Press feedback is 120ms; the entry sheet uses a reversible transition with reduced motion. Tabs do not slide.
 

@@ -243,7 +243,6 @@ export function ProfileSettings() {
             <Text style={styles.body}>
               {session?.user.email ?? "Signed in"}
             </Text>
-            <Text style={styles.caption}>Your email is read-only.</Text>
           </View>
         </View>
         <View style={form.optionRow}>

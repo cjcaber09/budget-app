@@ -86,7 +86,7 @@ async function markCompleted(admin: AdminClient, scanId: string, charCount: numb
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
@@ -173,7 +173,14 @@ async function runNewScan(
   const { text, truncated } = clampOcrText(outcome.text);
   const path = ocrScanPath(userId, scanId);
   const receipt = outcome.receipt ? reconcileReceipt(outcome.receipt) : null;
+  const active=await admin.rpc('account_is_active',{p_owner:userId});
+  if(active.error||active.data!==true){await markFailed(admin,scanId);return json(409,{error:'account_unavailable'});}
   const published = await publishReceipt(admin.storage.from(OCR_BUCKET), path, text, receipt);
+  const stillActive=await admin.rpc('account_is_active',{p_owner:userId});
+  if(stillActive.error||stillActive.data!==true){
+    await admin.storage.from(OCR_BUCKET).remove([path,receiptPath(userId,scanId)]);
+    await markFailed(admin,scanId);return json(409,{error:'account_unavailable'});
+  }
   if (receipt && !published.jsonSaved) console.error('ocr: receipt publication failed', { scanId });
   if (!published.textSaved) {
     if (published.cleanupFailed) console.error('ocr: failed artifact cleanup requires retry', { scanId });
@@ -343,5 +350,9 @@ Deno.serve(async (req) => {
     console.error('ocr: no OCR provider configured');
     return json(500, { error: 'server_misconfigured' });
   }
-  return scanImage(admin, authData.user.id, body);
+  const lease=crypto.randomUUID();
+  const admitted=await admin.rpc('begin_account_scan',{p_owner:authData.user.id,p_lease:lease});
+  if(admitted.error||admitted.data!==true)return json(409,{error:'account_unavailable'});
+  try{return await scanImage(admin, authData.user.id, body);}
+  finally{await admin.from('account_scan_leases').delete().eq('id',lease).eq('owner_id',authData.user.id);}
 });

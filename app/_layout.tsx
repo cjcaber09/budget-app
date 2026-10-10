@@ -13,6 +13,8 @@ import { ProfileBootstrap } from '../src/hooks/useProfile';
 import { usePreferencesStore } from '../src/stores/usePreferencesStore';
 import { View,Text } from 'react-native';
 import { MotionPressable } from '../src/components/MotionPressable';
+import {clearExportFiles} from '../src/lib/exportFiles';
+import {AccountDeletionBoundary} from '../src/components/AccountDeletion';
 
 function handleQueryError(error: unknown) {
   console.error('Data request failed', { code: (error as { code?: string } | null)?.code });
@@ -57,6 +59,7 @@ export default function RootLayout() {
   const colors = useColors();
   const dark = useThemeMode() === 'dark';
   useEffect(() => {
+    void clearExportFiles().catch(()=>{});
     const { data: listener } = supabase.auth.onAuthStateChange((event,session) => {
       const owner=usePreferencesStore.getState().profile?.user_id;
       if (event === 'SIGNED_OUT' || (owner && session && owner!==session.user.id)) resetClientState(queryClient);
@@ -71,6 +74,7 @@ export default function RootLayout() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <AuthGate />
       <Toast />
+      <AccountDeletionBoundary />
     </QueryClientProvider>
     </ThemeProvider>
   );

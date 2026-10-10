@@ -13,6 +13,7 @@ import { TransactionDateField } from './TransactionDateField';
 import { localDateKey } from '../domain/transactionDates';
 
 export interface TransactionFormValues {
+  incomeSourceId:string|null;
   paymentMethodId:string|null;
   transactionDate: string;
   paymentDetails: PaymentDetails | null;
@@ -24,6 +25,7 @@ export interface TransactionFormValues {
 }
 
 interface Props {
+  incomeSourceControl?:(value:string|null,onChange:(id:string|null)=>void)=>ReactNode;
   paymentMethodControl?:(value:string|null,onChange:(id:string|null)=>void)=>ReactNode;
   onDiscard?: () => void;
   scanDate?: string;
@@ -35,6 +37,7 @@ interface Props {
   submitLabel: string;
   submitting?: boolean;
   onSubmit: (values: {
+    incomeSourceId:string|null;
     paymentMethodId:string|null;
     type: TransactionType;
     categoryId: string | null;
@@ -48,7 +51,7 @@ interface Props {
 
 const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
 
-export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl }: Props) {
+export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
   const [type, setType] = useState<TransactionType|null>(() => initialValues?.type ?? (receipt?.transactionType === 'income' || receipt?.transactionType === 'expense' ? receipt.transactionType : scanned ? null : 'expense'));
@@ -57,6 +60,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
   const [dateEdited,setDateEdited] = useState(false);
   const [paymentDetails,setPaymentDetails] = useState<PaymentDetails|null>(initialValues?.paymentDetails ?? receipt?.paymentDetails ?? null);
   const [paymentMethodId,setPaymentMethodId]=useState<string|null>(initialValues?.paymentMethodId??null);
+  const [incomeSourceId,setIncomeSourceId]=useState<string|null>(initialValues?.incomeSourceId??null);
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? categories[0]?.id ?? '');
   const [amount, setAmount] = useState(initialValues?.amount ?? '');
   const [note, setNote] = useState(initialValues?.note ?? '');
@@ -77,6 +81,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
   const summaryDraft = drafts.find(row => row.isPaymentSummary);
   function chooseType(next:TransactionType) {
     if (next === type) return;
+    if(next==='expense')setIncomeSourceId(null);
     const nextDrafts = drafts.map(row => row.kind === 'fee' ? { ...row, affectsTotal: row.feeParty && row.feeParty !== 'unknown' ? row.feeParty === (next === 'income' ? 'recipient' : 'sender') && row.affectsTotal : row.affectsTotal,
       requiresCountingReview: !row.feeParty || row.feeParty === 'unknown' || (!row.affectsTotal && row.feeParty === (next === 'income' ? 'recipient' : 'sender')) } : row);
     const result = parseItemDrafts(nextDrafts); const total = sumItemCents(result.rows,next);
@@ -111,6 +116,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
 
     setError(null);
     onSubmit({
+      incomeSourceId:type==='income'?incomeSourceId:null,
       paymentMethodId,
       type,
       categoryId: type === 'expense' ? categoryId : null,
@@ -143,6 +149,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
         ))}
       </View>
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
+      {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,setIncomeSourceId):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
       {type === 'expense' && (
         <>
           <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>

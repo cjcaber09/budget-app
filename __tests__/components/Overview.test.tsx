@@ -1,67 +1,28 @@
-import { render, screen } from '@testing-library/react-native';
+﻿import { fireEvent, render, screen } from '@testing-library/react-native';
 import OverviewScreen from '../../app/(tabs)/index';
-
-jest.mock('../../src/hooks/useCategories', () => ({
-  useCategories: () => ({
-    data: [
-      { id: 'cat-1', user_id: 'u1', name: 'Groceries', color: '#4CAF50', icon: 'cart', is_default: true },
-      { id: 'cat-2', user_id: 'u1', name: 'Rent', color: '#2196F3', icon: 'home', is_default: true },
-    ],
-  }),
-}));
-
-jest.mock('../../src/hooks/useBudgets', () => ({
-  useBudgets: () => ({
-    data: [
-      { id: 'b1', user_id: 'u1', category_id: 'cat-1', month: '2026-07-01', amount: 200 },
-      { id: 'b2', user_id: 'u1', category_id: 'cat-2', month: '2026-07-01', amount: 1000 },
-    ],
-  }),
-}));
-
-jest.mock('../../src/hooks/useTransactions', () => ({
-  useTransactions: () => ({
-    data: [
-      { id: 't1', user_id: 'u1', category_id: 'cat-1', amount: 180, note: null, occurred_at: '2026-07-05T00:00:00.000Z', recurring_rule_id: null, type: 'expense' },
-      { id: 't2', user_id: 'u1', category_id: 'cat-2', amount: 1200, note: null, occurred_at: '2026-07-01T00:00:00.000Z', recurring_rule_id: null, type: 'expense' },
-      { id: 't3', user_id: 'u1', category_id: null, amount: 2500, note: 'Paycheck', occurred_at: '2026-07-01T00:00:00.000Z', recurring_rule_id: null, type: 'income' },
-    ],
-  }),
-}));
-
-jest.mock('../../src/stores/useUiStore', () => ({
-  useUiStore: (selector: (state: { selectedMonth: string }) => unknown) =>
-    selector({ selectedMonth: '2026-07-01' }),
-}));
-
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn() }),
-}));
-
-describe('OverviewScreen', () => {
-  it('shows spend vs budget for each category', () => {
-    render(<OverviewScreen />);
-
-    expect(screen.getByLabelText('Edit Groceries budget')).toBeTruthy();
-    expect(screen.getByText('$180.00 / $200.00')).toBeTruthy();
-    expect(screen.getByLabelText('Edit Rent budget')).toBeTruthy();
-    expect(screen.getByText('$1,200.00 / $1,000.00')).toBeTruthy();
-  });
-
-  it('shows an alert banner only for categories that are over budget', () => {
-    render(<OverviewScreen />);
-
-    expect(screen.getByText('Rent is over budget')).toBeTruthy();
-    expect(screen.queryByText('Groceries is over budget')).toBeNull();
-  });
-
-  it('shows total income and total expenses for the month', () => {
-    render(<OverviewScreen />);
-
-    expect(screen.getByText('Income')).toBeTruthy();
-    expect(screen.getByText('$2,500.00')).toBeTruthy();
-    expect(screen.getByText('Expenses')).toBeTruthy();
-    expect(screen.getByText('$1,380.00')).toBeTruthy();
-  });
+const mockPush = jest.fn();
+const mockDashboard = { data: { complete: true, today: '2026-07-10', month: '2026-07-01', limitCents: 200000, allocatedCents: 120000, incomeCents: 250000, expenseCents: 138000, spentToDateCents: 138000, futureRecordedCents: 0, discretionaryToDateCents: 10000, futureDiscretionaryCents: 0, reservedCents: 0, bills: [], legacyDuplicates: 0, categoryTotals: [{ id: 'cat-1', spent: 18000 }, { id: 'cat-2', spent: 120000 }] }, isPending: false, isError: false, refetch: jest.fn() };
+const mockCategories = { data: [{id:'cat-1',name:'Groceries',color:'#55816A'},{id:'cat-2',name:'Rent',color:'#61889A'}], isPending:false,isError:false,refetch:jest.fn() };
+jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>mockCategories}));
+jest.mock('../../src/hooks/useBudgets',()=>({useBudgets:()=>({data:[{category_id:'cat-1',amount:200},{category_id:'cat-2',amount:1000}],isPending:false,isError:false,refetch:jest.fn()})}));
+jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>mockDashboard,useSetMonthlyLimit:()=>({mutate:jest.fn()})}));
+jest.mock('../../src/stores/useUiStore',()=>({useUiStore:(s:any)=>s({selectedMonth:'2026-07-01'})}));
+jest.mock('../../src/components/UpcomingBillsBell',()=>({UpcomingBillsBell:()=>null}));
+jest.mock('expo-router',()=>({useRouter:()=>({push:mockPush})}));
+beforeEach(()=>{mockPush.mockClear();mockCategories.isError=false;mockDashboard.isPending=false;mockDashboard.isError=false;});
+test('keeps summaries and safe-to-spend while removing report sections',()=>{
+ render(<OverviewScreen/>);
+ expect(screen.getByText('$2,500.00')).toBeTruthy();expect(screen.getByText('Net income')).toBeTruthy();expect(screen.getByText('Safe to spend')).toBeTruthy();
+ expect(screen.queryByText('Daily Spending Pace')).toBeNull();expect(screen.queryByText('Expenses by Category')).toBeNull();expect(screen.queryByLabelText('View Groceries budget')).toBeNull();
+ fireEvent.press(screen.getByText('View reports'));expect(mockPush).toHaveBeenCalledWith('/reports');
 });
-jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>({data:undefined,isPending:false,isError:false,refetch:jest.fn()})}));
+test('over-budget alerts open a fresh read-only category visit',()=>{
+ render(<OverviewScreen/>);expect(screen.getByText('Rent is over budget')).toBeTruthy();expect(screen.queryByText('Groceries is over budget')).toBeNull();
+ fireEvent.press(screen.getByLabelText('View Rent budget'));expect(mockPush).toHaveBeenCalledWith({pathname:'/budget/[categoryId]',params:{categoryId:'cat-2',visit:expect.any(String)}});
+});
+test('an alert-query failure does not hide confirmed financial summaries',()=>{
+ mockCategories.isError=true;render(<OverviewScreen/>);expect(screen.getByText('$2,500.00')).toBeTruthy();expect(screen.queryByText('Rent is over budget')).toBeNull();expect(screen.getByText('Try again')).toBeTruthy();
+});
+test('pending or failed dashboard data never appears as confirmed totals or alerts',()=>{
+ mockDashboard.isPending=true;render(<OverviewScreen/>);expect(screen.queryByText('$2,500.00')).toBeNull();expect(screen.queryByText('Rent is over budget')).toBeNull();
+});

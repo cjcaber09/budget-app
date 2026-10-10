@@ -1,3 +1,4 @@
+import {invalidateReports} from '../lib/reportCache';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {useEffect,useState} from 'react';
 import {AppState} from 'react-native';
@@ -41,7 +42,7 @@ export function useSavePaymentMethod() {
     const method=result.data as PaymentMethod;
     if(!method?.id||method.user_id!==owner)throw new Error('The save response was incomplete. Retry this same draft.');
     return method;
-  },onSuccess:method=>{if(usePreferencesStore.getState().profile?.user_id===method.user_id){void client.invalidateQueries({queryKey:['paymentMethods']});void client.invalidateQueries({queryKey:['recurringRules']});void client.invalidateQueries({queryKey:['recurringRule']});void client.invalidateQueries({queryKey:['dashboard']});}}});
+  },onSuccess:method=>{if(usePreferencesStore.getState().profile?.user_id===method.user_id){invalidateReports(client);void client.invalidateQueries({queryKey:['paymentMethods']});void client.invalidateQueries({queryKey:['recurringRules']});void client.invalidateQueries({queryKey:['recurringRule']});void client.invalidateQueries({queryKey:['dashboard']});}}});
 }
 export function useSavePaymentTransfer() {
   const client=useQueryClient();return useMutation({mutationFn:async(input:{id:string;operation:'create'|'update'|'delete';sourceId?:string;destinationId?:string;amount?:string;date?:string;note?:string|null})=>{
@@ -50,7 +51,7 @@ export function useSavePaymentTransfer() {
     if(input.operation!=='delete'&&(amount===null||amount<=0||amount>MAX_MONEY_CENTS||input.sourceId===input.destinationId||!input.date||!isCalendarDate(input.date)))throw new Error('Choose two different methods, a valid date and a positive amount.');
     const payload={...input,amount:amount===null?undefined:centsToDecimal(amount)};
     const result=await bounded(signal=>supabase.rpc('save_payment_transfer',{p_transfer:payload}).abortSignal(signal));if(result.error)throw new Error('Could not save the transfer. Check its methods and amount, then retry.');return owner;
-  },onSuccess:owner=>{if(usePreferencesStore.getState().profile?.user_id===owner)void client.invalidateQueries({queryKey:['paymentMethods']});}});
+  },onSuccess:owner=>{if(usePreferencesStore.getState().profile?.user_id===owner){invalidateReports(client);void client.invalidateQueries({queryKey:['paymentMethods']});}}});
 }
 export function useCorrectMethodBalance() {
   const client=useQueryClient();return useMutation({mutationFn:async(input:{id:string;methodId:string;targetBalance:string;expectedBalance:string;note:string|null;creditBalance?:boolean})=>{
@@ -58,5 +59,5 @@ export function useCorrectMethodBalance() {
     const amount=/^-?\d+(?:\.\d{0,2})?$/.test(input.targetBalance)?decimalToCents(input.targetBalance):null;if(amount===null||Math.abs(amount)>MAX_MONEY_CENTS)throw new Error('Enter a valid target balance with up to two decimal places.');
     const result=await bounded(signal=>supabase.rpc('correct_method_balance',{p_correction:{...input,targetBalance:centsToDecimal(amount)}}).abortSignal(signal));
     if(result.error)throw new Error(result.error.code==='40001'?'Balance changed. Refresh balances and retry; your correction is still here.':'Could not correct this balance. Check the fields and retry.');return owner;
-  },onSuccess:owner=>{if(usePreferencesStore.getState().profile?.user_id===owner)void client.invalidateQueries({queryKey:['paymentMethods']});}});
+  },onSuccess:owner=>{if(usePreferencesStore.getState().profile?.user_id===owner){invalidateReports(client);void client.invalidateQueries({queryKey:['paymentMethods']});}}});
 }

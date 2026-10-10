@@ -1,3 +1,4 @@
+import {invalidateReports} from '../lib/reportCache';
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,6 +53,7 @@ export function useRecurringCatchUp() {
         p_month: day.slice(0, 7) + "-01",
       });
       if (!cancelled && !r.error) {
+        invalidateReports(client);
         void client.invalidateQueries({ queryKey: ["transactions"] });
       void client.invalidateQueries({ queryKey: ["paymentMethods"] });
         void client.invalidateQueries({ queryKey: ["monthlyTotals"] });
@@ -100,6 +102,7 @@ function useRuleMutation() {
       return r.data;
     },
     onSuccess: () => {
+      invalidateReports(client);
       void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["recurringRule"] });
@@ -124,6 +127,7 @@ export function useSetRecurringRuleActive() {
       if (r.error) throw r.error;
     },
     onSuccess: () => {
+      invalidateReports(client);
       void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["recurringRule"] });
@@ -142,6 +146,7 @@ export function useArchiveRecurringRule() {
       if (r.error) throw r.error;
     },
     onSuccess: () => {
+      invalidateReports(client);
       void client.invalidateQueries({ queryKey: ["paymentMethods"] });
       void client.invalidateQueries({ queryKey: ["recurringRules"] });
       void client.invalidateQueries({ queryKey: ["dashboard"] });

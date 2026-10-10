@@ -4,7 +4,9 @@
 
 Mobile-only Clear route extension using the existing Impeccable system. Profile includes display name, private avatar, read-only email, and password change. Preferences are account-synced System/Light/Dark appearance, a two-decimal currency unit, and IANA financial timezone. Currency relabels existing values without conversion after confirmation. Existing accounts preserve USD; first profile initialization takes the device timezone without overwriting another device's profile.
 
-Independent monthly limits initialize existing budgeted months from category sums. Current months inherit the latest earlier limit only when unset. Future months preview inheritance without writing until edited; explicit zero remains distinct from missing. Category allocations stay independent, with unallocated and excess amounts shown.
+Historical decision: independent monthly limits initialize existing budgeted months from category sums. Current months inherit the latest earlier limit only when unset. Future months preview inheritance without writing until edited; explicit zero remains distinct from missing. Category allocations stayed independent, with unallocated and excess amounts shown.
+
+Superseded by [Combined category budget cap](2026-10-08-combined-budget-cap.md), implemented in migration 0020: the monthly allowance now caps combined category budgets. Missing allowances block new/increased positive allocations; saving against future inheritance freezes the target allowance. Legacy excess is repaired through strict reductions, and invalid lower automatic inheritance is skipped. The earlier independent, uncapped category-allocation decision no longer applies. Spending guidance and bill reservations remain unchanged.
 
 ## Calculations
 
