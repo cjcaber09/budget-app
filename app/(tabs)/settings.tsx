@@ -1,4 +1,5 @@
 import { formatMoney } from "../../src/domain/money";
+import { useState, useRef } from "react";
 import { ScrollView, View, Text, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { format } from "date-fns";
@@ -8,6 +9,8 @@ import {
   ChevronRight,
   Plus,
   LogOut,
+  ChevronDown,
+  UserRound, Settings2, Wallet, Bell, Tags,
 } from "lucide-react-native";
 import { useCategories } from "../../src/hooks/useCategories";
 import { useRecurringRules } from "../../src/hooks/useRecurringRules";
@@ -31,8 +34,23 @@ import { createRequestId } from "../../src/domain/ocr";
 import { PaymentMethodsSettings } from "../../src/components/PaymentMethodPicker";
 import {IncomeSourcesSettings} from '../../src/components/IncomeSources';
 import {AccountDeletionSettings} from '../../src/components/AccountDeletion';
+import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
+
+const SETTINGS_TABS = [
+  {id: 'organize', label: 'Categories & Bills', icon: Tags},
+  {id: 'profile', label: 'Profile', icon: UserRound},
+  {id: 'preferences', label: 'Preferences', icon: Settings2},
+  {id: 'sources', label: 'Sources', icon: Wallet},
+  {id: 'notifications', label: 'Notifications', icon: Bell},
+] as const;
+type SettingsTab = typeof SETTINGS_TABS[number]['id'];
 
 export default function SettingsScreen() {
+  const owner = usePreferencesStore(state => state.profile?.user_id);
+  return <SettingsContent key={owner ?? 'signed-out'}/>;
+}
+
+function SettingsContent() {
   const router = useRouter();
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
@@ -42,6 +60,14 @@ export default function SettingsScreen() {
   const recurringRules = useRecurringRules();
   const scans = useOcrScans();
   const { mutate: deleteScan } = useDeleteOcrScan();
+  const [tab, setTab] = useState<SettingsTab>('organize');
+  const [visited, setVisited] = useState<SettingsTab[]>(['organize']);
+  const content = useRef<ScrollView>(null);
+  function selectTab(next: SettingsTab) {
+    setTab(next);
+    setVisited(current => current.includes(next) ? current : [...current, next]);
+    content.current?.scrollTo({y: 0, animated: false});
+  }
   async function openScan(scan: OcrScanRow) {
     try {
       await Linking.openURL(await getOcrDownloadUrl(scan));
@@ -50,37 +76,59 @@ export default function SettingsScreen() {
     }
   }
   return (
-    <ScrollView
+    <View style={pageLayout.screen}>
+      <View style={{alignItems: 'center', paddingHorizontal: 24, paddingTop: pageLayout.scrollContent.paddingTop, gap: 16}}>
+        <View style={[pageLayout.workspace, {gap: 16}]}>
+          <ScreenHeading title="Settings" action={
+            <MotionPressable accessibilityLabel="Logout" style={styles.signOutButton} onPress={() => void supabase.auth.signOut()}>
+              <LogOut size={17} color={colors.danger}/><Text style={styles.signOutText}>Logout</Text>
+            </MotionPressable>
+          }/>
+          <ScrollView horizontal accessibilityLabel="Settings tabs" showsHorizontalScrollIndicator
+            style={{borderBottomWidth: 1, borderBottomColor: colors.border}}
+            keyboardShouldPersistTaps="handled" contentContainerStyle={{gap: 20}}>
+            {SETTINGS_TABS.map(({id, label, icon: Icon}) => <MotionPressable key={id}
+              accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{selected: tab === id}}
+              aria-selected={tab === id}
+              style={{minHeight: 48, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 7,
+                borderBottomWidth: 2, borderBottomColor: tab === id ? colors.primary : 'transparent'}}
+              onPress={() => selectTab(id)}>
+              <Icon size={17} color={tab === id ? colors.primary : colors.muted}/>
+              <Text style={tab === id ? form.chipTextSelected : form.chipText}>{label}</Text>
+            </MotionPressable>)}
+          </ScrollView>
+        </View>
+      </View>
+    <ScrollView ref={content}
+      keyboardShouldPersistTaps="handled"
       style={pageLayout.screen}
-      contentContainerStyle={pageLayout.scrollContent}
+      contentContainerStyle={[pageLayout.scrollContent, {paddingTop: 16}]}
     >
       <View style={pageLayout.workspace}>
-        <ScreenHeading
-          title="Settings"
-          description="Make your budget work for you."
-        />
-        <ProfileSettings />
-        <View style={pageLayout.section}><IncomeSourcesSettings/></View>
-        <View style={pageLayout.section}>
-          <PaymentMethodsSettings />
-        </View>
-        <View style={pageLayout.section}>
+        {(visited.includes('profile') || visited.includes('preferences')) && <View style={tab === 'profile' || tab === 'preferences' ? undefined : {display: 'none'}}>
+          <ProfileSettings section={tab === 'preferences' ? 'preferences' : 'profile'}/>
+          <View style={tab === 'profile' ? undefined : {display: 'none'}}><AccountDeletionSettings/></View>
+        </View>}
+        {visited.includes('sources') && <View style={[styles.column, tab !== 'sources' && {display: 'none'}]}>
+          <View style={pageLayout.section}><IncomeSourcesSettings/></View>
+          <View style={pageLayout.section}><PaymentMethodsSettings /></View>
+        </View>}
+        {visited.includes('notifications') && <View style={[pageLayout.section, tab !== 'notifications' && {display: 'none'}]}>
           <NotificationSettings />
-        </View>
-        <View style={styles.columns}>
+        </View>}
+        <View style={[styles.columns, tab !== 'organize' && {display: 'none'}]}>
           <View style={styles.column}>
             <View style={pageLayout.section}>
               <Text accessibilityRole="header" style={styles.heading}>
                 Categories
-              </Text>
-              <Text style={styles.description}>
-                Organize spending in a way that makes sense to you.
               </Text>
               <QueryState
                 loading={categories.isPending}
                 error={categories.isError}
                 retry={() => void categories.refetch()}
               >
+                <ScrollView accessibilityLabel="Categories list" style={{maxHeight: 300}} nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
                 {(categories.data ?? []).map((category) => (
                   <MotionPressable
                     key={category.id}
@@ -92,6 +140,7 @@ export default function SettingsScreen() {
                           id: category.id,
                           name: category.name,
                           color: category.color,
+                          visit: createRequestId(),
                         },
                       })
                     }
@@ -106,9 +155,10 @@ export default function SettingsScreen() {
                     <ChevronRight size={16} color={colors.subtle} />
                   </MotionPressable>
                 ))}
+                </ScrollView>
                 {(categories.data ?? []).length === 0 && (
                   <Text style={styles.emptyText}>
-                    Add a category to organize your expenses.
+                    No categories yet.
                   </Text>
                 )}
               </QueryState>
@@ -124,10 +174,7 @@ export default function SettingsScreen() {
           <View style={styles.column}>
             <View style={pageLayout.section}>
               <Text accessibilityRole="header" style={styles.heading}>
-                Recurring Bills
-              </Text>
-              <Text style={styles.description}>
-                Keep your regular expenses on the record.
+                Bills
               </Text>
               <QueryState
                 loading={recurringRules.isPending}
@@ -172,7 +219,7 @@ export default function SettingsScreen() {
                 })}
                 {(recurringRules.data ?? []).length === 0 && (
                   <Text style={styles.emptyText}>
-                    No recurring expenses yet.
+                    No bills yet.
                   </Text>
                 )}
               </QueryState>
@@ -186,15 +233,15 @@ export default function SettingsScreen() {
                 }
               >
                 <Plus size={16} color={colors.primary} />
-                <Text style={styles.addButtonText}>Add Recurring Bill</Text>
+                <Text style={styles.addButtonText}>Add bill</Text>
               </MotionPressable>
             </View>
             <View style={pageLayout.section}>
               <Text accessibilityRole="header" style={styles.heading}>
-                Scanned Receipts
+                Scan history
               </Text>
               <Text style={styles.description}>
-                Open or remove the text from your recent scans.
+                Saved receipt text.
               </Text>
               <QueryState
                 loading={scans.isPending}
@@ -239,7 +286,7 @@ export default function SettingsScreen() {
                 )}
                 {scans.hasNextPage && (
                   <MotionPressable
-                    style={form.secondaryButton}
+                    style={[form.secondaryButton, {flexDirection: 'row', gap: 8}]}
                     disabled={scans.isFetchingNextPage}
                     onPress={() => {
                       if (!scans.isFetchingNextPage) void scans.fetchNextPage();
@@ -250,7 +297,7 @@ export default function SettingsScreen() {
                       busy: scans.isFetchingNextPage,
                     }}
                   >
-                    <Text style={form.chipTextSelected}>
+                    <ChevronDown size={18} color={colors.primary}/><Text style={form.chipTextSelected}>
                       {scans.isFetchingNextPage
                         ? "Loading more…"
                         : scans.isFetchNextPageError
@@ -259,22 +306,16 @@ export default function SettingsScreen() {
                     </Text>
                   </MotionPressable>
                 )}
+                {!!scans.data?.length && !scans.hasNextPage && !scans.isFetchingNextPage && (
+                  <Text style={styles.description}>All scans loaded.</Text>
+                )}
               </QueryState>
             </View>
           </View>
         </View>
-        <View><View style={styles.account}>
-          <Text style={styles.description}>Ready to step away?</Text>
-          <MotionPressable
-            style={styles.signOutButton}
-            onPress={() => void supabase.auth.signOut()}
-          >
-            <LogOut size={17} color={colors.danger} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </MotionPressable>
-        </View><AccountDeletionSettings /></View>
       </View>
     </ScrollView>
+    </View>
   );
 }
 const useStyles = createThemedStyles((colors) => ({
@@ -326,16 +367,6 @@ const useStyles = createThemedStyles((colors) => ({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
-  },
-  account: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 24,
   },
   signOutButton: {
     minHeight: 48,

@@ -1,4 +1,6 @@
 import { createRequestId } from '../../src/domain/ocr';
+import { useState } from 'react';
+import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import { formatMoney } from '../../src/domain/money';
 import { View, ScrollView, Text } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -25,6 +27,8 @@ export default function OverviewScreen() {
   const colors = useColors();
   const compact = true;
   const selectedMonth = useUiStore(state => state.selectedMonth);
+  const owner = usePreferencesStore(state => state.profile?.user_id);
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
   const dashboard=useDashboard(selectedMonth);
   const categoriesQuery = useCategories();
   const budgetsQuery = useBudgets(selectedMonth);
@@ -37,11 +41,16 @@ export default function OverviewScreen() {
   const expenses = (dashboard.data?.expenseCents ?? 0) / 100;
   const loading = dashboard.isPending;
   const error = dashboard.isError;
-  return <ScrollView style={pageLayout.screen} contentContainerStyle={pageLayout.scrollContent}>
+  return <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
     <View style={pageLayout.workspace}>
-      <ScreenHeading title="Overview" description="A little clarity for your month." action={<UpcomingBillsBell query={dashboard}/>} />
+      <ScreenHeading title="Overview" action={<UpcomingBillsBell query={dashboard}/>} />
       <QueryState loading={categoriesQuery.isPending || budgetsQuery.isPending} error={categoriesQuery.isError || budgetsQuery.isError} retry={() => { void categoriesQuery.refetch(); void budgetsQuery.refetch(); }}>
-        {!dashboard.isPending && !dashboard.isError && rows.filter(row => row.status.spent > row.status.budgeted).map(row => <MotionPressable key={row.category.id} accessibilityLabel={`View ${row.category.name} budget`} onPress={() => router.push({pathname:'/budget/[categoryId]',params:{categoryId:row.category.id,visit:createRequestId()}})}><AlertBanner message={`${row.category.name} is over budget`} /></MotionPressable>)}
+        {!dashboard.isPending && !dashboard.isError && rows.filter(row => row.status.spent > row.status.budgeted).map(row => {
+          const key=`${owner}:${selectedMonth}:${row.category.id}`;
+          return dismissed[key]?null:<AlertBanner key={row.category.id} message={`${row.category.name} is over budget`}
+            label={`View ${row.category.name} budget`} onPress={() => router.push({pathname:'/budget/[categoryId]',params:{categoryId:row.category.id,visit:createRequestId()}})}
+            onDismiss={() => setDismissed(current => ({...current, [key]:true}))}/>;
+        })}
       </QueryState>
       <View style={styles.monthPicker}><MonthPicker /></View>
       <QueryState loading={loading} error={error} retry={() => { void dashboard.refetch(); }}>
@@ -50,12 +59,10 @@ export default function OverviewScreen() {
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowDownLeft size={17} color={colors.success} /><Text style={styles.label}>Income</Text></View>
             <Text style={[styles.amount, compact && styles.compactAmount, { color: colors.success }]}>{formatMoney(income)}</Text>
-            <Text style={styles.caption}>Money coming in</Text>
           </View>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowUpRight size={17} color={colors.muted} /><Text style={styles.label}>Expenses</Text></View>
             <Text style={[styles.amount, compact && styles.compactAmount]}>{formatMoney(expenses)}</Text>
-            <Text style={styles.caption}>Money going out</Text>
           </View>
           <View style={[styles.summaryCell, compact && styles.netCell]}>
             <Text style={styles.label}>Net income</Text>

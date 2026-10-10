@@ -13,12 +13,18 @@ beforeEach(()=>{mockPush.mockClear();mockCategories.isError=false;mockDashboard.
 test('keeps summaries and safe-to-spend while removing report sections',()=>{
  render(<OverviewScreen/>);
  expect(screen.getByText('$2,500.00')).toBeTruthy();expect(screen.getByText('Net income')).toBeTruthy();expect(screen.getByText('Safe to spend')).toBeTruthy();
- expect(screen.queryByText('Daily Spending Pace')).toBeNull();expect(screen.queryByText('Expenses by Category')).toBeNull();expect(screen.queryByLabelText('View Groceries budget')).toBeNull();
+ expect(screen.queryByText('Spending pace')).toBeNull();expect(screen.queryByText('Expenses by Category')).toBeNull();expect(screen.queryByLabelText('View Groceries budget')).toBeNull();
  fireEvent.press(screen.getByText('View reports'));expect(mockPush).toHaveBeenCalledWith('/reports');
 });
 test('over-budget alerts open a fresh read-only category visit',()=>{
  render(<OverviewScreen/>);expect(screen.getByText('Rent is over budget')).toBeTruthy();expect(screen.queryByText('Groceries is over budget')).toBeNull();
  fireEvent.press(screen.getByLabelText('View Rent budget'));expect(mockPush).toHaveBeenCalledWith({pathname:'/budget/[categoryId]',params:{categoryId:'cat-2',visit:expect.any(String)}});
+});
+test('dismisses an over-budget alert without opening the category or changing totals',()=>{
+ render(<OverviewScreen/>);
+ fireEvent.press(screen.getByLabelText('Dismiss Rent is over budget'));
+ expect(screen.queryByText('Rent is over budget')).toBeNull();
+ expect(mockPush).not.toHaveBeenCalled();expect(screen.getByText('$2,500.00')).toBeTruthy();
 });
 test('an alert-query failure does not hide confirmed financial summaries',()=>{
  mockCategories.isError=true;render(<OverviewScreen/>);expect(screen.getByText('$2,500.00')).toBeTruthy();expect(screen.queryByText('Rent is over budget')).toBeNull();expect(screen.getByText('Try again')).toBeTruthy();

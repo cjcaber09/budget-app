@@ -18,7 +18,7 @@ function SourceForm({source,onSaved,onCancel}:{source?:IncomeSource;onSaved:(s:I
  const draft=(next:typeof local)=>{setLocal(next);if(!source)useIncomeSourceDraftStore.getState().set(owner,next);};
  return <View>
   <Text style={form.title}>{source?'Edit income source':'Add income source'}</Text>
-  <Text style={form.subtitle}>Use a name such as Salary, Freelance, or Refund. Receipt sender details do not select a source automatically.</Text>
+  <Text style={form.subtitle}>Try Salary or Freelance. Receipt senders don’t auto-select a source.</Text>
   <TextInput accessibilityLabel="Income source name" placeholder="Salary" style={form.input} value={local.name} maxLength={80} editable={!save.isPending&&!local.pending} onChangeText={name=>draft({...local,name})}/>
   {local.pending&&save.isError&&<Text style={form.subtitle}>Retry this name to confirm whether it saved. You can rename the source afterward.</Text>}
   {save.isError&&<Text accessibilityRole="alert" style={form.error}>{save.error.message}</Text>}
@@ -59,7 +59,7 @@ export function IncomeSourcesSettings() {
  const q=useIncomeSources(),form=useFormStyles(),colors=useColors();
  const [editing,setEditing]=useState<IncomeSource|'new'|null>(null);
  return <View>
-  <Text accessibilityRole="header" style={form.title}>Income sources</Text><Text style={form.subtitle}>Organize income without changing its amount. Archived sources remain in history.</Text>
+  <Text accessibilityRole="header" style={form.title}>Income sources</Text><Text style={form.subtitle}>Group your income. Archived sources stay in history.</Text>
   <QueryState loading={q.isPending} error={q.isError} retry={()=>void q.refetch()}>{q.data?.map(s=><MotionPressable key={s.id} accessibilityLabel={'Edit income source '+s.name} style={{minHeight:48,paddingVertical:14,borderBottomWidth:1,borderBottomColor:colors.border}} onPress={()=>setEditing(s)}><Text style={{...type.body,color:colors.text}}>{s.name}{s.archived?' · Archived':''}</Text></MotionPressable>)}</QueryState>
   <MotionPressable style={form.button} onPress={()=>setEditing('new')}><Text style={form.buttonText}>Add income source</Text></MotionPressable>
   {editing&&<SourceModal onClose={()=>setEditing(null)}><SourceForm key={editing==='new'?'new':editing.id} source={editing==='new'?undefined:editing} onSaved={()=>setEditing(null)} onCancel={()=>setEditing(null)}/></SourceModal>}

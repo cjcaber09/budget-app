@@ -1,3 +1,4 @@
+import { MoneyInput } from './MoneyInput';
 import {CategoryPicker} from './CategoryPicker';
 import { formatMoney } from '../domain/money';
 import { useState,type ReactNode } from 'react';
@@ -131,9 +132,9 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
       {receipt?.classificationReason && !manualEntry && <Text style={styles.subtitle}>{receipt.classificationReason}</Text>}
-      {!type && <Text style={styles.subtitle}>Choose Income or Expense. This receipt does not establish your transaction direction.</Text>}
-      {!type && scanned && onDiscard && <MotionPressable style={styles.secondaryButton} onPress={onDiscard}><Text style={styles.chipText}>Skip recording this transaction</Text></MotionPressable>}
-      {blockedPayment && <View><Text style={styles.error}>This payment is {receipt?.paymentStatus ?? 'unconfirmed'}. It cannot be saved as a completed payment.</Text><MotionPressable style={styles.chip} onPress={() => { setManualEntry(true); setType(null); setDrafts([]); setAmount(''); setNote(''); setPaymentDetails(null); setTransactionDate(scanDate ?? localDateKey(new Date())); setLastPositiveTotal(null); }}><Text style={styles.chipText}>Enter a transaction manually</Text></MotionPressable></View>}
+      {!type && <Text style={styles.subtitle}>Choose Income or Expense. The receipt direction is unclear.</Text>}
+      {!type && scanned && onDiscard && <MotionPressable style={styles.secondaryButton} onPress={onDiscard}><Text style={styles.chipText}>Skip transaction</Text></MotionPressable>}
+      {blockedPayment && <View><Text style={styles.error}>This payment is {receipt?.paymentStatus ?? 'unconfirmed'}. It cannot be saved as a completed payment.</Text><MotionPressable style={styles.chip} onPress={() => { setManualEntry(true); setType(null); setDrafts([]); setAmount(''); setNote(''); setPaymentDetails(null); setTransactionDate(scanDate ?? localDateKey(new Date())); setLastPositiveTotal(null); }}><Text style={styles.chipText}>Enter manually</Text></MotionPressable></View>}
       <Text style={styles.label}>Type</Text>
       <View style={styles.optionRow}>
         {TYPE_OPTIONS.map((option) => (
@@ -160,15 +161,15 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
         <Text style={styles.title}>Payment details</Text>
         {([['fromName','From name'],['fromNumber','From number'],['reference','Reference']] as const).map(([field,label]) => <View key={field}><Text style={styles.label}>{label}</Text><TextInput style={styles.input} placeholderTextColor={colors.subtle} accessibilityLabel={label} value={paymentDetails[field] ?? ''} onChangeText={value => setPaymentDetails({...paymentDetails,[field]:value.trim() ? value : null})} /></View>)}
         <Text style={styles.label}>Payment amount</Text>
-        <TextInput style={styles.input} accessibilityLabel="Payment amount" keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.subtle} value={summaryDraft?.amount ?? (hasRows && totalCents !== null ? centsToDecimal(totalCents) : '')} editable={!!summaryDraft || !hasRows} onChangeText={value => {
+        <MoneyInput style={styles.input} accessibilityLabel="Payment amount" keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.subtle} value={summaryDraft?.amount ?? (hasRows && totalCents !== null ? centsToDecimal(totalCents) : '')} editable={!!summaryDraft || !hasRows} onChangeText={value => {
           if (summaryDraft) changeDrafts(drafts.map(row => row.id===summaryDraft.id ? {...row,amount:value}:row));
           else if(!hasRows && drafts.length<100) changeDrafts([...drafts,{...draftItem(),label:'Payment',amount:value,isPaymentSummary:true,affectsTotal:true}]);
         }} />
-        {!summaryDraft && hasRows && <Text style={styles.subtitle}>Computed from the details below; edit those rows to change the payment amount.</Text>}
+        {!summaryDraft && hasRows && <Text style={styles.subtitle}>Calculated from the rows below. Edit rows to change it.</Text>}
         {!summaryDraft && drafts.length>=100 && <Text style={styles.subtitle}>Remove a row before adding a payment amount.</Text>}
       </View>}
       <Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
-      <TextInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
+      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
       <TransactionItemsEditor drafts={drafts} onChange={changeDrafts} transactionType={type} />
       {rowError && <Text style={[styles.error, { marginTop: 16 }]} accessibilityRole="alert">{rowError}</Text>}
       {hasRows && !rowError && difference !== null && Math.abs(difference) > 1 && <View style={{ marginTop: 16 }}>
@@ -178,7 +179,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
         </MotionPressable>
         {drafts.length >= 100 && <Text style={styles.subtitle}>Remove a row before adding an adjustment.</Text>}
       </View>}
-      {receipt && (receipt.droppedRowCount > 0 || receipt.cappedRowCount > 0 || !receipt.rows.length) && <Text style={[styles.subtitle, { marginTop: 16 }]}>{receipt.rows.length ? `${receipt.droppedRowCount + receipt.cappedRowCount} receipt rows could not be added. Review the transcription before saving.` : 'No usable items were read. Review the receipt and enter details manually.'}</Text>}
+      {receipt && (receipt.droppedRowCount > 0 || receipt.cappedRowCount > 0 || !receipt.rows.length) && <Text style={[styles.subtitle, { marginTop: 16 }]}>{receipt.rows.length ? `${receipt.droppedRowCount + receipt.cappedRowCount} receipt rows could not be added. Review the transcription before saving.` : 'No items found. Review the receipt and enter them manually.'}</Text>}
       {receiptText && <>
         <MotionPressable style={styles.secondaryButton} onPress={() => setShowText(!showText)}><Text style={styles.chipText}>{showText ? 'Hide receipt text' : 'View receipt text'}</Text></MotionPressable>
         {showText && <Text selectable style={styles.subtitle}>{receiptText}</Text>}

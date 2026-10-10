@@ -4,6 +4,9 @@ import { addMonths, format, parseISO } from 'date-fns';
 import { useUiStore } from '../stores/useUiStore';
 import { createThemedStyles, type, useColors } from '../styles/theme';
 import { MotionPressable } from './MotionPressable';
+import {localDateKey} from '../domain/transactionDates';
+import {usePreferencesStore} from '../stores/usePreferencesStore';
+import {useToastStore} from '../stores/useToastStore';
 
 export function MonthPicker({value,onChange,minMonth,maxMonth}:{value?:string;onChange?:(month:string)=>void;minMonth?:string;maxMonth?:string}={}) {
   const selectedMonth = useUiStore(state => state.selectedMonth);
@@ -11,12 +14,20 @@ export function MonthPicker({value,onChange,minMonth,maxMonth}:{value?:string;on
   const setMonth = useUiStore(state => state.setSelectedMonth);
   const styles = useStyles();
   const colors = useColors();
+  const timezone = usePreferencesStore(state => state.profile?.timezone);
+  const currentMonth = `${localDateKey(new Date(), timezone).slice(0, 7)}-01`;
   const date = parseISO(month);
-  function step(amount: number) { const next=format(addMonths(date, amount), 'yyyy-MM-01');if((minMonth&&next<minMonth)||(maxMonth&&next>maxMonth))return;(onChange??setMonth)(next); }
+  function step(amount: number) {
+    const next=format(addMonths(date, amount), 'yyyy-MM-01');
+    const latest=`${localDateKey(new Date(), timezone).slice(0, 7)}-01`;
+    if(amount>0&&next>latest){useToastStore.getState().showToast('You can only view the current month or earlier.');return;}
+    if((minMonth&&next<minMonth)||(maxMonth&&next>maxMonth))return;
+    (onChange??setMonth)(next);
+  }
   return <View style={styles.container}>
     <MotionPressable accessibilityLabel="Previous month" disabled={!!minMonth&&month<=minMonth} style={styles.arrow} onPress={() => step(-1)}><ChevronLeft size={17} color={colors.muted} /></MotionPressable>
     <View style={styles.label}><CalendarDays size={15} color={colors.muted} /><Text style={styles.text}>{format(date, 'MMMM yyyy')}</Text></View>
-    <MotionPressable accessibilityLabel="Next month" disabled={!!maxMonth&&month>=maxMonth} style={styles.arrow} onPress={() => step(1)}><ChevronRight size={17} color={colors.muted} /></MotionPressable>
+    <MotionPressable accessibilityLabel="Next month" disabled={!!maxMonth&&maxMonth<currentMonth&&month>=maxMonth} style={styles.arrow} onPress={() => step(1)}><ChevronRight size={17} color={colors.muted} /></MotionPressable>
   </View>;
 }
 const useStyles = createThemedStyles(colors => ({

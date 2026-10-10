@@ -1,3 +1,4 @@
+import { MoneyInput } from './MoneyInput';
 import {useState} from 'react';
 import {Text,TextInput,View} from 'react-native';
 import {useFormStyles} from '../styles/forms';
@@ -22,7 +23,7 @@ export function PaymentMethodForm({initial,submitting,error:onSaveError,onSave,o
     {value.method==='card'&&<View style={[form.optionRow,{marginTop:12}]}>{['Debit card','Credit card','Prepaid card'].map(label=><MotionPressable key={label} style={[form.chip,value.paymentType===label&&form.chipSelected]} disabled={submitting||!!initial} onPress={()=>patch({paymentType:label})}><Text style={value.paymentType===label?form.chipTextSelected:form.chipText}>{label}</Text></MotionPressable>)}</View>}
     <Text style={form.label}>Name / bank</Text><TextInput accessibilityLabel="Payment method name" style={form.input} editable={!submitting&&value.method!=='cash'} maxLength={100} value={value.name} onChangeText={name=>patch({name})} placeholder="Metrobank" placeholderTextColor={colors.subtle}/>
     {value.method==='card'&&<View><Text style={form.label}>Last four digits (optional)</Text><TextInput accessibilityLabel="Last four card digits" style={form.input} editable={!submitting} keyboardType="number-pad" maxLength={19} value={value.lastFour} onChangeText={lastFour=>patch({lastFour})} placeholder="8035" placeholderTextColor={colors.subtle}/><Text style={[form.subtitle,{marginTop:8}]}>{CARD_PRIVACY_NOTE}</Text></View>}
-    <Text style={form.label}>{credit?'Initial amount owed (required)':'Initial balance (required)'}</Text><TextInput accessibilityLabel="Initial balance" style={form.input} editable={!submitting} keyboardType="numbers-and-punctuation" value={value.openingBalance} onChangeText={openingBalance=>patch({openingBalance})} placeholder="40300.50" placeholderTextColor={colors.subtle}/>
+    <Text style={form.label}>{credit?'Initial amount owed (required)':'Initial balance (required)'}</Text><MoneyInput accessibilityLabel="Initial balance" style={form.input} editable={!submitting} keyboardType="numbers-and-punctuation" value={value.openingBalance} onChangeText={openingBalance=>patch({openingBalance})} placeholder="40300.50" placeholderTextColor={colors.subtle}/>
     <Text style={[form.subtitle,{marginTop:8}]}>The initial amount is saved first. Transactions recorded or reassigned afterward update the current balance. Future-dated transactions apply on their date.</Text>
     {credit&&<Text style={form.subtitle}>Spending increases the amount owed. Payments reduce it. An overpayment is shown as a credit balance, not available credit.</Text>}
     {!!(error||onSaveError)&&<Text accessibilityRole="alert" style={form.error}>{error||onSaveError}</Text>}

@@ -25,10 +25,10 @@ export default function ReportsScreen() {
  const data=report.data,totals=data?.totals.data,maxMonth=format(addMonths(parseISO(report.today.slice(0,7)+'-01'),24),'yyyy-MM-01');
  const retry=()=>void report.refetch();
  if(!report.supported)return <View style={[page.screen,page.scrollContent]}><ScreenHeading title="Reports" description="Choose a supported month to continue."/><UnsupportedReport today={report.today}/></View>;
- return <ScrollView style={page.screen} contentContainerStyle={page.scrollContent}><View style={page.workspace}>
-  <ScreenHeading title="Reports" description="Find the patterns behind your spending." action={<MonthPicker minMonth="0001-12-01" maxMonth={maxMonth}/>}/>
+ return <ScrollView style={page.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={page.scrollContent}><View style={page.workspace}>
+  <ScreenHeading title="Reports" action={<MonthPicker minMonth="0001-12-01" maxMonth={maxMonth}/>}/>
   <CsvExport month={month} kind="analysis"/>
-  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Budget vs Actual</Text><Text style={s.caption}>Your selected month, category by category.</Text>
+  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending by Categories</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=>{
     const owned=rows.filter(c=>c.id!==null);
     const categories:Category[]=owned.map(c=>({id:c.id!,user_id:data!.owner,name:c.name,color:c.color,icon:'tag',is_default:false}));
@@ -38,19 +38,19 @@ export default function ReportsScreen() {
     return <CategoryBudgetReport categories={categories} budgets={budgets} month={month} snapshot={{allocatedCents:Number(allocated),categoryTotals:owned.map(c=>({id:c.id!,name:c.name,color:c.color,spent:c.spent}))}}/>;
    }}</ReportData>
   </View>
-  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending by Category</Text><Text style={s.caption}>All categories, including zero spending and Uncategorized. Percentages use total recorded expenses.</Text>
+  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending share</Text><Text style={s.caption}>Share of all expenses, including Uncategorized.</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=><SpendByCategoryChart reportCategories={rows} expenseCents={totals?.expense} onSelect={key=>key==='uncategorized'?router.push({pathname:'/report/[kind]',params:{kind:'cashflow',month,filter:key,visit:createRequestId()}}):router.push({pathname:'/budget/[categoryId]',params:{categoryId:key,month,visit:createRequestId()}})}/>}</ReportData>
   </View>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Explore reports</Text>
-   <ReportLink title="Detailed cash flow" description="Income, expenses, net amount and separate transfers." kind="cashflow" month={month} value={totals?money(totals.net):undefined}/>
-   <ReportLink title="Income breakdown" description="Income sources and recorded income history." kind="income" month={month} value={totals?money(totals.income):undefined}/>
-   <ReportLink title="Account spending" description="Expenses by individual payment method." kind="accounts" month={month} value={totals?money(totals.expense):undefined}/>
-   <ReportLink title="Previous-month comparison" description={current?'Month to date against matching previous dates.':'Recorded totals and category changes.'} kind="comparison" month={month}/>
+   <ReportLink title="Cash flow" description="Income, expenses and separate transfers." kind="cashflow" month={month} value={totals?money(totals.net):undefined}/>
+   <ReportLink title="Income" description="Sources and history." kind="income" month={month} value={totals?money(totals.income):undefined}/>
+   <ReportLink title="Account spending" description="By payment method." kind="accounts" month={month} value={totals?money(totals.expense):undefined}/>
+   <ReportLink title="Monthly comparison" description={current?'Same elapsed dates, previous month.':'Totals and category changes.'} kind="comparison" month={month}/>
   </View>
   {current&&<QueryState loading={guidance.isPending} error={guidance.isError} retry={()=>void guidance.refetch()}>{guidance.data&&<DailySpendingPace snapshot={guidance.data}/>}</QueryState>}
-  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Expense Trend</Text><Text style={s.caption}>Twelve months ending in your selected month.</Text>
+  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Expense trend</Text><Text style={s.caption}>12 months through the selected month.</Text>
    <ReportData section={data?.monthly} loading={report.isPending} error={report.isError} retry={retry}>{points=><MonthlyTrendChart totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future}))} currentMonth={report.today.slice(0,7)+'-01'}/>}</ReportData>
-   <ReportLink title="Daily, weekly and monthly trends" description="Explore the selected month's spending pace." kind="trends" month={month}/>
+   <ReportLink title="Spending trends" description="Daily, weekly and monthly." kind="trends" month={month}/>
   </View>
  </View></ScrollView>;
 }

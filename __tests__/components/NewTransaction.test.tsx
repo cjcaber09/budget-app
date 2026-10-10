@@ -1,4 +1,7 @@
-jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
+jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:({onChange}: {onChange:(id:string)=>void})=>{
+ const {Pressable,Text}=require('react-native');
+ return <Pressable onPress={()=>onChange('00000000-0000-4000-8000-000000000301')}><Text>Choose salary source</Text></Pressable>;
+},IncomeSourcesSettings:()=>null}));
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { reconcileReceipt } from '../../supabase/functions/ocr/shared';
 import NewTransactionScreen from '../../app/(tabs)/transaction/new';
@@ -7,6 +10,10 @@ import { useToastStore } from '../../src/stores/useToastStore';
 
 const mockRunOcr = jest.fn();
 const mockAddTransaction = jest.fn();
+jest.mock('../../src/components/ExpenseBalanceReview',()=>({
+ useExpenseBalanceReview:()=>({review:(_input:unknown,proceed:()=>void)=>proceed(),checking:false,pending:null,Controls:()=>null}),
+ ExpenseReviewMethodDialog:()=>null,
+}));
 
 jest.mock('../../src/hooks/useOcr', () => ({
   useOcrScan: () => ({ mutate: mockRunOcr }),
@@ -140,7 +147,7 @@ describe('NewTransactionScreen', () => {
     render(<NewTransactionScreen />);
     expect(screen.getByLabelText('Note').props.value).toBe('');
     expect(screen.getByLabelText('Amount').props.value).toBe('12.50');
-    expect(screen.getByText(/No usable items/)).toBeTruthy();
+    expect(screen.getByText(/No items found/)).toBeTruthy();
   });
   it('reuses the transaction ID and timestamp when retrying a create', () => {
     render(<NewTransactionScreen />);
@@ -149,6 +156,18 @@ describe('NewTransactionScreen', () => {
     fireEvent.press(screen.getByText('Add Transaction'));
     expect(mockAddTransaction.mock.calls[0][0].id).toBe(mockAddTransaction.mock.calls[1][0].id);
     expect(mockAddTransaction.mock.calls[0][0].occurredAt).toBe(mockAddTransaction.mock.calls[1][0].occurredAt);
+  });
+  it('saves the selected income source with a scanned income receipt and retains it on retry', () => {
+    const receipt = reconcileReceipt({merchant:'Employer',text:'Salary credited',items:[],deductions:[],taxes:[],fees:[],total:1000,
+      transactionType:'income',documentKind:'salary',paymentStatus:'completed',ownAccountTransfer:false,netReceived:1000});
+    mockRunOcr.mockImplementation((_variables, options) => options.onSuccess({scanId:'s1',text:'Salary credited',truncated:false,receipt}));
+    useScanStore.getState().setPendingImage(IMAGE);
+    render(<NewTransactionScreen/>);
+    fireEvent.press(screen.getByText('Choose salary source'));
+    fireEvent.press(screen.getByText('Add Transaction'));
+    fireEvent.press(screen.getByText('Add Transaction'));
+    expect(mockAddTransaction).toHaveBeenCalledTimes(2);
+    for (const [input] of mockAddTransaction.mock.calls) expect(input).toMatchObject({type:'income',amount:1000,incomeSourceId:'00000000-0000-4000-8000-000000000301'});
   });
 });
 

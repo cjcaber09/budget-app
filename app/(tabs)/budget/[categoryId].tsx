@@ -1,9 +1,10 @@
+import { MoneyInput } from '../../../src/components/MoneyInput';
 import {format,parseISO} from 'date-fns';
 import {useTransactions} from '../../../src/hooks/useTransactions';
 import {TransactionListItem} from '../../../src/components/TransactionListItem';
 import {createRequestId} from '../../../src/domain/ocr';
 import {useState,useCallback} from 'react';
-import {View,FlatList,Text,TextInput} from 'react-native';
+import {View,FlatList,Text} from 'react-native';
 import {useLocalSearchParams,useRouter,useFocusEffect} from 'expo-router';
 import {CategoryPerformance} from '../../../src/components/CategoryPerformance';
 import {UnsupportedReport} from '../../../src/components/ReportWidgets';
@@ -69,7 +70,7 @@ function BudgetForm({categoryId,month,name,current,allocated,allowance,blocked,f
  {allowance!==null&&allocated>allowance&&<Text accessibilityRole="alert" style={form.error}>Existing category budgets exceed the allowance. Reduce allocations to bring them within it.</Text>}
  {(error||save.error)&&<Text accessibilityRole="alert" style={form.error}>{error||save.error?.message}</Text>}
  {failed&&<View><Text accessibilityRole="alert" style={form.error}>Could not refresh allocations. Your draft is still here.</Text><MotionPressable style={form.secondaryButton} onPress={retry}><Text style={form.chipTextSelected}>Retry allocations</Text></MotionPressable></View>}
- <Text style={form.label}>Category budget</Text><TextInput accessibilityLabel="Budget amount" placeholderTextColor={colors.subtle} style={form.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} editable={!save.isPending}/>
+ <Text style={form.label}>Category budget</Text><MoneyInput accessibilityLabel="Budget amount" placeholderTextColor={colors.subtle} style={form.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} editable={!save.isPending}/>
  <MotionPressable style={form.button} onPress={submit} disabled={blocked||save.isPending}><Text style={form.buttonText}>{save.isPending?'Saving...':'Save Budget'}</Text></MotionPressable>
  <MotionPressable style={form.secondaryButton} disabled={save.isPending} onPress={()=>setEditing(false)}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
  </>;

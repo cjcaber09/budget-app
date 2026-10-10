@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Platform, StyleSheet, useColorScheme, type TextStyle } from 'react-native';
+import { cubicBezier } from 'react-native-reanimated';
 import { usePreferencesStore } from '../stores/usePreferencesStore';
 
 export const lightColors = {
@@ -25,7 +26,12 @@ export const type = {
   label: { fontFamily, fontSize: 13, lineHeight: 20, fontWeight: '600' } as TextStyle,
   number: { fontFamily, fontVariant: ['tabular-nums'], fontWeight: '600' } as TextStyle,
 };
-export const motion = { press: 120, enter: 240, exit: 180, easeOut: 'cubic-bezier(0.23, 1, 0.32, 1)', easeSheet: 'cubic-bezier(0.32, 0.72, 0, 1)' } as const;
+// Native Reanimated accepts parametrized easing objects, not CSS bezier strings.
+export const motion = {
+  press: 120, enter: 240, exit: 180,
+  easeOut: cubicBezier(0.23, 1, 0.32, 1),
+  easeSheet: cubicBezier(0.32, 0.72, 0, 1),
+} as const;
 export function useColors(): Colors {
   return useThemeMode() === 'dark' ? darkColors : lightColors;
 }

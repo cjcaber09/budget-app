@@ -6,6 +6,7 @@ jest.mock('react-native-reanimated', () => {
   return {
     __esModule: true,
     default: { View, createAnimatedComponent: (component) => component },
+    cubicBezier: jest.requireActual('./node_modules/react-native-reanimated/src/css/easing').cubicBezier,
     useReducedMotion: jest.fn(() => true),
   };
 });

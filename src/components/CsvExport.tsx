@@ -50,13 +50,13 @@ function CsvExportContent({month,kind,filter='all',search=''}:Props) {
  return <>
   <MotionPressable style={form.secondaryButton} disabled={!profile||busy} onPress={()=>{setError('');setPreview(null);setOpen(true);}}><Text style={form.chipTextSelected}>Export CSV</Text></MotionPressable>
   <ActionSheet title={kind==='analysis'?'Export spending analysis':'Export transactions'} visible={open} busy={busy} onClose={()=>{setOpen(false);setPreview(null);}}>
-   <Text style={form.subtitle}>{kind==='analysis'?'Monthly totals, category breakdowns and account spending with expense counts.':'Individual income and expense records, including your notes. Receipt contents and sender details are excluded.'}</Text>
+   <Text style={form.subtitle}>{kind==='analysis'?'Monthly totals, categories and account spending with counts.':'Income, expenses and notes. Excludes receipt contents and sender details.'}</Text>
    {kind==='analysis'&&<>
     <MotionPressable style={[form.chip,months===1&&form.chipSelected]} disabled={busy} onPress={()=>setMonths(1)} accessibilityRole="radio" accessibilityState={{checked:months===1}}><Text style={form.chipTextSelected}>Selected month</Text></MotionPressable>
     <MotionPressable style={[form.chip,months===12&&form.chipSelected]} disabled={busy||twelveStart<'0001-12-01'} onPress={()=>setMonths(12)} accessibilityRole="radio" accessibilityState={{checked:months===12}}><Text style={form.chipTextSelected}>Last 12 months</Text></MotionPressable>
    </>}
    <Text style={form.label}>{kind==='analysis'?start.slice(0,7):month.slice(0,7)}{kind==='analysis'&&months===12?` through ${month.slice(0,7)}`:''}</Text>
-   <Text style={form.subtitle}>Includes recorded future-dated entries. Transfers, opening balances and corrections are excluded.</Text>
+   <Text style={form.subtitle}>Includes future-dated entries. Excludes transfers, opening balances and corrections.</Text>
    {kind==='transactions'&&<Text style={form.subtitle}>Filter: {filter==='all'?'All':filter==='expense'?'Expenses':'Income'}{search.trim()?` · Search: ${search.trim()}`:''}{preview?` · ${preview.count} matching entries`:''}</Text>}
    {!!error&&<Text accessibilityRole="alert" style={form.error}>{error}</Text>}
    <MotionPressable style={form.button} disabled={busy} onPress={()=>void (preview?shareTransactions():exportCsv())}><Text style={form.buttonText}>{busy?'Preparing…':preview?'Share CSV':kind==='transactions'?'Prepare export':'Export spending CSV'}</Text></MotionPressable>

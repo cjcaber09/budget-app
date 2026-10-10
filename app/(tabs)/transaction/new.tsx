@@ -1,5 +1,6 @@
 import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
+import {useExpenseBalanceReview,ExpenseReviewMethodDialog} from '../../../src/components/ExpenseBalanceReview';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, Image, Text, ActivityIndicator } from 'react-native';
 import { MotionPressable } from '../../../src/components/MotionPressable';
@@ -51,6 +52,8 @@ function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage
   const [scanContext] = useState(() => { const now=new Date();const timezone=activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
   const occurredAt=scanContext.startedAt;
   const [billReview,setBillReview]=useState<AddTransactionInput|null>(null);
+  const funds=useExpenseBalanceReview<AddTransactionInput>();
+  const methodChange=useRef<((id:string|null)=>void)|null>(null);
   useFocusEffect(useCallback(() => {
     focusedRef.current = true;
     return () => {
@@ -116,8 +119,10 @@ function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage
           </View>
         ) : (
           <>
-          <View style={billReview?{display:'none'}:undefined}>
-          <TransactionForm incomeSourceControl={(value,onChange)=><IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=><PaymentMethodPicker value={value} onChange={onChange}/>}
+          <funds.Controls busy={submitting}/>
+          <ExpenseReviewMethodDialog review={funds} onSelect={id=>methodChange.current?.(id)}/>
+          <View style={billReview||funds.pending?{display:'none'}:undefined}>
+          <TransactionForm incomeSourceControl={(value,onChange)=><IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=>{methodChange.current=onChange;return <PaymentMethodPicker value={value} onChange={onChange}/>;}}
             categories={categories}
             receipt={scanResult?.receipt}
             receiptText={scanResult?.text}
@@ -125,15 +130,15 @@ function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage
             onDiscard={() => router.back()}
             scanDate={scanContext.day}
             initialValues={{paymentMethodId:bill.occurrenceId&&isUuid(bill.paymentMethodId)?bill.paymentMethodId:null,categoryId:bill.categoryId,note: prefillNote ?? bill.billNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : bill.billAmount??'' }}
-            submitting={submitting} submitLabel="Add Transaction"
-            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId }) => {
+            submitting={submitting||funds.checking} submitLabel="Add Transaction"
+            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId, incomeSourceId }) => {
               if(bill.occurrenceId && type!=='expense'){showToast('Record a bill as an expense.');return;}
-              const input={id:transactionId,occurrenceId:bill.occurrenceId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
+              const input={id:transactionId,occurrenceId:bill.occurrenceId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
               if(bill.occurrenceId && amount!==Number(bill.billAmount)){setBillReview(input);return;}
-              addTransaction(
+              void funds.review(input,()=>addTransaction(
                 input,
                 { onSuccess: () => router.back() }
-              );
+              ));
             }}
           />
           </View>
