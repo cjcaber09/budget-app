@@ -1,5 +1,7 @@
 # Budget Tracker
 
+Android APKs can update an existing installation with the same signing key. The OTA-enabled test build uses the Expo `preview` channel. See [Android update instructions](docs/android-updates.md) for publishing compatible UI updates and preserving runtime/signing compatibility.
+
 ## CSV exports and account access
 
 Reports offers **Export CSV** for the selected month or twelve months ending there,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Budget Tracker",
     "slug": "budget-management",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "budgetmanagement",
@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.budgetmanagement"
+      "package": "com.anonymous.budgetmanagement",
+      "versionCode": 2
     },
     "web": {
       "output": "static",
@@ -48,6 +49,24 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f2dfc717-2d0f-4e31-8279-e4ac485d010f"
+      }
+    },
+    "owner": "ceejaycabs",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f2dfc717-2d0f-4e31-8279-e4ac485d010f",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      },
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
