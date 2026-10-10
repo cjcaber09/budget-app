@@ -29,5 +29,7 @@ for(const name of ['EXPO_PUBLIC_SUPABASE_URL','EXPO_PUBLIC_SUPABASE_ANON_KEY']){
 for(const name of ['EXPO_SUPABASE_ACCESS_TOKEN','GOOGLE_GEMINI_API','GOOGLE_VISION_API']){
  if(process.env[name]&&bundle.includes(Buffer.from(process.env[name])))throw new Error('Private configuration appeared in the app bundle.');
 }
-for(const abi of ['arm64-v8a','x86_64'])if(!entries.has(`lib/${abi}/libhermes.so`))throw new Error('Required APK architecture is missing.');
+for(const abi of ['arm64-v8a','x86_64']){
+ if(!entries.has(`lib/${abi}/libreactnative.so`)||!entries.has(`lib/${abi}/libhermesvm.so`))throw new Error('Required APK architecture is missing.');
+}
 console.log('PASS APK content: embedded bundle, public app configuration, both ABIs, no private provider/management credentials.');
