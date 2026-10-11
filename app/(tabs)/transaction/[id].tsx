@@ -1,5 +1,4 @@
 import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
-import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from '../../../src/components/TransactionAttachments';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
 import { useBillCommand } from '../../../src/hooks/useDashboard';
 import { createRequestId } from '../../../src/domain/ocr';
@@ -55,22 +54,18 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
   const [confirmation,setConfirmation]=useState<UpdateTransactionInput|null>(null);
   const funds=useExpenseBalanceReview<UpdateTransactionInput>(transaction);
   const methodChange=useRef<((id:string|null)=>void)|null>(null);
-  const proof=useProofDraft();
-  const finishSave=()=>{void proof.upload(snapshot.transaction.id).then(ok=>{if(ok)router.back();});};
-  const saving = update.isPending || remove.isPending || billCommand.isPending || funds.checking || proof.busy;
-  if(proof.savedId)return <AttachmentRetry draft={proof} onDone={()=>router.back()}/>;
+  const saving = update.isPending || remove.isPending || billCommand.isPending || funds.checking;
   return <>
     {snapshot.transaction.occurrence_id&&<Text style={styles.subtitle}>Linked to a scheduled bill. Changing this expense to income skips that occurrence.</Text>}
     <funds.Controls busy={saving}/>
     <ExpenseReviewMethodDialog review={funds} onSelect={id=>methodChange.current?.(id)}/>
     <View style={confirmation||funds.pending?{display:'none'}:undefined}>
     <TransactionForm incomeSourceControl={(value,onChange)=><IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=>{methodChange.current=onChange;return <PaymentMethodPicker value={value} onChange={onChange}/>;}} categories={categories}
-      attachmentControl={<><SavedAttachments transactionId={snapshot.transaction.id}/><ProofPicker draft={proof} disabled={saving}/></>}
       initialValues={{ incomeSourceId:snapshot.transaction.income_source_id??null,paymentMethodId:snapshot.transaction.payment_method_id??null,type: snapshot.transaction.type, categoryId: snapshot.transaction.category_id ?? '', amount: String(snapshot.transaction.amount), note: snapshot.transaction.note ?? '', items: snapshot.items, paymentDetails:snapshot.transaction.payment_details ?? null,transactionDate:effectiveDate(snapshot.transaction) }}
       submitting={saving||funds.checking} submitLabel="Save Changes"
-      onSubmit={values => {const input={ ...values, occurrenceId:snapshot.transaction.occurrence_id??undefined,id: snapshot.transaction.id, occurredAt:values.transactionDate === effectiveDate(snapshot.transaction) ? snapshot.transaction.occurred_at : occurrenceForDate(values.transactionDate,snapshot.transaction.occurred_at) };if(snapshot.transaction.occurrence_id&&values.type==='expense'&&values.amount!==snapshot.transaction.amount){setConfirmation(input);return;}void funds.review(input,()=>update.mutate(input,{onSuccess:finishSave}));}} />
+      onSubmit={values => {const input={ ...values, occurrenceId:snapshot.transaction.occurrence_id??undefined,id: snapshot.transaction.id, occurredAt:values.transactionDate === effectiveDate(snapshot.transaction) ? snapshot.transaction.occurred_at : occurrenceForDate(values.transactionDate,snapshot.transaction.occurred_at) };if(snapshot.transaction.occurrence_id&&values.type==='expense'&&values.amount!==snapshot.transaction.amount){setConfirmation(input);return;}void funds.review(input,()=>update.mutate(input,{onSuccess:()=>router.back()}));}} />
     </View>
-    {confirmation&&<View><Text style={styles.subtitle}>Change this linked expense from {formatMoney(snapshot.transaction.amount)} to {formatMoney(confirmation.amount)}? It will still settle the whole scheduled bill; partial payments are not supported.</Text>{update.isError&&<Text accessibilityRole="alert" style={styles.error}>Could not save this settlement. Your confirmation and draft are still here. Retry or cancel.</Text>}<MotionPressable style={styles.button} disabled={saving} onPress={()=>update.mutate({...confirmation,confirmDifference:true},{onSuccess:finishSave})}><Text style={styles.buttonText}>Confirm full settlement</Text></MotionPressable><MotionPressable style={styles.secondaryButton} disabled={saving} onPress={()=>setConfirmation(null)}><Text style={styles.chipText}>Cancel confirmation</Text></MotionPressable></View>}
+    {confirmation&&<View><Text style={styles.subtitle}>Change this linked expense from {formatMoney(snapshot.transaction.amount)} to {formatMoney(confirmation.amount)}? It will still settle the whole scheduled bill; partial payments are not supported.</Text>{update.isError&&<Text accessibilityRole="alert" style={styles.error}>Could not save this settlement. Your confirmation and draft are still here. Retry or cancel.</Text>}<MotionPressable style={styles.button} disabled={saving} onPress={()=>update.mutate({...confirmation,confirmDifference:true},{onSuccess:()=>router.back()})}><Text style={styles.buttonText}>Confirm full settlement</Text></MotionPressable><MotionPressable style={styles.secondaryButton} disabled={saving} onPress={()=>setConfirmation(null)}><Text style={styles.chipText}>Cancel confirmation</Text></MotionPressable></View>}
     <MotionPressable style={styles.secondaryButton} disabled={saving} onPress={() => remove.mutate(snapshot.transaction.id, { onSuccess: () => router.back() })}>
       <Text style={styles.secondaryText}>{snapshot.transaction.occurrence_id ? 'Delete and skip this bill' : 'Delete Transaction'}</Text>
     </MotionPressable>

@@ -84,7 +84,7 @@ function SettingsContent() {
               <LogOut size={17} color={colors.danger}/><Text style={styles.signOutText}>Logout</Text>
             </MotionPressable>
           }/>
-          <ScrollView horizontal accessibilityLabel="Settings tabs" showsHorizontalScrollIndicator={false}
+          <ScrollView horizontal accessibilityLabel="Settings tabs" showsHorizontalScrollIndicator
             style={{borderBottomWidth: 1, borderBottomColor: colors.border}}
             keyboardShouldPersistTaps="handled" contentContainerStyle={{gap: 20}}>
             {SETTINGS_TABS.map(({id, label, icon: Icon}) => <MotionPressable key={id}
@@ -99,7 +99,7 @@ function SettingsContent() {
           </ScrollView>
         </View>
       </View>
-    <ScrollView ref={content} showsVerticalScrollIndicator={false}
+    <ScrollView ref={content}
       keyboardShouldPersistTaps="handled"
       style={pageLayout.screen}
       contentContainerStyle={[pageLayout.scrollContent, {paddingTop: 16}]}
@@ -127,8 +127,8 @@ function SettingsContent() {
                 error={categories.isError}
                 retry={() => void categories.refetch()}
               >
-                <ScrollView accessibilityLabel="Categories list" style={{maxHeight: 300}} nestedScrollEnabled showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled">
+                <ScrollView accessibilityLabel="Categories list" style={{maxHeight: 300}} nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
                 {(categories.data ?? []).map((category) => (
                   <MotionPressable
                     key={category.id}

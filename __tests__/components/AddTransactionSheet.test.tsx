@@ -29,7 +29,7 @@ describe('AddTransactionSheet', () => {
     renderSheet();
     expect(
       screen.getByText(
-        "Google reads your receipt using Gemini or Cloud Vision. Gemini's free tier may use photos to improve Google products. Saving keeps a private receipt image. You can remove it before saving."
+        "Google reads your receipt using Gemini or Cloud Vision. Gemini's free tier may use photos to improve Google products. The app keeps no photos."
       )
     ).toBeTruthy();
   });

@@ -36,7 +36,7 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, paddingBottom: 24 + (insets?.bottom ?? 0) }}>
           <View style={styles.header}><View style={styles.headerText}><Text accessibilityRole="header" style={styles.title}>Add transaction</Text></View><MotionPressable onPress={onClose} accessibilityLabel="Close add transaction" style={styles.close}><X size={20} color={colors.muted} /></MotionPressable></View>
           {options.map(({ label, detail, Icon, action }) => <MotionPressable key={label} style={styles.option} onPress={action}><Icon color={colors.primary} size={22} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{detail}</Text></View><ChevronRight size={17} color={colors.subtle} /></MotionPressable>)}
-          <Text style={styles.privacy}>Google reads your receipt using Gemini or Cloud Vision. Gemini&apos;s free tier may use photos to improve Google products. Saving keeps a private receipt image. You can remove it before saving.</Text>
+          <Text style={styles.privacy}>Google reads your receipt using Gemini or Cloud Vision. Gemini&apos;s free tier may use photos to improve Google products. The app keeps no photos.</Text>
           <MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable>
         </ScrollView>
       </Animated.View>

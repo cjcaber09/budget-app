@@ -1,6 +1,4 @@
 import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
-import {BillPaymentForm} from '../../../src/components/BillPaymentForm';
-import {useProofDraft,ProofPicker,AttachmentRetry} from '../../../src/components/TransactionAttachments';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
 import {useExpenseBalanceReview,ExpenseReviewMethodDialog} from '../../../src/components/ExpenseBalanceReview';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,11 +14,12 @@ import { useScanStore, type PendingScanImage } from '../../../src/stores/useScan
 import { useToastStore } from '../../../src/stores/useToastStore';
 import { TransactionForm } from '../../../src/components/TransactionForm';
 import { usePageLayout } from '../../../src/styles/pageLayout';
-import { MAX_OCR_TEXT_CHARS, centsToDecimal, type OcrScanResult } from '../../../supabase/functions/ocr/shared';
+import { MAX_OCR_TEXT_CHARS, centsToDecimal,isUuid, type OcrScanResult } from '../../../supabase/functions/ocr/shared';
 import { createRequestId } from '../../../src/domain/ocr';
 import { localDateKey, occurrenceForDate } from '../../../src/domain/transactionDates';
 import { activeTimezone } from '../../../src/stores/usePreferencesStore';
 import type { AddTransactionInput } from '../../../src/hooks/useTransactions';
+import { formatMoney } from '../../../src/domain/money';
 
 function showToast(message: string) {
   useToastStore.getState().showToast(message);
@@ -31,34 +30,30 @@ function showToast(message: string) {
 // The pending image is only used when it was picked for this visit.
 export default function NewTransactionScreen() {
 
-  const { visit,occurrenceId } = useLocalSearchParams<{ visit?: string;occurrenceId?:string }>();
+  const { visit,occurrenceId,categoryId,billAmount,billNote,paymentMethodId } = useLocalSearchParams<{ visit?: string;occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string;paymentMethodId?:string }>();
   const pendingImage = useScanStore((state) => state.pendingImage);
   const scanImage = pendingImage && pendingImage.requestId === visit ? pendingImage : null;
 
-  if(occurrenceId)return <BillPaymentForm key={visit??occurrenceId} occurrenceId={occurrenceId}/>;
-
-  return <NewTransactionContent key={visit ?? 'direct'} scanImage={scanImage} />;
+  return <NewTransactionContent key={visit ?? 'direct'} scanImage={scanImage} bill={{occurrenceId,categoryId,billAmount,billNote,paymentMethodId}} />;
 }
 
-function NewTransactionContent({ scanImage: initialScanImage }: { scanImage: PendingScanImage | null }) {
+function NewTransactionContent({ scanImage: initialScanImage,bill }: { scanImage: PendingScanImage | null;bill:{occurrenceId?:string;categoryId?:string;billAmount?:string;billNote?:string;paymentMethodId?:string} }) {
   const pageLayout = usePageLayout();
   const styles = useStyles();
   const colors = useColors();
   const router = useRouter();
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   const { data: categories } = useCategories();
-  const { mutate: addTransaction, isPending: submitting } = useAddTransaction(selectedMonth);
+  const { mutate: addTransaction, isPending: submitting,isError:saveError } = useAddTransaction(selectedMonth);
   const acceptScanRef = useRef(true);
   const focusedRef = useRef(true);
   const { mutate: runOcr } = useOcrScan(() => acceptScanRef.current && focusedRef.current);
   const [transactionId] = useState(createRequestId);
   const [scanContext] = useState(() => { const now=new Date();const timezone=activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
   const occurredAt=scanContext.startedAt;
+  const [billReview,setBillReview]=useState<AddTransactionInput|null>(null);
   const funds=useExpenseBalanceReview<AddTransactionInput>();
   const methodChange=useRef<((id:string|null)=>void)|null>(null);
-  const proof=useProofDraft();
-  const prepareScan=proof.prepareScan;
-  const finishSave=()=>{void proof.upload(transactionId).then(ok=>{if(ok)router.back();});};
   useFocusEffect(useCallback(() => {
     focusedRef.current = true;
     return () => {
@@ -80,7 +75,6 @@ function NewTransactionContent({ scanImage: initialScanImage }: { scanImage: Pen
   useEffect(() => {
     if (!scanImage || scanStartedRef.current) return;
     scanStartedRef.current = true;
-    void prepareScan(scanImage.uri);
     useScanStore.getState().clearPendingImage();
 
     runOcr(
@@ -101,7 +95,7 @@ function NewTransactionContent({ scanImage: initialScanImage }: { scanImage: Pen
         onError: () => { if (acceptScanRef.current && focusedRef.current) setIsScanning(false); },
       }
     );
-  }, [scanImage, runOcr, prepareScan]);
+  }, [scanImage, runOcr]);
 
   if (!categories) {
     return (
@@ -114,7 +108,6 @@ function NewTransactionContent({ scanImage: initialScanImage }: { scanImage: Pen
   return (
     <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
       <View style={pageLayout.card}>
-        {proof.savedId ? <AttachmentRetry draft={proof} onDone={()=>router.back()}/> : <>
         {scanImage && <Image source={{ uri: scanImage.uri }} style={styles.preview} />}
         {isScanning ? (
           <View style={styles.scanning}>
@@ -128,29 +121,30 @@ function NewTransactionContent({ scanImage: initialScanImage }: { scanImage: Pen
           <>
           <funds.Controls busy={submitting}/>
           <ExpenseReviewMethodDialog review={funds} onSelect={id=>methodChange.current?.(id)}/>
-          <View style={funds.pending?{display:'none'}:undefined}>
+          <View style={billReview||funds.pending?{display:'none'}:undefined}>
           <TransactionForm incomeSourceControl={(value,onChange)=><IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=>{methodChange.current=onChange;return <PaymentMethodPicker value={value} onChange={onChange}/>;}}
-            attachmentControl={<ProofPicker draft={proof} disabled={submitting}/>}
             categories={categories}
             receipt={scanResult?.receipt}
             receiptText={scanResult?.text}
             scanned={!!scanResult}
             onDiscard={() => router.back()}
             scanDate={scanContext.day}
-            initialValues={{paymentMethodId:null,note: prefillNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : '' }}
-            submitting={submitting||funds.checking||proof.busy} submitLabel="Add Transaction"
+            initialValues={{paymentMethodId:bill.occurrenceId&&isUuid(bill.paymentMethodId)?bill.paymentMethodId:null,categoryId:bill.categoryId,note: prefillNote ?? bill.billNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : bill.billAmount??'' }}
+            submitting={submitting||funds.checking} submitLabel="Add Transaction"
             onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId, incomeSourceId }) => {
-              const input={id:transactionId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
+              if(bill.occurrenceId && type!=='expense'){showToast('Record a bill as an expense.');return;}
+              const input={id:transactionId,occurrenceId:bill.occurrenceId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
+              if(bill.occurrenceId && amount!==Number(bill.billAmount)){setBillReview(input);return;}
               void funds.review(input,()=>addTransaction(
                 input,
-                { onSuccess: finishSave }
+                { onSuccess: () => router.back() }
               ));
             }}
           />
           </View>
+          {billReview&&<View><Text style={styles.scanningText}>{formatMoney(billReview.amount)} differs from the scheduled {formatMoney(Number(bill.billAmount))}. Confirm this expense settles the whole bill.</Text>{saveError&&<Text accessibilityRole="alert" style={styles.scanningText}>Could not save this settlement. Your draft is still here. Retry or cancel.</Text>}<MotionPressable disabled={submitting} style={styles.skipButton} onPress={()=>addTransaction({...billReview,confirmDifference:true},{onSuccess:()=>router.back()})}><Text style={styles.skipText}>Confirm full settlement</Text></MotionPressable><MotionPressable style={styles.skipButton} onPress={()=>setBillReview(null)}><Text style={styles.skipText}>Cancel confirmation</Text></MotionPressable></View>}
           </>
         )}
-        </>}
       </View>
     </ScrollView>
   );

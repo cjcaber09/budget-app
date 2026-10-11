@@ -2,7 +2,7 @@ import {createClient} from '@supabase/supabase-js';
 import {corsHeaders} from '@supabase/supabase-js/cors';
 import {createRemoteJWKSet,jwtVerify,decodeProtectedHeader} from 'jose';
 import {isUuid,timingSafeEqual} from '../ocr/shared.ts';
-import {processDeletion,cleanupAttachments,type DeletionJob} from './worker.ts';
+import {processDeletion,type DeletionJob} from './worker.ts';
 
 const url=Deno.env.get('SUPABASE_URL')!,serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,anonKey=Deno.env.get('SUPABASE_ANON_KEY')!;
 const admin=createClient(url,serviceKey,{db:{schema:'budget_tracker'},auth:{persistSession:false,autoRefreshToken:false}});
@@ -40,7 +40,6 @@ async function handle(req:Request):Promise<Response>{
   const cutoff=new Date(Date.now()-86400000).toISOString();
   await admin.from('account_deletions').delete().eq('state','completed').lt('completed_at',cutoff).gte('last_attempt_at',started).is('error_code',null);
   await admin.from('account_scan_leases').delete().lt('expires_at',new Date().toISOString());
-  if(Date.now()-Date.parse(started)<40000)await cleanupAttachments(admin);
   return response(200,{ok:true});
  }
  const token=req.headers.get('Authorization')?.replace(/^Bearer\s+/i,'');if(!token)return response(401,{error:'unauthorized'});

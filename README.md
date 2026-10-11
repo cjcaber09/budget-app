@@ -2,14 +2,6 @@
 
 Android APKs can update an existing installation with the same signing key. The OTA-enabled test build uses the Expo `preview` channel. See [Android update instructions](docs/android-updates.md) for publishing compatible UI updates and preserving runtime/signing compatibility.
 
-## Bill payments and attachments
-
-Upcoming bills' **Record expense** uses the saved bill amount, category, note and scheduled date. The form asks for a payment method and an optional image or PDF. The server rejects insufficient spendable balances and changed bill details. Credit cards continue tracking debt.
-
-Income and expense forms also accept attachments. Receipt scans are attached when saved unless removed first. Images become WebP on the device, with a maximum edge of 2000 pixels and 80% quality. PDFs stay unchanged. Files are limited to 10 MB each, with up to three per transaction. They live in private Storage; only the owner can open them through short-lived links. A failed upload can be retried after the transaction is saved without recording it again.
-
-Migration `0029_transaction_attachments.sql` adds owner-scoped metadata and private cleanup jobs. The existing authenticated maintenance worker removes deleted or expired files through the Storage API, waits for active uploads and purges proof folders during account deletion. Verification: `node scripts/transaction-attachments-sql-test.mjs --deployed` and `node scripts/transaction-attachments-live-test.mjs`. Deployment validates the configured Supabase project through `node scripts/deploy-transaction-attachments.mjs --apply`.
-
 ## CSV exports and account access
 
 Reports offers **Export CSV** for the selected month or twelve months ending there,

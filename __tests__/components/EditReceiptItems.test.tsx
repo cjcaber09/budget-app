@@ -59,7 +59,6 @@ it('requires confirmation for a linked amount edit and retains the draft on canc
 });
 jest.mock('../../src/hooks/useDashboard',()=>({useBillCommand:()=>({mutate:jest.fn(),isPending:false})}));
 
-jest.mock('../../src/components/TransactionAttachments',()=>({useProofDraft:()=>({busy:false,savedId:null,upload:async()=>true}),ProofPicker:()=>null,AttachmentRetry:()=>null,SavedAttachments:()=>null}));
 jest.mock('../../src/components/PaymentMethodPicker',()=>({PaymentMethodPicker:()=>null}));
 jest.mock('../../src/components/ExpenseBalanceReview',()=>({
  useExpenseBalanceReview:()=>({review:(_input:unknown,proceed:()=>void)=>proceed(),checking:false,pending:null,Controls:()=>null}),
