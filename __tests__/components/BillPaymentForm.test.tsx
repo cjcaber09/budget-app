@@ -1,6 +1,7 @@
-import {render,screen,fireEvent,waitFor} from '@testing-library/react-native';
+import {render,renderHook,screen,fireEvent,waitFor,act} from '@testing-library/react-native';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {BillPaymentForm} from '../../src/components/BillPaymentForm';
+import {useProofDraft} from '../../src/components/TransactionAttachments';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 const owner='00000000-0000-4000-8000-000000000001';
 const occurrence='00000000-0000-4000-8000-000000000002';
@@ -28,4 +29,12 @@ it('preserves the draft on insufficient funds and retries only the file after a 
  mockUpload.mockRejectedValueOnce(new Error('Upload failed'));fireEvent.press(screen.getByLabelText('Record bill payment'));await screen.findByText('Upload failed');
  const ids=mockRpc.mock.calls.map(call=>call[1].p_transaction_id);expect(ids[0]).toBe(ids[1]);
  fireEvent.press(screen.getByText('Retry attachment'));await waitFor(()=>expect(mockBack).toHaveBeenCalledTimes(1));expect(mockRpc).toHaveBeenCalledTimes(2);expect(mockUpload).toHaveBeenCalledTimes(2);
+});
+it('binds an attachment draft when owner defaults arrive after a cold deep link',async()=>{
+ const profile=usePreferencesStore.getState().profile!;usePreferencesStore.getState().setProfile(null);
+ client=new QueryClient({defaultOptions:{queries:{gcTime:Infinity}}});
+ const {result}=renderHook(()=>useProofDraft(),{wrapper:({children})=><QueryClientProvider client={client}>{children}</QueryClientProvider>});
+ act(()=>usePreferencesStore.getState().setProfile(profile));await act(async()=>{await result.current.choose();});
+ expect(result.current.file?.name).toBe('receipt.webp');
+ await act(async()=>{expect(await result.current.upload('transaction')).toBe(true);});expect(mockUpload).toHaveBeenCalledWith('transaction',expect.objectContaining({name:'receipt.webp'}),owner);
 });

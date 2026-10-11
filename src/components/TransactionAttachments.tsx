@@ -12,7 +12,10 @@ import {useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
 
 export function useProofDraft(){
- const [owner]=useState(()=>usePreferencesStore.getState().profile?.user_id);
+ const currentOwner=usePreferencesStore(s=>s.profile?.user_id);
+ const [owner,setOwner]=useState(currentOwner);
+ // Defaults can arrive after a deep-linked form mounts. Bind once, never to a second owner.
+ if(!owner&&currentOwner)setOwner(currentOwner);
  const [file,setFile]=useState<ProofFile|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const [savedId,setSavedId]=useState<string|null>(null);
  const client=useQueryClient();
