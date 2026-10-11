@@ -8,9 +8,11 @@ import {UpcomingBillList} from './UpcomingBillList';
 import {QueryState} from './QueryState';
 import {type,useColors} from '../styles/theme';
 import type {useDashboard} from '../hooks/useDashboard';
+import {useHelpBlocker} from '../stores/useHelpStore';
 
 export function UpcomingBillsBell({query}:Readonly<{query:Pick<ReturnType<typeof useDashboard>,'data'|'isPending'|'isError'|'refetch'>}>) {
  const colors=useColors();const insets=useContext(SafeAreaInsetsContext);const reduced=useReducedMotion();const [open,setOpen]=useState(false);
+ useHelpBlocker('upcoming-bills',open);
  const pending=query.data?.bills.filter(b=>b.state==='outstanding'||b.state==='replacement').length??0;
  const close=()=>setOpen(false);
  return <>

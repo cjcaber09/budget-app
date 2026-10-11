@@ -13,6 +13,7 @@ import { useScanStore } from '../stores/useScanStore';
 import { prepareScanImage } from '../lib/prepareScanImage';
 import { estimateBase64Bytes, createRequestId } from '../domain/ocr';
 import { MAX_IMAGE_BYTES } from '../../supabase/functions/ocr/shared';
+import {useHelpBlocker} from '../stores/useHelpStore';
 
 const FAB_SIZE = 56;
 
@@ -41,6 +42,9 @@ export function AddTransactionFab() {
   const insets = useContext(SafeAreaInsetsContext);
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [picking,setPicking]=useState(false);
+  useHelpBlocker('add-transaction',sheetOpen);
+  useHelpBlocker('receipt-picker',picking);
   const afterSheetClosesRef = useRef<(() => void) | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,6 +84,11 @@ export function AddTransactionFab() {
   }
 
   async function handleScan(source: ImageSource) {
+    setPicking(true);
+    try {await scan(source);} finally {setPicking(false);}
+  }
+
+  async function scan(source: ImageSource) {
     let result: Awaited<ReturnType<typeof pickImage>>;
     try {
       result = await pickImage(source);

@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronDown,
   UserRound, Settings2, Wallet, Bell, Tags,
+  CircleHelp,
 } from "lucide-react-native";
 import { useCategories } from "../../src/hooks/useCategories";
 import { useRecurringRules } from "../../src/hooks/useRecurringRules";
@@ -37,6 +38,7 @@ import {AccountDeletionSettings} from '../../src/components/AccountDeletion';
 import {FinancialResetSettings} from '../../src/components/FinancialReset';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import {SettingsTabStrip} from '../../src/components/SettingsTabStrip';
+import {useHelpStore} from '../../src/stores/useHelpStore';
 
 const SETTINGS_TABS = [
   {id: 'organize', label: 'Categories & Bills', icon: Tags},
@@ -305,6 +307,11 @@ function SettingsContent() {
         </View>
       </View>
     </ScrollView>
+    <View style={{paddingHorizontal:24,paddingRight:96,minHeight:48,justifyContent:'center',backgroundColor:colors.background}}>
+      <MotionPressable accessibilityLabel="Need help?" onPress={()=>useHelpStore.getState().open()} style={{minHeight:44,flexDirection:'row',gap:8,alignItems:'center',alignSelf:'flex-start',paddingHorizontal:8}}>
+        <CircleHelp size={16} color={colors.text}/><Text style={{...type.label,color:colors.text}}>Need help?</Text>
+      </MotionPressable>
+    </View>
     </View>
   );
 }

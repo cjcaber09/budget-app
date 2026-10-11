@@ -14,3 +14,12 @@ test('requires acknowledgment and password before sending destructive request',a
 test('missing-session pending notice never reports completed deletion',()=>{
  useAccountDeletionStore.setState({pending:{owner:'old-owner',requestId:'request',accepted:true}});render(<PendingDeletionNotice/>);expect(screen.getByText(/A failed sign-in does not confirm deletion/)).toBeTruthy();expect(screen.queryByText('Account deleted.')).toBeNull();
 });
+
+test('Cancel clears password and acknowledgment without starting deletion',()=>{
+ render(<AccountDeletionSettings/>);fireEvent.press(screen.getByLabelText('Delete account'));
+ fireEvent.changeText(screen.getByLabelText('Deletion current password'),'test-password');
+ fireEvent.press(screen.getByText('I understand this permanently deletes my account.'));fireEvent.press(screen.getByText('Close'));
+ expect(mockDelete).not.toHaveBeenCalled();expect(useAccountDeletionStore.getState().pending).toBeNull();
+ fireEvent.press(screen.getByLabelText('Delete account'));expect(screen.getByLabelText('Deletion current password').props.value).toBe('');
+ expect(screen.getByRole('checkbox').props.accessibilityState.checked).toBe(false);
+});

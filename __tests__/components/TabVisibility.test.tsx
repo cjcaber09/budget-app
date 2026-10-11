@@ -8,6 +8,7 @@ jest.mock('../../src/hooks/useRecurringRules',()=>({useRecurringCatchUp:()=>{}})
 jest.mock('../../src/hooks/useBudgetAlerts',()=>({useBudgetAlerts:()=>{}}));
 jest.mock('../../src/hooks/usePhoneNotifications',()=>({usePhoneNotifications:()=>{}}));
 jest.mock('../../src/components/AddTransactionFab',()=>({AddTransactionFab:()=>null}));
+jest.mock('../../src/components/InitialHelp',()=>({InitialHelp:()=>null}));
 jest.mock('../../src/components/MotionPressable',()=>({MotionPressable:require('react-native').Pressable}));
 const Page=()=> <Text>Screen content</Text>;
 it('keeps the dynamic bill-payment route out of the tab bar and preserves Back to Settings',()=>{

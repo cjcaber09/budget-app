@@ -17,6 +17,7 @@ import {useColors} from '../styles/theme';
 import {usePageLayout} from '../styles/pageLayout';
 import {ActionSheet} from './ActionSheet';
 import {MotionPressable} from './MotionPressable';
+import {useHelpBlocker} from '../stores/useHelpStore';
 
 export function FinancialResetSettings(){
  const owner=usePreferencesStore(s=>s.profile?.user_id);return <ResetSettings key={owner} owner={owner}/>;
@@ -25,6 +26,7 @@ function ResetSettings({owner}:Readonly<{owner?:string}>){
  const starting=useFinancialResetStore(s=>s.starting);
  const form=useFormStyles(),colors=useColors(),router=useRouter();
  const [open,setOpen]=useState(false),[password,setPassword]=useState(''),[ack,setAck]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useHelpBlocker('financial-reset',open);
  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  const close=()=>{if(!busy){setOpen(false);setPassword('');setAck(false);}};
  async function start(){
