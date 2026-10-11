@@ -15,6 +15,8 @@ import { View,Text,ActivityIndicator } from 'react-native';
 import { MotionPressable } from '../src/components/MotionPressable';
 import {clearExportFiles} from '../src/lib/exportFiles';
 import {AccountDeletionBoundary} from '../src/components/AccountDeletion';
+import {FinancialResetBoundary} from '../src/components/FinancialReset';
+import {useFinancialResetStore} from '../src/stores/useFinancialResetStore';
 
 function handleQueryError(error: unknown) {
   console.error('Data request failed', { code: (error as { code?: string } | null)?.code });
@@ -53,6 +55,7 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  const resetEpoch=useFinancialResetStore(state=>state.epoch);
   const colors = useColors();
   const dark = useThemeMode() === 'dark';
   useEffect(() => {
@@ -67,11 +70,12 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={{ ...(dark ? DarkTheme : DefaultTheme), colors: { ...(dark ? DarkTheme.colors : DefaultTheme.colors), background: colors.background, card: colors.surface, text: colors.text, border: colors.border, primary: colors.primary } }}>
     <QueryClientProvider client={queryClient}>
-      <ProfileBootstrap />
+      <ProfileBootstrap key={`profile:${resetEpoch}`}/>
       <StatusBar style={dark ? 'light' : 'dark'} />
-      <Navigator><AuthGate /></Navigator>
+      <Navigator key={`navigation:${resetEpoch}`}><AuthGate /></Navigator>
       <Toast />
       <AccountDeletionBoundary />
+      <FinancialResetBoundary />
     </QueryClientProvider>
     </ThemeProvider>
   );

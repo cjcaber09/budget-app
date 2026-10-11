@@ -8,6 +8,7 @@ import { localDateKey } from "../domain/transactionDates";
 import {
   centsToDecimal,
   decimalToCents,
+  isUuid,
 } from "../../supabase/functions/ocr/shared";
 import type { RecurringRule, RecurringFrequency } from "../types/database";
 export function useRecurringRules() {
@@ -72,6 +73,7 @@ export function useRecurringCatchUp() {
   }, [owner, timezone, client]);
 }
 export interface AddRecurringRuleInput {
+  createId?:string;
   paymentMethodId?:string|null;
   reminderEnabled?: boolean;
   reminderDaysBefore?: number;
@@ -89,6 +91,8 @@ function useRuleMutation() {
     mutationFn: async (
       input: AddRecurringRuleInput & { id?: string; command?: string },
     ) => {
+      const owner=usePreferencesStore.getState().profile?.user_id;
+      if(!owner)throw new Error('Sign in to save this bill.');
       const cents = decimalToCents(input.amount);
       if (cents === null) throw new Error("Invalid amount");
       const r = await supabase.rpc("save_recurring_rule", {
@@ -98,8 +102,11 @@ function useRuleMutation() {
           nextDueDate: input.nextDueDate ?? localDateKey(new Date()),
         },
       });
-      if (r.error) throw r.error;
-      return r.data;
+      if (r.error) throw new Error(r.error.code==='23505'?'This bill was already saved with different details. Reopen it to edit.':r.error.code==='42501'?'This bill is unavailable. Sign in and reopen it.':'Could not save this bill. Your draft is still here. Retry.');
+      const saved=r.data as RecurringRule;
+      if(!saved||!isUuid(saved.id)||saved.user_id!==owner)throw new Error('Could not confirm the saved bill. Retry this draft.');
+      if(usePreferencesStore.getState().profile?.user_id!==owner)throw new Error('Account changed. Sign in and reopen this bill.');
+      return saved;
     },
     onSuccess: () => {
       invalidateReports(client);

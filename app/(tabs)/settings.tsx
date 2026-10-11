@@ -34,7 +34,9 @@ import { createRequestId } from "../../src/domain/ocr";
 import { PaymentMethodsSettings } from "../../src/components/PaymentMethodPicker";
 import {IncomeSourcesSettings} from '../../src/components/IncomeSources';
 import {AccountDeletionSettings} from '../../src/components/AccountDeletion';
+import {FinancialResetSettings} from '../../src/components/FinancialReset';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
+import {SettingsTabStrip} from '../../src/components/SettingsTabStrip';
 
 const SETTINGS_TABS = [
   {id: 'organize', label: 'Categories & Bills', icon: Tags},
@@ -84,19 +86,7 @@ function SettingsContent() {
               <LogOut size={17} color={colors.danger}/><Text style={styles.signOutText}>Logout</Text>
             </MotionPressable>
           }/>
-          <ScrollView horizontal accessibilityLabel="Settings tabs" showsHorizontalScrollIndicator={false}
-            style={{borderBottomWidth: 1, borderBottomColor: colors.border}}
-            keyboardShouldPersistTaps="handled" contentContainerStyle={{gap: 20}}>
-            {SETTINGS_TABS.map(({id, label, icon: Icon}) => <MotionPressable key={id}
-              accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{selected: tab === id}}
-              aria-selected={tab === id}
-              style={{minHeight: 48, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 7,
-                borderBottomWidth: 2, borderBottomColor: tab === id ? colors.primary : 'transparent'}}
-              onPress={() => selectTab(id)}>
-              <Icon size={17} color={tab === id ? colors.primary : colors.muted}/>
-              <Text style={tab === id ? form.chipTextSelected : form.chipText}>{label}</Text>
-            </MotionPressable>)}
-          </ScrollView>
+          <SettingsTabStrip tabs={SETTINGS_TABS} selected={tab} onSelect={selectTab}/>
         </View>
       </View>
     <ScrollView ref={content} showsVerticalScrollIndicator={false}
@@ -107,7 +97,7 @@ function SettingsContent() {
       <View style={pageLayout.workspace}>
         {(visited.includes('profile') || visited.includes('preferences')) && <View style={tab === 'profile' || tab === 'preferences' ? undefined : {display: 'none'}}>
           <ProfileSettings section={tab === 'preferences' ? 'preferences' : 'profile'}/>
-          <View style={tab === 'profile' ? undefined : {display: 'none'}}><AccountDeletionSettings/></View>
+          <View style={tab === 'profile' ? undefined : {display: 'none'}}><FinancialResetSettings/><AccountDeletionSettings/></View>
         </View>}
         {visited.includes('sources') && <View style={[styles.column, tab !== 'sources' && {display: 'none'}]}>
           <View style={pageLayout.section}><IncomeSourcesSettings/></View>

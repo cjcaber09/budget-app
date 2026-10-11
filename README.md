@@ -248,3 +248,15 @@ Reports now opens detailed cash flow, income breakdown/history, individual accou
 Optional income sources can be created in Settings or income review, renamed, archived and restored. Existing income stays Unspecified; OCR sender details do not infer a source. Failed creation retains the same UUID and name for retry, and a created source survives a failed transaction save.
 
 Migrations 0021–0022 are deployed; configured remote 0001–0022 confirmed. Run `node scripts/reports-expansion-sql-test.mjs --deployed` for rollback checks and `node scripts/reports-expansion-concurrency-test.mjs` for synthetic retry/archive checks with cleanup. `node scripts/deploy-reports-expansion.mjs` previews migrations; `--apply` deploys them after checking the app/CLI project match. No Docker or OCR call is required. See [implemented plan and verification](docs/superpowers/plans/2026-10-09-reports-expansion.md).
+
+## Clear finance records
+
+Profile includes Clear records. It requires the current password and confirmation, removes all finance records and receipts, and restores default categories and Cash with its balance unset. The account, profile, avatar and preferences stay. Scanning quotas remain enforced.
+
+Migration 0030 and the reset worker are deployed to the configured project. See [finance reset design](docs/superpowers/specs/2026-10-11-financial-reset.md). Run `node scripts/financial-reset-sql-test.mjs --deployed` for rollback-only synthetic reset and MVP safeguard checks. `node scripts/financial-reset-live-test.mjs` verifies password protection and file cleanup with disposable accounts.
+
+## Confirmed bill payments
+
+Bills stay pending until explicitly recorded or linked. Payments use the actual payment date; due dates stay separate. New-bill creation uses exact retries, and deleting/replacing expenses requires confirmation. The staged UI also groups Overview warnings, simplifies transaction entry and clarifies report figures. See [review fixes](docs/superpowers/specs/2026-10-11-confirmed-bills-review-fixes.md).
+
+Migration 0031 is deployed to the configured project. `node scripts/confirmed-bills-sql-test.mjs --deployed` runs synthetic bill/reset/MVP checks within a rollback. Android runtime remains 1.0.1; the new signed APK uses versionCode 3 and updates the existing installation. See [Android updates](docs/android-updates.md).

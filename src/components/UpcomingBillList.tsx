@@ -8,10 +8,12 @@ import {useBillCommand} from '../hooks/useDashboard';
 import {useTransactions} from '../hooks/useTransactions';
 import {createRequestId} from '../domain/ocr';
 import {MotionPressable} from './MotionPressable';
+import {Save} from 'lucide-react-native';
+import {useColors} from '../styles/theme';
 import {addMonths,format,parseISO} from 'date-fns';
 import type {BillOccurrence,DashboardSnapshot} from '../domain/spendingGuidance';
 export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:DashboardSnapshot;onNavigate:()=>void}>){
- const styles=useStyles();const form=useFormStyles();const money=useMoney();const router=useRouter();const command=useBillCommand();
+ const styles=useStyles();const form=useFormStyles();const money=useMoney();const router=useRouter();const command=useBillCommand();const colors=useColors();
   const [linking, setLinking] = useState<BillOccurrence | null>(null);
   const [difference, setDifference] = useState<{
     bill: BillOccurrence;
@@ -19,7 +21,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
     amount: number;
   } | null>(null);
   const [linkMonth, setLinkMonth] = useState(s.month);
-  const transactions = useTransactions(linkMonth);
+  const transactions = useTransactions(linkMonth,!!linking);
   const outstanding = s.bills.filter(
     (b) => b.state === "outstanding" || b.state === "replacement",
   );
@@ -46,14 +48,15 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
                   </Text>
                   <Text style={styles.caption}>
                     {bill.scheduled_date}
+                    {bill.scheduled_date<s.today ? ' · Overdue' : ''}
                     {bill.state === "replacement" ? " · Needs replacement" : ""}
                   </Text>
                 </View>
                 <Text style={styles.number}>{money(Number(bill.amount))}</Text>
               </View>
               <View style={form.optionRow}>
-                <MotionPressable style={form.chip} onPress={() => record(bill)}>
-                  <Text style={form.chipText}>Record expense</Text>
+                <MotionPressable style={[form.chip,{flexDirection:'row',gap:8,alignItems:'center'}]} onPress={() => record(bill)}>
+                  <Save size={16} color={colors.primary}/><Text style={form.chipText}>Record payment</Text>
                 </MotionPressable>
                 <MotionPressable
                   style={form.chip}
@@ -123,7 +126,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
             </MotionPressable>
           )}
           {(transactions.data ?? [])
-            .filter((t) => t.type === "expense" && !t.occurrence_id)
+            .filter((t) => t.type === "expense" && !t.occurrence_id && !t.transfer_id)
             .map((t) => (
               <MotionPressable
                 key={t.id}
@@ -149,7 +152,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
           {!transactions.isPending &&
             !transactions.isError &&
             !(transactions.data ?? []).some(
-              (t) => t.type === "expense" && !t.occurrence_id,
+              (t) => t.type === "expense" && !t.occurrence_id && !t.transfer_id,
             ) && (
               <Text style={styles.caption}>
                 No unlinked expenses in this month. Record the bill instead.

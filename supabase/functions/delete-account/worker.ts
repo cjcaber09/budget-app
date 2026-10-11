@@ -7,19 +7,20 @@ interface Admin {
  auth:{admin:{getUserById:(id:string)=>Promise<any>;deleteUser:(id:string,softDelete?:boolean)=>Promise<any>}};
  rpc:(name:string,args:Record<string,unknown>)=>PromiseLike<any>;
 }
-async function purgeFolder(admin:Admin,bucket:string,path:string,deadline:number):Promise<void> {
+export async function purgeFolder(admin:Admin,bucket:string,path:string,deadline:number,guard?:()=>Promise<boolean>):Promise<void> {
  const storage=admin.storage.from(bucket);
  for(let pass=0;pass<100;pass++){
   if(Date.now()>deadline)throw new Error('cleanup_pending');
+  if(guard&&!await guard())throw new Error('cleanup_pending');
   const listed=await storage.list(path,{limit:100,sortBy:{column:'name',order:'asc'}});
   if(listed.error||!Array.isArray(listed.data))throw new Error('storage_failed');
   if(!listed.data.length)return;
   const objects:string[]=[];
   for(const file of listed.data){
    if(typeof file.name!=='string'||file.name.includes('/')||file.name==='.'||file.name==='..')throw new Error('storage_failed');
-   if(file.id===null)await purgeFolder(admin,bucket,`${path}/${file.name}`,deadline);else objects.push(`${path}/${file.name}`);
+   if(file.id===null)await purgeFolder(admin,bucket,`${path}/${file.name}`,deadline,guard);else objects.push(`${path}/${file.name}`);
   }
-  if(objects.length){const removed=await storage.remove(objects);if(removed.error)throw new Error('storage_failed');}
+  if(objects.length){if(guard&&!await guard())throw new Error('cleanup_pending');const removed=await storage.remove(objects);if(removed.error)throw new Error('storage_failed');}
  }
  throw new Error('cleanup_pending');
 }

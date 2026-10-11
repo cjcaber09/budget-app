@@ -28,7 +28,7 @@ export default function ReportsScreen() {
  return <ScrollView style={page.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={page.scrollContent}><View style={page.workspace}>
   <ScreenHeading title="Reports" action={<MonthPicker minMonth="0001-12-01" maxMonth={maxMonth}/>}/>
   <CsvExport month={month} kind="analysis"/>
-  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending by Categories</Text>
+  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Category budgets</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=>{
     const owned=rows.filter(c=>c.id!==null);
     const categories:Category[]=owned.map(c=>({id:c.id!,user_id:data!.owner,name:c.name,color:c.color,icon:'tag',is_default:false}));

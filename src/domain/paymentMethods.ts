@@ -6,7 +6,7 @@ export interface PaymentMethod {
   has_activity:boolean;related_bills:{id:string;label:string}[];
 }
 export interface PaymentMethodValues {id:string;method:PaymentMethodKind;paymentType:string;name:string;lastFour:string;openingBalance:string;confirmOpening?:boolean}
-export interface PaymentTransfer {id:string;source_id:string;destination_id:string;amount:string;transfer_date:string;note:string|null}
+export interface PaymentTransfer {id:string;source_id:string;destination_id:string;amount:string;transfer_date:string;note:string|null;fee_amount?:string;fee_mode?:import('./transferFees').TransferFeeMode}
 export interface BalanceCorrection {id:string;method_id:string;target_balance:string;delta:string;note:string|null;created_at:string}
 export function isCreditCard(value:Pick<PaymentMethod,'method'|'payment_type'>) {return value.method==='card'&&value.payment_type==='Credit card';}
 export const CARD_PRIVACY_NOTE='We store only the optional last four digits of your card. Never enter your full card number, PIN, or CVV.';

@@ -19,6 +19,7 @@ export interface Budget {
 }
 
 export interface Transaction {
+  transfer_id?:string|null;
   payment_method_kind?:string;
   financial_date?:string;
   income_source_id?:string|null;

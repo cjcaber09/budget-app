@@ -1,10 +1,10 @@
 import { createRequestId } from '../../src/domain/ocr';
 import { useState } from 'react';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
-import { formatMoney } from '../../src/domain/money';
+import { useMoneyCents } from '../../src/domain/money';
 import { View, ScrollView, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, ChevronDown, ChevronUp, CircleAlert } from 'lucide-react-native';
 import { useCategories } from '../../src/hooks/useCategories';
 import { useBudgets } from '../../src/hooks/useBudgets';
 import { useUiStore } from '../../src/stores/useUiStore';
@@ -25,10 +25,13 @@ export default function OverviewScreen() {
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
   const colors = useColors();
+  const money = useMoneyCents();
   const compact = true;
   const selectedMonth = useUiStore(state => state.selectedMonth);
   const owner = usePreferencesStore(state => state.profile?.user_id);
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const alertGroup = `${owner}:${selectedMonth}`;
   const dashboard=useDashboard(selectedMonth);
   const categoriesQuery = useCategories();
   const budgetsQuery = useBudgets(selectedMonth);
@@ -37,36 +40,43 @@ export default function OverviewScreen() {
     const budget = (budgetsQuery.data ?? []).find(b => b.category_id === category.id);
     return { category, status: computeBudgetStatus(budget?.amount ?? 0, (dashboard.data?.categoryTotals.find(c=>c.id===category.id)?.spent??0)/100) };
   });
-  const income = (dashboard.data?.incomeCents ?? 0) / 100;
-  const expenses = (dashboard.data?.expenseCents ?? 0) / 100;
+  const income = dashboard.data?.incomeCents ?? 0;
+  const expenses = dashboard.data?.expenseCents ?? 0;
   const loading = dashboard.isPending;
   const error = dashboard.isError;
+  const alerts = !dashboard.isPending && !dashboard.isError ? rows.filter(row => row.status.spent > row.status.budgeted && !dismissed[`${alertGroup}:${row.category.id}`]) : [];
   return <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
     <View style={pageLayout.workspace}>
       <ScreenHeading title="Overview" action={<UpcomingBillsBell query={dashboard}/>} />
+      <View style={styles.monthPicker}><MonthPicker /></View>
       <QueryState loading={categoriesQuery.isPending || budgetsQuery.isPending} error={categoriesQuery.isError || budgetsQuery.isError} retry={() => { void categoriesQuery.refetch(); void budgetsQuery.refetch(); }}>
-        {!dashboard.isPending && !dashboard.isError && rows.filter(row => row.status.spent > row.status.budgeted).map(row => {
-          const key=`${owner}:${selectedMonth}:${row.category.id}`;
-          return dismissed[key]?null:<AlertBanner key={row.category.id} message={`${row.category.name} is over budget`}
+        <View style={{gap:8}}>
+        {alerts.length > 1 && <MotionPressable accessibilityLabel="Over-budget categories" accessibilityState={{expanded:!!expanded[alertGroup]}} style={styles.alertSummary} onPress={() => setExpanded(current => ({...current,[alertGroup]:!current[alertGroup]}))}>
+          <CircleAlert size={18} color={colors.warning}/><Text style={[styles.actionLabel,{color:colors.warning,flex:1}]}>{alerts.length} categories over budget</Text>
+          {expanded[alertGroup]?<ChevronUp size={18} color={colors.warning}/>:<ChevronDown size={18} color={colors.warning}/>}
+        </MotionPressable>}
+        {(alerts.length===1 || expanded[alertGroup]) && alerts.map(row => {
+          const key=`${alertGroup}:${row.category.id}`;
+          return <AlertBanner key={row.category.id} message={`${row.category.name} is over budget`}
             label={`View ${row.category.name} budget`} onPress={() => router.push({pathname:'/budget/[categoryId]',params:{categoryId:row.category.id,visit:createRequestId()}})}
             onDismiss={() => setDismissed(current => ({...current, [key]:true}))}/>;
         })}
+        </View>
       </QueryState>
-      <View style={styles.monthPicker}><MonthPicker /></View>
       <QueryState loading={loading} error={error} retry={() => { void dashboard.refetch(); }}>
         {dashboard.data&&<SpendingGuidance key={selectedMonth} snapshot={dashboard.data}/>}
         <View style={[styles.summary, compact && styles.compactSummary]}>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowDownLeft size={17} color={colors.success} /><Text style={styles.label}>Income</Text></View>
-            <Text style={[styles.amount, compact && styles.compactAmount, { color: colors.success }]}>{formatMoney(income)}</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount, { color: colors.success }]}>{money(income)}</Text>
           </View>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowUpRight size={17} color={colors.muted} /><Text style={styles.label}>Expenses</Text></View>
-            <Text style={[styles.amount, compact && styles.compactAmount]}>{formatMoney(expenses)}</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount]}>{money(expenses)}</Text>
           </View>
           <View style={[styles.summaryCell, compact && styles.netCell]}>
-            <Text style={styles.label}>Net income</Text>
-            <Text style={[styles.amount, compact && styles.compactAmount]}>{formatMoney((income - expenses))}</Text>
+            <Text style={styles.label}>Net cash flow</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount]}>{money(income - expenses)}</Text>
             {!compact && <Text style={styles.caption}>Income minus expenses</Text>}
           </View>
         </View>
@@ -77,6 +87,7 @@ export default function OverviewScreen() {
   </ScrollView>;
 }
 const useStyles = createThemedStyles(colors => ({
+  alertSummary: {minHeight:48,flexDirection:'row',alignItems:'center',gap:10,padding:12,backgroundColor:colors.warningBg,borderRadius:8},
   monthPicker: { alignItems: 'center' },
   summary: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surfaceAlt, borderRadius: 16, padding: 24, columnGap: 28, rowGap: 24 },
   summaryCell: { flex: 1, minWidth: 120, gap: 8 },

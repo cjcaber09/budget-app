@@ -11,6 +11,7 @@ jest.mock('expo-router',()=>({
 jest.mock('../../src/hooks/useSession',()=>({useSession:()=>({session:mockSession,loading:mockLoading,error:mockError,refresh:mockRefresh})}));
 jest.mock('../../src/hooks/useProfile',()=>({ProfileBootstrap:()=>null}));
 jest.mock('../../src/components/AccountDeletion',()=>({AccountDeletionBoundary:()=>null}));
+jest.mock('../../src/components/FinancialReset',()=>({FinancialResetBoundary:()=>null}));
 jest.mock('../../src/components/Toast',()=>({Toast:()=>null}));
 jest.mock('expo-status-bar',()=>({StatusBar:()=>null}));
 jest.mock('../../src/lib/exportFiles',()=>({clearExportFiles:async()=>{}}));
