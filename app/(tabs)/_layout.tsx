@@ -83,7 +83,7 @@ export default function TabsLayout() {
             href: null, with a back button since Tabs has no built-in one. */}
         <Tabs.Screen
           name="transaction/new"
-          options={{ href: null, title: 'Add Transaction', headerLeft: renderBackButton }}
+          options={({route})=>({ href: null, title: (route.params as {occurrenceId?:string}|undefined)?.occurrenceId ? 'Record payment' : 'Add Transaction', headerLeft: renderBackButton })}
         />
         <Tabs.Screen
           name="transaction/[id]"

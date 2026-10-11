@@ -26,6 +26,7 @@ export interface TransactionFormValues {
 }
 
 interface Props {
+  attachmentControl?:ReactNode;
   incomeSourceControl?:(value:string|null,onChange:(id:string|null)=>void)=>ReactNode;
   paymentMethodControl?:(value:string|null,onChange:(id:string|null)=>void)=>ReactNode;
   onDiscard?: () => void;
@@ -52,7 +53,7 @@ interface Props {
 
 const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
 
-export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl }: Props) {
+export function TransactionForm({ categories, initialValues, receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl,attachmentControl }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
   const [type, setType] = useState<TransactionType|null>(() => initialValues?.type ?? (receipt?.transactionType === 'income' || receipt?.transactionType === 'expense' ? receipt.transactionType : scanned ? null : 'expense'));
@@ -151,6 +152,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
       </View>
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,setIncomeSourceId):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
+      {attachmentControl}
       {type === 'expense' && (
         <>
           <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
