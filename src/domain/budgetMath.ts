@@ -1,16 +1,21 @@
 import type { Transaction, TransactionType } from '../types/database';
+import {decimalToCents} from '../../supabase/functions/ocr/shared';
+
+function sumMoney(rows:Transaction[]):number {
+  const cents=rows.reduce((total,t)=>{const value=decimalToCents(t.amount);if(value===null)throw new Error('Transaction money could not be read.');return total+BigInt(value)*(t.type==='refund'?-1n:1n);},0n);
+  if(cents>BigInt(Number.MAX_SAFE_INTEGER)||cents<BigInt(Number.MIN_SAFE_INTEGER))throw new Error('Transaction totals exceed the supported range.');
+  return Number(cents)/100;
+}
 
 export function sumTransactionsForCategory(
   transactions: Transaction[],
   categoryId: string
 ): number {
-  return transactions
-    .filter((t) => t.category_id === categoryId)
-    .reduce((total, t) => total + t.amount, 0);
+  return sumMoney(transactions.filter((t) => t.category_id === categoryId));
 }
 
 export function sumTransactionsByType(transactions: Transaction[], type: TransactionType): number {
-  return transactions.filter((t) => t.type === type).reduce((total, t) => total + t.amount, 0);
+  return sumMoney(transactions.filter((t) => t.type === type || type==='expense'&&t.type==='refund'));
 }
 
 export type BudgetStatusLevel = 'ok' | 'warning' | 'over';

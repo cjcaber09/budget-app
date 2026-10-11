@@ -101,6 +101,7 @@ function HelpContent({owner}:{owner:string}) {
           {current===2&&<>
             <Text style={form.subtitle}>Budgets set your monthly spending limits. Reports show where your money went.</Text>
             <Text style={form.subtitle}>Bills track upcoming payments. Record or link a payment when it is paid.</Text>
+            <Text style={form.subtitle}>Refund an expense from its details once the money returns.</Text>
             <Text style={form.subtitle}>Payment methods track your balances manually; they do not connect to your bank. Transfers move money between methods, and transfer fees count as expenses.</Text>
             <Text style={form.subtitle}>Income sources group earnings. Manage categories, sources and preferences in Settings.</Text>
           </>}

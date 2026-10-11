@@ -30,7 +30,7 @@ export function ReportGroups({groups,total,onSelect}:{groups:ReportGroup[];total
 }
 export function CashFlowTotals({totals}:{totals:ReportTotals}) {
  const s=useSpendingGuidanceStyles(),money=useMoneyCents();
- return <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Recorded cash flow</Text>{(['income','expense','net'] as const).map(key=><View key={key} style={s.row}><Text style={s.caption}>{key==='income'?'Income':key==='expense'?'Expenses':'Net cash flow'}</Text><Text style={s.number}>{money(totals[key])}</Text></View>)}<Text style={s.caption}>Includes future-dated records in this month. Transfers, initial balances and corrections are separate; this is not verified bank movement.</Text></View>;
+ return <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Recorded cash flow</Text>{(['income','expense','net'] as const).map(key=><View key={key} style={s.row}><Text style={s.caption}>{key==='income'?'Income':key==='expense'?'Expenses':'Net cash flow'}</Text><Text style={s.number}>{money(totals[key])}</Text></View>)}<Text style={s.caption}>Expenses are net of refunds received this month. Includes future-dated records. Transfers, initial balances and corrections are separate; this is not verified bank movement.</Text></View>;
 }
 export function PreviousComparison({comparison}:{comparison:ReportComparison|null}) {
  const s=useStyles(),money=useMoneyCents();

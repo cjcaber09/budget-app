@@ -28,31 +28,32 @@ export function reportCents(v:unknown):number {
 }
 export function checkedReportDifference(a:number,b:number) { const n=a-b;if(!Number.isSafeInteger(n))throw new Error('This report difference exceeds the supported range.');return n; }
 export function reportPercentage(current:number,previous:number):number|null {return previous<=0?null:(checkedReportDifference(current,previous)/previous)*100;}
-export function reportShare(amount:number,total:number):number|null {return total>0?amount/total*100:null;}
+export function reportShare(amount:number,total:number):number|null {return total>0&&amount>=0&&amount<=total?amount/total*100:null;}
 export function reportingMonthSupported(month:string,today:string) {
  return isCalendarDate(month)&&month.endsWith('-01')&&month>='0001-12-01'&&month<=format(addMonths(parseISO(today.slice(0,7)+'-01'),24),'yyyy-MM-01');
 }
 function section<T>(read:()=>T):ReportSection<T>{try{return {data:read()};}catch(e){return {error:e instanceof Error?e.message:'Report data could not be read.'};}}
-const totals=(v:unknown,signed=false):ReportTotals=>{const r=object(v),income=signed?reportCents(r.income):nonnegative(r.income),expense=signed?reportCents(r.expense):nonnegative(r.expense),net=reportCents(r.net);if(checkedReportDifference(income,expense)!==net)throw new Error('Report totals do not reconcile. Retry to refresh.');return {income,expense,net,...(r.count===undefined?{}:{count:count(r.count)})};};
-const points=(v:unknown)=>rows(v).map(r=>({day:day(r.day),amount:nonnegative(r.amount),future:r.future===undefined?false:boolean(r.future),...(r.key===undefined?{}:{key:string(r.key)}),...(r.end===undefined?{}:{end:day(r.end)})}));
-const group=(v:unknown)=>rows(v).map(r=>({key:string(r.key),id:identifier(r.id),name:string(r.name),archived:boolean(r.archived),amount:nonnegative(r.amount),count:count(r.count),...(r.paymentType===undefined?{}:{paymentType:string(r.paymentType)}),...(r.lastFour===undefined?{}:{lastFour:r.lastFour===null?null:string(r.lastFour)})}));
-function comparison(v:unknown):ReportComparison|null {
+const totals=(v:unknown,signed=false,refunds=false):ReportTotals=>{const r=object(v),income=signed?reportCents(r.income):nonnegative(r.income),expense=signed||refunds?reportCents(r.expense):nonnegative(r.expense),net=reportCents(r.net);if(checkedReportDifference(income,expense)!==net)throw new Error('Report totals do not reconcile. Retry to refresh.');return {income,expense,net,...(r.count===undefined?{}:{count:count(r.count)})};};
+const points=(v:unknown,refunds=false)=>rows(v).map(r=>({day:day(r.day),amount:refunds?reportCents(r.amount):nonnegative(r.amount),future:r.future===undefined?false:boolean(r.future),...(r.key===undefined?{}:{key:string(r.key)}),...(r.end===undefined?{}:{end:day(r.end)})}));
+const group=(v:unknown,refunds=false)=>rows(v).map(r=>({key:string(r.key),id:identifier(r.id),name:string(r.name),archived:boolean(r.archived),amount:refunds?reportCents(r.amount):nonnegative(r.amount),count:count(r.count),...(r.paymentType===undefined?{}:{paymentType:string(r.paymentType)}),...(r.lastFour===undefined?{}:{lastFour:r.lastFour===null?null:string(r.lastFour)})}));
+function comparison(v:unknown,refunds=false):ReportComparison|null {
  if(v===null)return null;
- const c=object(v),current=totals(c.current),previous=totals(c.previous),delta=totals(c.delta,true);
+ const c=object(v),current=totals(c.current,false,refunds),previous=totals(c.previous,false,refunds),delta=totals(c.delta,true);
  for(const key of ['income','expense','net'] as const){if(checkedReportDifference(current[key],previous[key])!==delta[key])throw new Error('Comparison amounts do not reconcile. Retry to refresh.');}
- const categories=rows(c.categories).map(r=>{const current=nonnegative(r.current),previous=nonnegative(r.previous),delta=reportCents(r.delta);if(checkedReportDifference(current,previous)!==delta)throw new Error('Category comparison does not reconcile.');return {key:string(r.key),name:string(r.name),current,previous,delta};});
+ const categories=rows(c.categories).map(r=>{const current=refunds?reportCents(r.current):nonnegative(r.current),previous=refunds?reportCents(r.previous):nonnegative(r.previous),delta=reportCents(r.delta);if(checkedReportDifference(current,previous)!==delta)throw new Error('Category comparison does not reconcile.');return {key:string(r.key),name:string(r.name),current,previous,delta};});
  const start=day(c.start),end=day(c.end),previousStart=day(c.previousStart),previousEnd=day(c.previousEnd);
  if(start>=end||previousStart>=previousEnd||previousEnd>start)throw new Error('Comparison periods could not be read.');
  return {start,end,previousStart,previousEnd,current,previous,delta,categories};
 }
 export function decodeReportSnapshot(raw:unknown,context:{owner:string;month:string;timezone:string;today:string}):ReportSnapshot {
  const r=object(raw);
+ const refunds=r.refundVersion===1;
  if(r.owner!==context.owner||r.month!==context.month||r.start!==context.month||r.timezone!==context.timezone||r.today!==context.today||r.end!==format(addMonths(parseISO(context.month),1),'yyyy-MM-dd'))throw new Error('The report context changed. Retry to refresh your financial month.');
  return {owner:context.owner,month:context.month,timezone:context.timezone,today:context.today,
-  totals:section(()=>totals(r.totals)),
-  categories:section(()=>rows(r.categories).map(c=>({key:string(c.key),id:identifier(c.id),name:string(c.name),color:string(c.color),budget:c.budget===null?null:nonnegative(c.budget),spent:nonnegative(c.spent),count:count(c.count)}))),
-  sources:section(()=>group(r.sources)),accounts:section(()=>group(r.accounts)),
-  daily:section(()=>points(r.daily)),weekly:section(()=>points(r.weekly)),monthly:section(()=>points(r.monthly)),categoryMonthly:section(()=>points(r.categoryMonthly)),
-  comparison:section(()=>comparison(r.comparison)),
+  totals:section(()=>totals(r.totals,false,refunds)),
+  categories:section(()=>rows(r.categories).map(c=>({key:string(c.key),id:identifier(c.id),name:string(c.name),color:string(c.color),budget:c.budget===null?null:nonnegative(c.budget),spent:refunds?reportCents(c.spent):nonnegative(c.spent),count:count(c.count)}))),
+  sources:section(()=>group(r.sources)),accounts:section(()=>group(r.accounts,refunds)),
+  daily:section(()=>points(r.daily,refunds)),weekly:section(()=>points(r.weekly,refunds)),monthly:section(()=>points(r.monthly,refunds)),categoryMonthly:section(()=>points(r.categoryMonthly,refunds)),
+  comparison:section(()=>comparison(r.comparison,refunds)),
  };
 }

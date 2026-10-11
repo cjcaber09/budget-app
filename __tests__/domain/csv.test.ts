@@ -31,3 +31,12 @@ test('transaction export uses complete rows and the shared search/type filter',(
  expect(matchesTransactionSearch({type:'expense',amount:101.01,note:'weekly shop'},'Groceries','expense','weekly')).toBe(true);
  expect(()=>transactionCsv(envelope([tx,tx]),context,'all','')).toThrow('Duplicate');
 });
+
+test('refund exports preserve the positive received amount and original purchase link without counting income',()=>{
+ const original='00000000-0000-4000-8000-000000000001';
+ const refund={...tx,transaction_id:'refund',type:'refund',amount:'2550',refund_of:original};
+ const result=transactionCsv(envelope([tx,refund]),context,'expense','');expect(result.count).toBe(2);expect(result.csv).toContain('"refund_of"');expect(result.csv).toContain('"25.50"');expect(result.csv).toContain(original);
+ expect(transactionCsv(envelope([tx,refund]),context,'refund','').count).toBe(1);expect(transactionCsv(envelope([tx,refund]),context,'income','').count).toBe(0);
+ const rows=[{...monthly,income:'0',spending:'-2550',net_income:'2550',expense_count:1},{...category,spending:'-2550',expense_count:1},{...account,spending:'-2550',expense_count:1}];
+ expect(analysisCsv({...envelope(rows),refundVersion:1},context)).toContain('"-25.50"');expect(()=>analysisCsv(envelope(rows),context)).toThrow('reconcile');
+});

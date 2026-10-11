@@ -1,6 +1,6 @@
-import { formatMoney } from '../domain/money';
+import { useMoney } from '../domain/money';
 import { Text, View } from 'react-native';
-import { ArrowDownLeft, ShoppingBasket, House, Car, Utensils, Heart, Tag, ChevronRight } from 'lucide-react-native';
+import { ArrowDownLeft, RotateCcw, ShoppingBasket, House, Car, Utensils, Heart, Tag, ChevronRight } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { effectiveDate } from '../domain/transactionDates';
 import type { Transaction, Category } from '../types/database';
@@ -11,13 +11,15 @@ interface Props { transaction: Transaction; category: Category | undefined; paym
 export function TransactionListItem({ transaction, category, paymentMethodLabel, onPress }: Props) {
   const styles = useStyles();
   const colors = useColors();
+  const money=useMoney();const isRefund=transaction.type==='refund';
   const isIncome = transaction.type === 'income';
-  const name = isIncome ? 'Income' : category?.name ?? (transaction.category_id===null?'Uncategorized':'Category unavailable');
-  const Icon = isIncome ? ArrowDownLeft : /grocer/i.test(name) ? ShoppingBasket : /rent|home/i.test(name) ? House : /transport/i.test(name) ? Car : /dining|coffee/i.test(name) ? Utensils : /health/i.test(name) ? Heart : Tag;
-  return <MotionPressable style={styles.row} onPress={onPress} accessibilityLabel={`Edit ${name}, ${isIncome ? 'income' : 'expense'} ${formatMoney(transaction.amount)}`}>
-    <View style={styles.icon}><Icon size={19} strokeWidth={1.6} color={isIncome ? colors.success : category?.color ?? colors.muted} /></View>
+  const categoryName=category?.name??(transaction.category_id===null?'Uncategorized':'Category unavailable');
+  const name=isRefund?'Refund · '+categoryName:isIncome?'Income':categoryName;
+  const Icon = isRefund?RotateCcw:isIncome ? ArrowDownLeft : /grocer/i.test(name) ? ShoppingBasket : /rent|home/i.test(name) ? House : /transport/i.test(name) ? Car : /dining|coffee/i.test(name) ? Utensils : /health/i.test(name) ? Heart : Tag;
+  return <MotionPressable style={styles.row} onPress={onPress} accessibilityLabel={`Edit ${name}, ${isRefund?'refund':isIncome ? 'income' : 'expense'} ${money(transaction.amount)}`}>
+    <View style={styles.icon}><Icon size={19} strokeWidth={1.6} color={isIncome||isRefund ? colors.success : category?.color ?? colors.muted} /></View>
     <View style={styles.info}><Text style={styles.category}>{name}</Text>{transaction.note ? <Text style={styles.note} numberOfLines={1}>{transaction.note}</Text> : null}{paymentMethodLabel ? <Text style={styles.note} numberOfLines={1}>{paymentMethodLabel}</Text> : null}<Text style={styles.date}>{format(parseISO(effectiveDate(transaction)), 'MMM d, yyyy')}</Text></View>
-    <Text style={[styles.amount, isIncome && styles.amountIncome]}>{isIncome ? '+' : '−'}{formatMoney(transaction.amount)}</Text><ChevronRight size={15} color={colors.subtle} />
+    <Text style={[styles.amount, (isIncome||isRefund) && styles.amountIncome]}>{isIncome||isRefund ? '+' : '−'}{money(transaction.amount)}</Text><ChevronRight size={15} color={colors.subtle} />
   </MotionPressable>;
 }
 const useStyles = createThemedStyles(colors => ({

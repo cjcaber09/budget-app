@@ -10,7 +10,7 @@ export function decodeTransactionPage(value: unknown, owner: string, month: stri
   const rows:Transaction[]=data.rows.map((value:unknown)=>{
     const row=value as Transaction & {amount:unknown};
     const cents=typeof row?.amount==='string'?decimalToCents(row.amount):null;
-    if(!row||!isUuid(row.id)||row.user_id!==owner||!isCalendarDate(row.financial_date)||row.financial_date!.slice(0,7)!==month.slice(0,7)||!Number.isFinite(Date.parse(row.occurred_at))||!['income','expense'].includes(row.type)||cents===null||cents<=0||cents>MAX_MONEY_CENTS)return fail();
+    if(!row||!isUuid(row.id)||row.user_id!==owner||!isCalendarDate(row.financial_date)||row.financial_date!.slice(0,7)!==month.slice(0,7)||!Number.isFinite(Date.parse(row.occurred_at))||!['income','expense','refund'].includes(row.type)||(row.type==='refund'&&!isUuid(row.refund_of))||cents===null||cents<=0||cents>MAX_MONEY_CENTS)return fail();
     return {...row,amount:cents/100};
   });
   if(new Set(rows.map(row=>row.id)).size!==rows.length)return fail();

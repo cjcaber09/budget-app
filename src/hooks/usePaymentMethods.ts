@@ -21,12 +21,12 @@ export function usePaymentMethods() {
   const day=localDateKey(new Date(clock),profile?.timezone);
   const query=useQuery({queryKey:['paymentMethods',profile?.user_id,profile?.timezone,day],enabled:!!profile?.user_id,refetchInterval:60000,queryFn:async({signal})=>{
     const result=await supabase.rpc('payment_method_snapshot').abortSignal(signal);if(result.error)throw new Error('Could not load payment methods. Retry to refresh balances.');
-    return result.data as {owner:string;timezone:string;transferFeeVersion?:number;methods:PaymentMethod[];transfers:PaymentTransfer[];corrections:BalanceCorrection[]};
+    return result.data as {owner:string;timezone:string;transferFeeVersion?:number;refundVersion?:number;methods:PaymentMethod[];transfers:PaymentTransfer[];corrections:BalanceCorrection[]};
   }});
   const valid=query.data?.owner===profile?.user_id&&query.data?.timezone===profile?.timezone;
   const refetch=query.refetch;
   useEffect(()=>{const listener=AppState.addEventListener('change',state=>{if(state==='active'&&profile?.user_id){setClock(Date.now());void refetch();}});return()=>listener.remove();},[profile?.user_id,refetch]);
-  return {...query,feeSupported:valid&&query.data?.transferFeeVersion===1,methods:valid?query.data?.methods:undefined,transfers:valid?query.data?.transfers:undefined,corrections:valid?query.data?.corrections:undefined};
+  return {...query,feeSupported:valid&&query.data?.transferFeeVersion===1,refundSupported:valid&&query.data?.refundVersion===1,methods:valid?query.data?.methods:undefined,transfers:valid?query.data?.transfers:undefined,corrections:valid?query.data?.corrections:undefined};
 }
 type SaveInput=({operation:'create'|'update'}&PaymentMethodValues)|{operation:'archive'|'restore';id:string;reassignBills?:boolean;replacementMethodId?:string|null};
 export function useSavePaymentMethod() {

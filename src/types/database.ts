@@ -19,6 +19,8 @@ export interface Budget {
 }
 
 export interface Transaction {
+  created_at?:string;
+  refund_of?:string|null;
   transfer_id?:string|null;
   payment_method_kind?:string;
   financial_date?:string;
@@ -35,7 +37,7 @@ export interface Transaction {
   note: string | null;
   occurred_at: string; // ISO timestamp
   recurring_rule_id: string | null;
-  type: TransactionType;
+  type: TransactionType | 'refund';
 }
 
 export interface RecurringRule {

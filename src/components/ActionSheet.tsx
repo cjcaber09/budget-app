@@ -10,7 +10,7 @@ export function ActionSheet({title,visible,onClose,children,busy=false}:{title:s
   return <Modal visible={visible} transparent animationType="none" onRequestClose={()=>{if(!busy)onClose();}}>
     <KeyboardAvoidingView style={s.scrim} behavior={Platform.OS==='ios'?'padding':undefined}>
       <View style={[s.sheet,{paddingBottom:Math.max(insets?.bottom??0,24)}]} accessibilityViewIsModal>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
           <Text accessibilityRole="header" style={s.title}>{title}</Text>
           {children}
           <MotionPressable style={form.secondaryButton} disabled={busy} onPress={onClose}><Text style={form.chipTextSelected}>Close</Text></MotionPressable>
