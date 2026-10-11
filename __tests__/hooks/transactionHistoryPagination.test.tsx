@@ -21,8 +21,8 @@ const wrapper=({children}:PropsWithChildren)=><QueryClientProvider client={clien
 test('loads 10 at a time, preserves pages on failure and retries the same cursor',async()=>{
  const {result}=renderHook(()=>useTransactionHistory(month,'all',''),{wrapper});await waitFor(()=>expect(result.current.data).toHaveLength(10));
  mockFail=true;await act(async()=>{await result.current.fetchNextPage();});expect(result.current.data).toHaveLength(10);await waitFor(()=>expect(result.current.isFetchNextPageError).toBe(true));
- await act(async()=>{await result.current.fetchNextPage();});expect(result.current.data).toHaveLength(20);expect(mockRpc.mock.calls[1][1]).toEqual(mockRpc.mock.calls[2][1]);
- await act(async()=>{await result.current.fetchNextPage();});expect(result.current.data).toHaveLength(25);expect(result.current.hasNextPage).toBe(false);expect(new Set(result.current.data?.map(r=>r.id)).size).toBe(25);
+ await act(async()=>{await result.current.fetchNextPage();});await waitFor(()=>expect(result.current.data).toHaveLength(20));expect(mockRpc.mock.calls[1][1]).toEqual(mockRpc.mock.calls[2][1]);
+ await act(async()=>{await result.current.fetchNextPage();});await waitFor(()=>expect(result.current.data).toHaveLength(25));expect(result.current.hasNextPage).toBe(false);expect(new Set(result.current.data?.map(r=>r.id)).size).toBe(25);
 });
 test('filters before paging and isolates filters, month, timezone and owner',async()=>{
  const {result,rerender}=renderHook<ReturnType<typeof useTransactionHistory>,{filter:'all'|'income';search:string;m:string}>(({filter,search,m})=>useTransactionHistory(m,filter,search),{wrapper,initialProps:{filter:'all' as 'all'|'income',search:'',m:month}});

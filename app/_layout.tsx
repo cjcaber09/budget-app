@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Slot, useRouter, useSegments, type Href } from 'expo-router';
+import { Navigator, Slot, useRouter, useSegments, type Href } from 'expo-router';
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 import { useSession } from '../src/hooks/useSession';
 import { supabase } from '../src/lib/supabase';
@@ -11,7 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColors, useThemeMode } from '../src/styles/theme';
 import { ProfileBootstrap } from '../src/hooks/useProfile';
 import { usePreferencesStore } from '../src/stores/usePreferencesStore';
-import { View,Text } from 'react-native';
+import { View,Text,ActivityIndicator } from 'react-native';
 import { MotionPressable } from '../src/components/MotionPressable';
 import {clearExportFiles} from '../src/lib/exportFiles';
 import {AccountDeletionBoundary} from '../src/components/AccountDeletion';
@@ -36,23 +36,20 @@ function AuthGate() {
   const colors=useColors();
   const segments = useSegments();
   const router = useRouter();
+  const inAuthGroup = (segments[0] as string) === '(auth)';
+  const authorized = !loading && !error && (session ? !inAuthGroup : inAuthGroup);
 
   useEffect(() => {
     if (loading || error) return;
-
-    // `(auth)` and `/sign-in` don't exist as route files yet (added in Tasks 13/14),
-    // so expo-router's generated typed-routes union doesn't include them yet.
-    // These casts are safe now and become redundant (not incorrect) once those routes land.
-    const inAuthGroup = (segments[0] as string) === '(auth)';
 
     if (!session && !inAuthGroup) {
       router.replace('/sign-in' as Href);
     } else if (session && inAuthGroup) {
       router.replace('/');
     }
-  }, [session, loading,error, segments, router]);
+  }, [session, loading,error, inAuthGroup, router]);
 
-  return <><Slot />{error&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:colors.background,justifyContent:'center',padding:28,gap:20}}><Text accessibilityRole="alert" style={{color:colors.text}}>Could not restore your session. Check your connection and retry.</Text><MotionPressable onPress={()=>void refresh()}><Text style={{color:colors.primary}}>Retry session</Text></MotionPressable></View>}</>;
+  return <>{authorized ? <Slot /> : <View style={{flex:1,backgroundColor:colors.background,justifyContent:'center',alignItems:'center'}}>{!error&&<ActivityIndicator accessibilityLabel="Restoring session" color={colors.primary}/>}</View>}{error&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:colors.background,justifyContent:'center',padding:28,gap:20}}><Text accessibilityRole="alert" style={{color:colors.text}}>Could not restore your session. Check your connection and retry.</Text><MotionPressable onPress={()=>void refresh()}><Text style={{color:colors.primary}}>Retry session</Text></MotionPressable></View>}</>;
 }
 
 export default function RootLayout() {
@@ -72,7 +69,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ProfileBootstrap />
       <StatusBar style={dark ? 'light' : 'dark'} />
-      <AuthGate />
+      <Navigator><AuthGate /></Navigator>
       <Toast />
       <AccountDeletionBoundary />
     </QueryClientProvider>
