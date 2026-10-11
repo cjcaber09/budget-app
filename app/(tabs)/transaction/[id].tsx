@@ -1,9 +1,10 @@
-import {PaymentMethodPicker} from '../../../src/components/PaymentMethodPicker';
+import {PaymentMethodPicker,TransferDialog} from '../../../src/components/PaymentMethodPicker';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from '../../../src/components/TransactionAttachments';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
 import { useBillCommand } from '../../../src/hooks/useDashboard';
 import { createRequestId } from '../../../src/domain/ocr';
-import { formatMoney } from '../../../src/domain/money';
+import { formatMoney,useMoneyCents } from '../../../src/domain/money';
+import {usePaymentMethods} from '../../../src/hooks/usePaymentMethods';
 import type { UpdateTransactionInput } from '../../../src/hooks/useTransactions';
 import { useState, useRef } from 'react';
 import {useExpenseBalanceReview,ExpenseReviewMethodDialog} from '../../../src/components/ExpenseBalanceReview';
@@ -20,7 +21,7 @@ import { useColors } from '../../../src/styles/theme';
 import { QueryState } from '../../../src/components/QueryState';
 import { useFormStyles } from '../../../src/styles/forms';
 import { usePageLayout } from '../../../src/styles/pageLayout';
-import { isUuid, type TransactionItemInput } from '../../../supabase/functions/ocr/shared';
+import { decimalToCents,isUuid, type TransactionItemInput } from '../../../supabase/functions/ocr/shared';
 import type { Transaction, Category } from '../../../src/types/database';
 import { effectiveDate, occurrenceForDate } from '../../../src/domain/transactionDates';
 
@@ -39,12 +40,18 @@ function LoadTransaction({ id }: { id: string }) {
   }
   return <ScrollView style={layout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={layout.scrollContent}>
     <View style={layout.card}>
-      {snapshot ? <Editor {...snapshot} /> : <QueryState error={!isUuid(id) || parent.isError || items.isError || categories.isError}
+      {parent.data?.transfer_id ? <TransferFeeDetails transaction={parent.data}/> : snapshot ? <Editor {...snapshot} /> : <QueryState error={!isUuid(id) || parent.isError || items.isError || categories.isError}
         loading={isUuid(id) && !parent.isError && !items.isError && !categories.isError}
         retry={() => { void parent.refetch(); void items.refetch(); void categories.refetch(); }}>
       </QueryState>}
     </View>
   </ScrollView>;
+}
+function TransferFeeDetails({transaction}:{transaction:Transaction}) {
+  const query=usePaymentMethods(),styles=useFormStyles(),money=useMoneyCents(),router=useRouter();
+  const [open,setOpen]=useState(false);
+  const transfer=query.transfers?.find(row=>row.id===transaction.transfer_id);
+  return <View><Text style={styles.title}>Transfer fee</Text><Text style={styles.subtitle}>{money(decimalToCents(transaction.amount)!)} · {effectiveDate(transaction)}</Text><Text style={styles.subtitle}>Edit or remove this fee through its transfer.</Text><QueryState loading={query.isPending} error={query.isError||(!query.isPending&&!transfer)} retry={()=>void query.refetch()}/><MotionPressable disabled={!transfer||query.isFetching} style={styles.button} onPress={()=>setOpen(true)}><Text style={styles.buttonText}>Edit transfer</Text></MotionPressable>{open&&transfer&&<TransferDialog initial={transfer} onClose={()=>setOpen(false)} onSaved={()=>router.back()}/>}</View>;
 }
 function Editor({ transaction, items, categories }: { transaction: Transaction; items: TransactionItemInput[]; categories: Category[] }) {
   // A mounted editor owns its initial snapshot; background query updates never overwrite a draft.

@@ -20,7 +20,7 @@ export function useReports(month:string) {
  useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),30000);const l=AppState.addEventListener('change',s=>{if(s==='active'){setClock(Date.now());if(supported)void refetch();}});return()=>{clearInterval(timer);l.remove();};},[refetch,supported]);
  return {...query,supported,today};
 }
-export interface ReportTransfer {id:string;transfer_date:string;amount:number;source_id:string;destination_id:string;source_name:string;destination_name:string;note:string|null}
+export interface ReportTransfer {id:string;transfer_date:string;amount:number;fee_amount:number;fee_mode:import('../domain/transferFees').TransferFeeMode;source_id:string;destination_id:string;source_name:string;destination_name:string;note:string|null}
 function historyEnvelope(raw:unknown,owner:string,month:string,timezone:string) {
  const r=raw as {owner?:string;month?:string;timezone?:string;rows?:unknown[]};
  if(!r||r.owner!==owner||r.month!==month||r.timezone!==timezone||!Array.isArray(r.rows))throw new Error('History context changed. Retry to refresh.');
@@ -38,7 +38,7 @@ export function useReportTransfers(month:string,enabled=true) {
  return useQuery({queryKey:['reportTransfers',p?.user_id,month,p?.timezone],enabled:enabled&&!!p&&supported,queryFn:async({signal}):Promise<ReportTransfer[]>=>{
   const r=await supabase.rpc('report_transfer_history',{p_month:month}).abortSignal(signal);
   if(r.error)throw new Error('Could not load transfers. Retry to refresh.');
-  return historyEnvelope(r.data,p!.user_id,month,p!.timezone).map(value=>{const v=historyRow(value);historyId(v.id);historyId(v.source_id);historyId(v.destination_id);historyDate(v.transfer_date,month);historyText(v.source_name);historyText(v.destination_name);historyText(v.note,true);const amount=reportCents(v.amount);if(amount<=0)throw new Error('Transfer amount could not be read.');return {...v,amount} as unknown as ReportTransfer;});
+  return historyEnvelope(r.data,p!.user_id,month,p!.timezone).map(value=>{const v=historyRow(value);historyId(v.id);historyId(v.source_id);historyId(v.destination_id);historyDate(v.transfer_date,month);historyText(v.source_name);historyText(v.destination_name);historyText(v.note,true);const amount=reportCents(v.amount),fee_amount=reportCents(v.fee_amount===undefined?'0':v.fee_amount),fee_mode=v.fee_mode===undefined?'added':v.fee_mode;if(amount<=0||fee_amount<0||!Number.isSafeInteger(amount+fee_amount)||typeof fee_mode!=='string'||!['added','deducted'].includes(fee_mode))throw new Error('Transfer amount could not be read.');return {...v,amount,fee_amount,fee_mode} as unknown as ReportTransfer;});
  }});
 }
 export function useReportTransactions(month:string,enabled=true) {

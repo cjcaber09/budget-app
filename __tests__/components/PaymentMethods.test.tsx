@@ -2,7 +2,7 @@ import {fireEvent,render,screen} from '@testing-library/react-native';
 import {PaymentMethodForm} from '../../src/components/PaymentMethodForm';
 import {PaymentMethodPicker,PaymentMethodsSettings} from '../../src/components/PaymentMethodPicker';
 import {TransactionForm} from '../../src/components/TransactionForm';
-import {BalanceCorrectionForm} from '../../src/components/PaymentActivityForms';
+import {BalanceCorrectionForm,TransferForm} from '../../src/components/PaymentActivityForms';
 import {CARD_PRIVACY_NOTE,type PaymentMethod} from '../../src/domain/paymentMethods';
 const mockSave=jest.fn();const mockRefetch=jest.fn();const mockCorrect=jest.fn();
 const mockTransfer=jest.fn();
@@ -12,6 +12,34 @@ jest.mock('../../src/stores/usePreferencesStore',()=>({activeTimezone:()=> 'Asia
 const card:PaymentMethod={id:'card-1',user_id:'owner',method:'card',payment_type:'Debit card',name:'Metrobank',last_four:'8035',opening_balance:'40300.50',baseline_at:'2026-10-08T00:00:00Z',archived:false,balance:'40200.50',has_activity:true,related_bills:[]};
 beforeEach(()=>{mockQuery={methods:[card],isPending:false,isError:false,refetch:mockRefetch};mockPending=false;jest.clearAllMocks();});
 function fill(balance='40300.50'){fireEvent.changeText(screen.getByLabelText('Payment method name'),'Metrobank');fireEvent.changeText(screen.getByLabelText('Initial balance'),balance);}
+
+test('bank types use pills and preserve an existing generic bank type until changed',()=>{
+ const save=jest.fn();const view=render(<PaymentMethodForm submitting={false} onSave={save} onCancel={jest.fn()}/>);
+ expect(screen.queryByLabelText('Payment type')).toBeNull();fireEvent.press(screen.getByText('Bank account'));fill('1000');
+ fireEvent.press(screen.getByText('Create payment method'));expect(save).toHaveBeenLastCalledWith(expect.objectContaining({method:'bank_account',paymentType:'Savings account'}));
+ fireEvent.press(screen.getByLabelText('Account type Checking'));fireEvent.press(screen.getByText('Create payment method'));expect(save).toHaveBeenLastCalledWith(expect.objectContaining({paymentType:'Checking account'}));
+ view.unmount();render(<PaymentMethodForm initial={{...card,method:'bank_account',payment_type:'Bank account',last_four:null,has_activity:false}} submitting={false} onSave={save} onCancel={jest.fn()}/>);
+ fireEvent.press(screen.getByText('Save payment method'));expect(save).toHaveBeenLastCalledWith(expect.objectContaining({paymentType:'Bank account'}));
+ fireEvent.press(screen.getByLabelText('Account type Savings'));fireEvent.press(screen.getByText('Save payment method'));expect(save).toHaveBeenLastCalledWith(expect.objectContaining({paymentType:'Savings account'}));
+});
+test('deducted fees preview source debit and save only received principal; unchanged edit preserves it',()=>{
+ const destination={...card,id:'destination',name:'Wallet'};
+ render(<TransferForm feeSupported methods={[card,destination]} initial={{id:'transfer',source_id:card.id,destination_id:destination.id,amount:'985.00',fee_amount:'15.00',fee_mode:'deducted',transfer_date:'2026-10-12',note:null}} onClose={jest.fn()}/>);
+ expect(screen.getByLabelText('Transfer amount').props.value).toBe('1,000.00');
+ expect(screen.getByText('Total deducted: $1,000.00')).toBeTruthy();expect(screen.getByText('Amount received: $985.00')).toBeTruthy();
+ fireEvent.press(screen.getByText('Save transfer changes'));expect(mockTransfer).toHaveBeenCalledWith(expect.objectContaining({amount:'985.00',feeAmount:'15.00',feeMode:'deducted'}),expect.anything());
+ fireEvent.changeText(screen.getByLabelText('Transfer fee'),'1000');fireEvent.press(screen.getByText('Save transfer changes'));expect(mockTransfer).toHaveBeenCalledTimes(1);
+});
+test('added fees show total cost, and deletion explains removal of the linked expense',()=>{
+ const destination={...card,id:'destination',name:'Wallet'};
+ render(<TransferForm feeSupported methods={[card,destination]} initial={{id:'transfer',source_id:card.id,destination_id:destination.id,amount:'1000.00',fee_amount:'15.00',fee_mode:'added',transfer_date:'2026-10-12',note:null}} onClose={jest.fn()}/>);
+ expect(screen.getByText('Total deducted: $1,015.00')).toBeTruthy();expect(screen.getByText('Amount received: $1,000.00')).toBeTruthy();
+ fireEvent.press(screen.getByText('Delete transfer'));expect(screen.getByText('Both tracked balances will be recalculated. The fee expense will also be removed.')).toBeTruthy();
+});
+test('fee entry is disabled until the owner snapshot advertises server support',()=>{
+ render(<TransferForm methods={[card]} onClose={jest.fn()}/>);
+ expect(screen.getByLabelText('Transfer fee').props.editable).toBe(false);
+});
 test('initial balance is required and optional card digits stay blank',()=>{
  const save=jest.fn();render(<PaymentMethodForm submitting={false} onSave={save} onCancel={jest.fn()}/>);
  expect(screen.getByText(CARD_PRIVACY_NOTE)).toBeTruthy();fireEvent.changeText(screen.getByLabelText('Payment method name'),'Metrobank');fireEvent.press(screen.getByText('Create payment method'));expect(save).not.toHaveBeenCalled();

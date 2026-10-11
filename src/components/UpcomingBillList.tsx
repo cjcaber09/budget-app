@@ -126,7 +126,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
             </MotionPressable>
           )}
           {(transactions.data ?? [])
-            .filter((t) => t.type === "expense" && !t.occurrence_id)
+            .filter((t) => t.type === "expense" && !t.occurrence_id && !t.transfer_id)
             .map((t) => (
               <MotionPressable
                 key={t.id}
@@ -152,7 +152,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
           {!transactions.isPending &&
             !transactions.isError &&
             !(transactions.data ?? []).some(
-              (t) => t.type === "expense" && !t.occurrence_id,
+              (t) => t.type === "expense" && !t.occurrence_id && !t.transfer_id,
             ) && (
               <Text style={styles.caption}>
                 No unlinked expenses in this month. Record the bill instead.

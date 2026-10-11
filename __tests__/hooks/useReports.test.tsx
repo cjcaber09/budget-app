@@ -14,6 +14,13 @@ function setup(month='2026-10-01') {
 const tx={id:category,user_id:owner,type:'expense',category_id:null,income_source_id:null,payment_method_id:null,payment_method_kind:'cash',financial_date:context.month,occurred_at:'2026-10-01T00:00:00Z',amount:'100',note:null};
 beforeEach(()=>{jest.useFakeTimers();jest.setSystemTime(new Date('2026-10-09T12:00:00Z'));mockRpc.mockReset();usePreferencesStore.setState({profile:{...defaultProfile(owner),timezone:context.timezone}});mockRpc.mockImplementation(name=>Promise.resolve({error:null,data:name==='reporting_snapshot'?rawReport():{...context,rows:[]}}));});
 afterEach(()=>{usePreferencesStore.setState({profile:null});jest.useRealTimers();});
+test('transfer fee history decodes exact cents and rejects invalid metadata',async()=>{
+ const row={id:category,source_id:owner,destination_id:category,source_name:'Cash',destination_name:'Bank',transfer_date:context.month,amount:'98500',fee_amount:'1500',fee_mode:'deducted',note:null};
+ mockRpc.mockImplementation(name=>Promise.resolve({error:null,data:name==='reporting_snapshot'?rawReport():{...context,rows:name==='report_transfer_history'?[row]:[]}}));
+ const h=setup();await waitFor(()=>expect(h.result.current.transfers.isSuccess).toBe(true));expect(h.result.current.transfers.data?.[0]).toEqual(expect.objectContaining({amount:98500,fee_amount:1500,fee_mode:'deducted'}));
+ mockRpc.mockImplementation(name=>Promise.resolve({error:null,data:name==='reporting_snapshot'?rawReport():{...context,rows:name==='report_transfer_history'?[{...row,fee_amount:'15.00'}]:[]}}));
+ await act(async()=>{await h.result.current.transfers.refetch();});await waitFor(()=>expect(h.result.current.transfers.isError).toBe(true));h.unmount();h.client.clear();
+});
 test('automatically reads complete histories beyond 1000 rows with explicit Cash information',async()=>{
  mockRpc.mockImplementation(name=>Promise.resolve({error:null,data:name==='reporting_snapshot'?rawReport():{...context,rows:name==='report_transaction_history'?Array.from({length:1001},()=>({...tx})):Array.from({length:1001},()=>({id:category,source_id:owner,destination_id:category,source_name:'Cash',destination_name:'Bank',transfer_date:context.month,amount:'12345',note:null}))}}));
  const h=setup();await waitFor(()=>expect(h.result.current.history.isSuccess).toBe(true));expect(h.result.current.history.data).toHaveLength(1001);expect(h.result.current.history.data?.[0].payment_method_kind).toBe('cash');await waitFor(()=>expect(h.result.current.transfers.isSuccess).toBe(true));expect(h.result.current.transfers.data).toHaveLength(1001);expect(h.result.current.transfers.data?.[0].amount).toBe(12345);h.unmount();h.client.clear();

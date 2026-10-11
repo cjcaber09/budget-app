@@ -1,6 +1,8 @@
 jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import EditTransactionScreen from '../../app/(tabs)/transaction/[id]';
+let mockFeeTransfers:any[]=[];let mockTransferDialogProps:any;
+jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>({methods:[],transfers:mockFeeTransfers,isPending:false,isError:false,isFetching:false,refetch:jest.fn()})}));
 const id = '00000000-0000-4000-8000-000000000010';
 let mockVisit = 'visit-1';
 const mockParent = { id, type: 'expense', category_id: 'cat', amount: 10, note: 'Saved note', occurred_at: '2026-10-07T00:00:00Z' };
@@ -16,6 +18,7 @@ jest.mock('../../src/hooks/useTransactions', () => ({
 jest.mock('../../src/hooks/useCategories', () => ({ useCategories: () => ({ isSuccess: true, isFetching: false, data: [{ id: 'cat', name: 'Groceries' }] }) }));
 jest.mock('../../src/stores/useUiStore', () => ({ useUiStore: (selector: (state: unknown) => unknown) => selector({ selectedMonth: '2026-10-01' }) }));
 beforeEach(() => {
+  mockFeeTransfers=[];mockTransferDialogProps=null;
   mockVisit = 'visit-1'; mockSave.mockClear();mockDelete.mockClear();mockBillCommand.mockClear();mockBack.mockClear();
   mockParentQuery = { data: mockParent, isSuccess: true, isFetching: false, refetch };
   mockItemsQuery = { data: [], isSuccess: true, isFetching: false, refetch };
@@ -85,7 +88,15 @@ it('requires confirmation before removing an expense for replacement',()=>{
 jest.mock('../../src/hooks/useDashboard',()=>({useBillCommand:()=>({mutate:mockBillCommand,isPending:false})}));
 
 jest.mock('../../src/components/TransactionAttachments',()=>({useProofDraft:()=>({busy:false,savedId:null,upload:async()=>true}),ProofPicker:()=>null,AttachmentRetry:()=>null,SavedAttachments:()=>null}));
-jest.mock('../../src/components/PaymentMethodPicker',()=>({PaymentMethodPicker:()=>null}));
+jest.mock('../../src/components/PaymentMethodPicker',()=>({PaymentMethodPicker:()=>null,TransferDialog:(props:any)=>{mockTransferDialogProps=props;return null;}}));
+it('linked fees have no ordinary edit or delete and open their parent transfer',()=>{
+ mockParentQuery={data:{...mockParent,transfer_id:'transfer-id'},isSuccess:true,isFetching:false,refetch};
+ mockFeeTransfers=[{id:'transfer-id',source_id:'source',destination_id:'destination',amount:'985.00',fee_amount:'10.00',fee_mode:'deducted',transfer_date:'2026-10-07',note:null}];
+ render(<EditTransactionScreen/>);expect(screen.getByText('Transfer fee')).toBeTruthy();expect(screen.queryByLabelText('Amount')).toBeNull();expect(screen.queryByText('Delete Transaction')).toBeNull();
+ fireEvent.press(screen.getByText('Edit transfer'));expect(mockTransferDialogProps.initial.id).toBe('transfer-id');
+ act(()=>mockTransferDialogProps.onClose());expect(mockBack).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByText('Edit transfer'));act(()=>{mockTransferDialogProps.onClose();mockTransferDialogProps.onSaved();});expect(mockBack).toHaveBeenCalledTimes(1);
+});
 jest.mock('../../src/components/ExpenseBalanceReview',()=>({
  useExpenseBalanceReview:()=>({review:(_input:unknown,proceed:()=>void)=>proceed(),checking:false,pending:null,Controls:()=>null}),
  ExpenseReviewMethodDialog:()=>null,

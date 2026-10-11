@@ -1,7 +1,7 @@
 import { createRequestId } from '../../src/domain/ocr';
 import { useState } from 'react';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
-import { formatMoney } from '../../src/domain/money';
+import { useMoneyCents } from '../../src/domain/money';
 import { View, ScrollView, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, ChevronDown, ChevronUp, CircleAlert } from 'lucide-react-native';
@@ -25,6 +25,7 @@ export default function OverviewScreen() {
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
   const colors = useColors();
+  const money = useMoneyCents();
   const compact = true;
   const selectedMonth = useUiStore(state => state.selectedMonth);
   const owner = usePreferencesStore(state => state.profile?.user_id);
@@ -39,8 +40,8 @@ export default function OverviewScreen() {
     const budget = (budgetsQuery.data ?? []).find(b => b.category_id === category.id);
     return { category, status: computeBudgetStatus(budget?.amount ?? 0, (dashboard.data?.categoryTotals.find(c=>c.id===category.id)?.spent??0)/100) };
   });
-  const income = (dashboard.data?.incomeCents ?? 0) / 100;
-  const expenses = (dashboard.data?.expenseCents ?? 0) / 100;
+  const income = dashboard.data?.incomeCents ?? 0;
+  const expenses = dashboard.data?.expenseCents ?? 0;
   const loading = dashboard.isPending;
   const error = dashboard.isError;
   const alerts = !dashboard.isPending && !dashboard.isError ? rows.filter(row => row.status.spent > row.status.budgeted && !dismissed[`${alertGroup}:${row.category.id}`]) : [];
@@ -67,15 +68,15 @@ export default function OverviewScreen() {
         <View style={[styles.summary, compact && styles.compactSummary]}>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowDownLeft size={17} color={colors.success} /><Text style={styles.label}>Income</Text></View>
-            <Text style={[styles.amount, compact && styles.compactAmount, { color: colors.success }]}>{formatMoney(income)}</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount, { color: colors.success }]}>{money(income)}</Text>
           </View>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowUpRight size={17} color={colors.muted} /><Text style={styles.label}>Expenses</Text></View>
-            <Text style={[styles.amount, compact && styles.compactAmount]}>{formatMoney(expenses)}</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount]}>{money(expenses)}</Text>
           </View>
           <View style={[styles.summaryCell, compact && styles.netCell]}>
             <Text style={styles.label}>Net cash flow</Text>
-            <Text style={[styles.amount, compact && styles.compactAmount]}>{formatMoney((income - expenses))}</Text>
+            <Text style={[styles.amount, compact && styles.compactAmount]}>{money(income - expenses)}</Text>
             {!compact && <Text style={styles.caption}>Income minus expenses</Text>}
           </View>
         </View>
