@@ -18,7 +18,7 @@ import { MotionPressable } from "./MotionPressable";
 import timezoneNames from "../domain/timezones.json";
 
 const AVATARS = "budget-tracker-avatars";
-export function ProfileSettings() {
+export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' | 'preferences'} = {}) {
   const preferences = useProfile();
   const profile = usePreferencesStore((s) => s.profile);
   const { session } = useSession();
@@ -215,14 +215,14 @@ export function ProfileSettings() {
     .slice(0, 40);
   return (
     <View style={styles.container}>
-      <View style={styles.section}>
-        <Text accessibilityRole="header" style={styles.heading}>
-          Your profile
-        </Text>
         {preferences.isError && <View style={{gap:8}}>
           <Text accessibilityRole="alert" style={form.error}>Saved preferences could not sync. You can keep using the app with the current settings.</Text>
           <MotionPressable style={form.secondaryButton} onPress={()=>void preferences.refetch()}><Text style={form.chipTextSelected}>Retry preferences sync</Text></MotionPressable>
         </View>}
+      <View style={[styles.section, section === 'preferences' && {display: 'none'}]}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          Your profile
+        </Text>
         <View style={styles.profileRow}>
           {avatar.data ? (
             <Image
@@ -295,7 +295,7 @@ export function ProfileSettings() {
         </MotionPressable>
         {update.isError&&update.variables?.display_name!==undefined&&<Text accessibilityRole="alert" style={form.error}>Could not save your name. Your draft is still here; try Save name again.</Text>}
       </View>
-      <View style={styles.section}>
+      <View style={[styles.section, section === 'profile' && {display: 'none'}]}>
         <Text accessibilityRole="header" style={styles.heading}>
           Preferences
         </Text>
@@ -429,7 +429,7 @@ export function ProfileSettings() {
           </View>
         )}
       </View>
-      <View style={styles.section}>
+      <View style={[styles.section, section === 'preferences' && {display: 'none'}]}>
         <MotionPressable onPress={() => setPasswordOpen(!passwordOpen)}>
           <Text style={styles.heading}>Change password</Text>
         </MotionPressable>

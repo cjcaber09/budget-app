@@ -19,13 +19,13 @@ jest.mock('../../src/hooks/useRecurringRules', () => ({ useRecurringRules: () =>
 jest.mock('../../src/lib/supabase', () => ({ supabase: { auth: { signOut: jest.fn() } } }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
-describe('Settings — Scanned Receipts', () => {
+describe('Settings — Scan history', () => {
   beforeEach(() => {mockDeleteScan.mockReset();mockLoadMore.mockReset();mockHasMore=false;mockLoadingMore=false;mockLoadError=false;});
 
   it('shows an empty state', () => {
     mockScans = [];
     render(<SettingsScreen />);
-    expect(screen.getByText('Scanned Receipts')).toBeTruthy();
+    expect(screen.getByText('Scan history')).toBeTruthy();
     expect(screen.getByText('No scans yet.')).toBeTruthy();
   });
 
@@ -55,8 +55,9 @@ describe('Settings — Scanned Receipts', () => {
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
   it('does not offer load more when the history is exhausted',()=>{
-    mockScans=[];render(<SettingsScreen />);
+    mockScans=[{id:'scan-1',user_id:'u1',char_count:42,created_at:'2026-10-05T12:00:00.000Z'}];render(<SettingsScreen />);
     expect(screen.queryByLabelText('Load more scanned receipts')).toBeNull();
+    expect(screen.getByText('All scans loaded.')).toBeTruthy();
   });
 });
 jest.mock('../../src/components/ProfileSettings',()=>({ProfileSettings:()=>null}));

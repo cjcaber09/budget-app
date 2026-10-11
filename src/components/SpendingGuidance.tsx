@@ -1,5 +1,6 @@
+import { MoneyInput } from './MoneyInput';
 import { useState } from "react";
-import { View, Text, TextInput } from "react-native";
+import { View, Text } from "react-native";
 import { useFormStyles } from "../styles/forms";
 import {useSpendingGuidanceStyles as useStyles} from "../styles/spendingGuidance";
 import { useMoney } from "../domain/money";
@@ -49,17 +50,17 @@ export function SpendingGuidance({
         </View>
         <Text style={styles.limit}>
           {s.limitCents === null
-            ? "Give this month a plan"
+            ? "Not set"
             : money(s.limitCents / 100)}
         </Text>
         {s.preview && (
           <Text style={styles.caption}>
-            Preview from your previous limit. Save to customize this month.
+            Previous allowance. Save to customize.
           </Text>
         )}
         {editing && (
           <View>
-            <TextInput
+            <MoneyInput
               style={form.input}
               accessibilityLabel="Monthly spending limit"
               value={amount}
@@ -104,11 +105,11 @@ export function SpendingGuidance({
           </View>
         )}
         <View style={styles.row}>
-          <Text style={styles.caption}>Recorded spending</Text>
+          <Text style={styles.caption}>Spent</Text>
           <Text style={styles.number}>{money(s.expenseCents / 100)}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.caption}>Budget remaining</Text>
+          <Text style={styles.caption}>Remaining</Text>
           <Text style={styles.number}>
             {guidance.remaining === null
               ? "Set a limit"
@@ -116,10 +117,10 @@ export function SpendingGuidance({
           </Text>
         </View>
         <Text style={styles.caption}>
-          Combined category budgets must stay within this monthly allowance.
+          Category budgets share this allowance.
         </Text>
         <Text style={styles.caption}>
-          Category allocations: {money(s.allocatedCents / 100)}
+          Allocated: {money(s.allocatedCents / 100)}
           {s.limitCents === null
             ? ""
             : s.allocatedCents > s.limitCents
@@ -134,11 +135,10 @@ export function SpendingGuidance({
             : "Safe to spend"}
         </Text>
         <Text style={styles.caption}>
-          Your budget after recorded expenses and scheduled commitments. This is
-          not your bank balance.
+          After expenses and bills. Not your bank balance.
         </Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Spendable this month</Text>
+          <Text style={styles.label}>Available</Text>
           <Text style={styles.value}>
             {guidance.safe === null
               ? "Set a limit"
@@ -146,7 +146,7 @@ export function SpendingGuidance({
           </Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.caption}>Reserved for upcoming bills</Text>
+          <Text style={styles.caption}>Reserved for bills</Text>
           <Text style={styles.number}>{money(s.reservedCents / 100)}</Text>
         </View>
         {guidance.allowance !== null && (
@@ -159,7 +159,7 @@ export function SpendingGuidance({
         )}
         {guidance.shortfall > 0 && (
           <Text style={form.error}>
-            Your spending and commitments exceed the limit by{" "}
+            Expenses and bills exceed your allowance by{" "}
             {money(guidance.shortfall / 100)}.
           </Text>
         )}

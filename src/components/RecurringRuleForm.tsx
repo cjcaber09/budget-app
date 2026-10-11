@@ -1,3 +1,4 @@
+import { MoneyInput } from './MoneyInput';
 import {CategoryPicker} from './CategoryPicker';
 import { useState,type ReactNode } from 'react';
 import { MotionPressable } from './MotionPressable';
@@ -81,7 +82,7 @@ export function RecurringRuleForm({ categories, initialValues, submitLabel, subm
       <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       <Text style={styles.label}>Amount</Text>
-      <TextInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
+      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0.00" />
       <Text style={styles.label}>Note (optional)</Text>
       <TextInput placeholderTextColor={colors.subtle} style={styles.input} value={note} onChangeText={setNote} accessibilityLabel="Note" placeholder="What was it for?" />
       <TransactionDateField label="Next due date" accessibilityLabel="Next due date" value={nextDueDate} onChange={setNextDueDate} hint="Next bill due date. Due expenses are recorded automatically when you open the app." />

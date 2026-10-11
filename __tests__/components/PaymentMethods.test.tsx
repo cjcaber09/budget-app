@@ -1,12 +1,13 @@
 import {fireEvent,render,screen} from '@testing-library/react-native';
 import {PaymentMethodForm} from '../../src/components/PaymentMethodForm';
-import {PaymentMethodPicker} from '../../src/components/PaymentMethodPicker';
+import {PaymentMethodPicker,PaymentMethodsSettings} from '../../src/components/PaymentMethodPicker';
 import {TransactionForm} from '../../src/components/TransactionForm';
 import {BalanceCorrectionForm} from '../../src/components/PaymentActivityForms';
 import {CARD_PRIVACY_NOTE,type PaymentMethod} from '../../src/domain/paymentMethods';
 const mockSave=jest.fn();const mockRefetch=jest.fn();const mockCorrect=jest.fn();
+const mockTransfer=jest.fn();
 let mockQuery:any;let mockPending=false;
-jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>mockQuery,useSavePaymentMethod:()=>({mutate:mockSave,isPending:mockPending,reset:jest.fn()}),useSavePaymentTransfer:()=>({mutate:jest.fn()}),useCorrectMethodBalance:()=>({mutate:mockCorrect,isPending:false})}));
+jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>mockQuery,useSavePaymentMethod:()=>({mutate:mockSave,isPending:mockPending,reset:jest.fn()}),useSavePaymentTransfer:()=>({mutate:mockTransfer,isPending:false}),useCorrectMethodBalance:()=>({mutate:mockCorrect,isPending:false})}));
 jest.mock('../../src/stores/usePreferencesStore',()=>({activeTimezone:()=> 'Asia/Manila',usePreferencesStore:Object.assign((selector:any)=>selector({profile:{user_id:'owner',timezone:'Asia/Manila'}}),{getState:()=>({profile:{user_id:'owner',timezone:'Asia/Manila'}})})}));
 const card:PaymentMethod={id:'card-1',user_id:'owner',method:'card',payment_type:'Debit card',name:'Metrobank',last_four:'8035',opening_balance:'40300.50',baseline_at:'2026-10-08T00:00:00Z',archived:false,balance:'40200.50',has_activity:true,related_bills:[]};
 beforeEach(()=>{mockQuery={methods:[card],isPending:false,isError:false,refetch:mockRefetch};mockPending=false;jest.clearAllMocks();});
@@ -42,4 +43,18 @@ test('failed balance refresh explains disabled confirmation and retry preserves 
  expect(screen.getByText('Balances could not refresh. Choose Refresh balances to retry; your correction draft is still here.')).toBeTruthy();
  fireEvent.press(screen.getByText('Confirm balance correction'));expect(mockCorrect).not.toHaveBeenCalled();fireEvent.press(screen.getByText('Refresh balances'));expect(mockRefetch).toHaveBeenCalled();
  view.rerender(<BalanceCorrectionForm {...props} unavailable={false}/>);fireEvent.press(screen.getByText('Confirm balance correction'));expect(mockCorrect).toHaveBeenCalledWith(expect.objectContaining({targetBalance:'39000',note:'Statement',expectedBalance:'40200.50'}),expect.anything());
+});
+
+test('starts transfers from method details with that method selected and saves ungrouped money',()=>{
+ const cash={...card,id:'cash-1',method:'cash',payment_type:'Cash',name:'Cash',last_four:null,opening_balance:'0.00',balance:'0.00'};
+ mockQuery={...mockQuery,methods:[cash,card],transfers:[],corrections:[]};
+ render(<PaymentMethodsSettings/>);
+ expect(screen.queryByLabelText('Transfer between payment methods')).toBeNull();
+ fireEvent.press(screen.getByLabelText('Edit payment method Metrobank'));
+ fireEvent.press(screen.getByLabelText('Transfer between payment methods'));
+ expect(screen.getByLabelText('Transfer amount')).toBeTruthy();
+ fireEvent.press(screen.getAllByText('Cash').at(-1)!);
+ fireEvent.changeText(screen.getByLabelText('Transfer amount'),'1,000.50');
+ fireEvent.press(screen.getByText('Record transfer'));
+ expect(mockTransfer).toHaveBeenCalledWith(expect.objectContaining({sourceId:card.id,destinationId:cash.id,amount:'1000.50'}),expect.anything());
 });

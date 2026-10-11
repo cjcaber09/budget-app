@@ -34,9 +34,9 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
       <Animated.View accessibilityViewIsModal style={[styles.sheet, { opacity: open ? 1 : 0, transform: [{ translateY: reduced || open ? 0 : 32 }], transitionProperty: ['transform', 'opacity'], transitionDuration: reduced ? 0 : open ? motion.enter : motion.exit, transitionTimingFunction: motion.easeSheet }]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, paddingBottom: 24 + (insets?.bottom ?? 0) }}>
-          <View style={styles.header}><View style={styles.headerText}><Text accessibilityRole="header" style={styles.title}>Add Transaction</Text><Text style={styles.subtitle}>How would you like to add it?</Text></View><MotionPressable onPress={onClose} accessibilityLabel="Close add transaction" style={styles.close}><X size={20} color={colors.muted} /></MotionPressable></View>
+          <View style={styles.header}><View style={styles.headerText}><Text accessibilityRole="header" style={styles.title}>Add transaction</Text></View><MotionPressable onPress={onClose} accessibilityLabel="Close add transaction" style={styles.close}><X size={20} color={colors.muted} /></MotionPressable></View>
           {options.map(({ label, detail, Icon, action }) => <MotionPressable key={label} style={styles.option} onPress={action}><Icon color={colors.primary} size={22} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{detail}</Text></View><ChevronRight size={17} color={colors.subtle} /></MotionPressable>)}
-          <Text style={styles.privacy}>Photos are sent to Google to read the text (Gemini, with Cloud Vision as a backup — Gemini&apos;s free tier may use them to improve Google&apos;s products). This app doesn&apos;t keep them.</Text>
+          <Text style={styles.privacy}>Google reads your receipt using Gemini or Cloud Vision. Gemini&apos;s free tier may use photos to improve Google products. The app keeps no photos.</Text>
           <MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable>
         </ScrollView>
       </Animated.View>

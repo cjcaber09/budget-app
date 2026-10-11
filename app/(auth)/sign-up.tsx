@@ -34,12 +34,11 @@ export default function SignUpScreen() {
     <Link href="/sign-in" style={linkStyle}>Back to sign in</Link>
   </View></AuthFrame>;
   return <AuthFrame><View>
-    <Text accessibilityRole="header" style={[styles.title, { fontSize: 26, lineHeight: 34 }]}>A clearer month starts here.</Text>
-    <Text style={styles.subtitle}>Create your Budget Tracker account.</Text>
+    <Text accessibilityRole="header" style={[styles.title, { fontSize: 26, lineHeight: 34 }]}>Create account</Text>
     {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Email" style={styles.input} placeholder="you@example.com" placeholderTextColor={colors.subtle} autoCapitalize="none" autoComplete="email" keyboardType="email-address" value={email} onChangeText={setEmail} />
     <Text style={styles.label}>Password</Text><TextInput accessibilityLabel="Password" style={styles.input} placeholder="Choose a password" placeholderTextColor={colors.subtle} secureTextEntry autoComplete="new-password" value={password} onChangeText={setPassword} onSubmitEditing={() => void handleSignUp()} />
     <MotionPressable style={styles.button} onPress={() => void handleSignUp()} disabled={submitting}><Text style={styles.buttonText}>{submitting ? 'Creating account…' : 'Sign Up'}</Text></MotionPressable>
-    <Link href="/sign-in" style={linkStyle}>Already have an account? Sign in</Link>
+    <Link href="/sign-in" style={linkStyle}>Sign in</Link>
   </View></AuthFrame>;
 }

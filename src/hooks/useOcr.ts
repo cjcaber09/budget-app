@@ -90,7 +90,7 @@ export function useOcrScan(shouldNotify?: () => boolean) {
 export function useOcrScans() {
   const owner = usePreferencesStore(s => s.profile?.user_id);
   const query = useInfiniteQuery({
-    queryKey: ['ocrScans', owner],
+    queryKey: ['ocrScans', owner, 'pages10'],
     enabled: !!owner,
     initialPageParam: null as Pick<OcrScanRow, 'created_at' | 'id'> | null,
     queryFn: async ({pageParam, signal}) => {
@@ -102,10 +102,10 @@ export function useOcrScans() {
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       if (pageParam) request = request.or(`created_at.lt.${pageParam.created_at},and(created_at.eq.${pageParam.created_at},id.lt.${pageParam.id})`);
-      const {data, error} = await request.limit(21).abortSignal(signal);
+      const {data, error} = await request.limit(11).abortSignal(signal);
       if (error) throw error;
       const rows = (data ?? []) as OcrScanRow[];
-      return {rows: rows.slice(0, 20), hasMore: rows.length > 20};
+      return {rows: rows.slice(0, 10), hasMore: rows.length > 10};
     },
     getNextPageParam: page => page.hasMore ? page.rows[page.rows.length - 1] : undefined,
   });

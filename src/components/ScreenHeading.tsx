@@ -2,12 +2,12 @@ import { View, Text } from 'react-native';
 import type { ReactNode } from 'react';
 import { createThemedStyles, type } from '../styles/theme';
 
-export function ScreenHeading({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+export function ScreenHeading({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   const styles = useStyles();
   return <View style={styles.row}>
     <View style={styles.copy}>
       <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      {!!description && <Text style={styles.description}>{description}</Text>}
     </View>
     {action}
   </View>;

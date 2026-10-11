@@ -44,6 +44,7 @@ export function useAddCategory() {
     onSuccess: () => {
       invalidateReports(queryClient);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions','pages'] });
     },
   });
 }
@@ -65,6 +66,25 @@ export function useUpdateCategory() {
     onSuccess: () => {
       invalidateReports(queryClient);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions','pages'] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { shouldNotify: () => false },
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('categories').delete().eq('id', id);
+      if (error?.code === 'BC001') throw new Error('Reassign this category’s transactions and bills first.');
+      if (error) throw new Error('Could not delete category. Retry.');
+    },
+    onSuccess: () => {
+      invalidateReports(queryClient);
+      for (const key of ['categories', 'budgets', 'dashboard', 'monthlyTotals', 'transactions']) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
     },
   });
 }

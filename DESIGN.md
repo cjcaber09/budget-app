@@ -156,6 +156,10 @@ Fields and option chips use 8px corners; primary buttons, month controls, and ic
 
 ## Do's and Don'ts
 
+Settings uses a horizontally scrollable tab strip with icons, text labels, a shared divider and an underline for selection. Categories & Bills opens by default and contains scan history. Profile, Preferences, Sources and Notifications separate the remaining controls. Logout stays in the fixed Settings header; account deletion belongs to Profile. Switching tabs preserves drafts and loaded history.
+
+Month navigation covers the current financial month and earlier months. Next beyond the current month shows a dismissible toast. Over-budget banners have separate detail and dismiss actions; dismissing a banner does not change financial totals or phone notification thresholds.
+
 Do:
 
 - Keep the month, amounts, and next action easy to scan.

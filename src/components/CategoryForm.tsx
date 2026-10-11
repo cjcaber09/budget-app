@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, Text, TextInput } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Check, Save } from 'lucide-react-native';
 import { MotionPressable } from './MotionPressable';
 import { useFormStyles } from '../styles/forms';
 import { useColors } from '../styles/theme';
@@ -17,9 +17,10 @@ interface Props {
   submitLabel: string;
   submitting?: boolean;
   onSubmit: (values: CategoryFormValues) => void;
+  secondaryAction?: ReactNode;
 }
 
-export function CategoryForm({ initialValues, submitLabel, submitting, onSubmit }: Props) {
+export function CategoryForm({ initialValues, submitLabel, submitting, onSubmit, secondaryAction }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
   const [name, setName] = useState(initialValues?.name ?? '');
@@ -53,9 +54,13 @@ export function CategoryForm({ initialValues, submitLabel, submitting, onSubmit 
           >{color === option && <Check size={21} color="#162A1E" strokeWidth={2.5} />}</MotionPressable>
         ))}
       </View>
-      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting}>
-        <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
+      <View style={secondaryAction ? {flexDirection: 'row', gap: 12, marginTop: 28} : undefined}>
+      <MotionPressable style={secondaryAction ? [styles.secondaryButton, {flex: 1, marginTop: 0, paddingHorizontal: 10, flexDirection: 'row', gap: 8}] : styles.button} onPress={handleSubmit} disabled={submitting}>
+        {secondaryAction && <Save size={18} color={colors.primary}/>}
+        <Text style={secondaryAction ? styles.chipTextSelected : styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
       </MotionPressable>
+      {secondaryAction}
+      </View>
     </View>
   );
 }

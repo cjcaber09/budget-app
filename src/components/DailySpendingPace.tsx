@@ -12,18 +12,18 @@ export function DailySpendingPace({ snapshot }: { snapshot: DashboardSnapshot })
   if (!guidance.current || guidance.forecast === null || guidance.average === null) return null;
   const maximum = Math.max(guidance.forecast, snapshot.limitCents ?? 0, 1);
   const values = [
-    { label: 'Estimated month-end spending', value: guidance.forecast, forecast: true },
+    { label: 'Month-end estimate', value: guidance.forecast, forecast: true },
     ...(snapshot.limitCents === null ? [] : [{ label: 'Monthly allowance', value: snapshot.limitCents, forecast: false }]),
   ];
   return <View style={styles.section}>
-    <View style={styles.headingRow}><Text accessibilityRole="header" style={styles.heading}>Daily Spending Pace</Text>{guidance.pace && <Text style={styles.caption}>{guidance.pace}</Text>}</View>
-    <View style={styles.row}><Text style={styles.caption}>Average per calendar day</Text><Text style={styles.number}>{money(guidance.average / 100)}</Text></View>
+    <View style={styles.headingRow}><Text accessibilityRole="header" style={styles.heading}>Spending pace</Text>{guidance.pace && <Text style={styles.caption}>{guidance.pace}</Text>}</View>
+    <View style={styles.row}><Text style={styles.caption}>Daily average</Text><Text style={styles.number}>{money(guidance.average / 100)}</Text></View>
     {values.map(entry => <View key={entry.label} style={chart.entry} accessible accessibilityLabel={`${entry.label}: ${money(entry.value / 100)}`}>
       <View style={styles.row}><Text style={styles.caption}>{entry.label}</Text><Text style={styles.number}>{money(entry.value / 100)}</Text></View>
       <View style={chart.track}><View style={[chart.bar, entry.forecast ? guidance.pace === 'Over budget' ? chart.over : chart.forecast : chart.allowance, { width: `${entry.value / maximum * 100}%` as `${number}%` }]} /></View>
     </View>)}
-    {snapshot.limitCents === null && <Text style={styles.caption}>Set a monthly allowance on Overview to compare your forecast.</Text>}
-    <Text style={styles.caption}>An estimate using discretionary spending so far and scheduled bills. Early-month estimates can change quickly.</Text>
+    {snapshot.limitCents === null && <Text style={styles.caption}>Set an allowance in Overview to compare.</Text>}
+    <Text style={styles.caption}>Based on spending so far and scheduled bills. Early estimates may vary.</Text>
   </View>;
 }
 const useChartStyles = createThemedStyles(c => ({

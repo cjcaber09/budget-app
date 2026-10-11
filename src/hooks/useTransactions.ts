@@ -19,7 +19,7 @@ function refreshSavedTransaction(client:QueryClient,saved:Transaction) {
 
 interface ListSnapshot { key: QueryKey; data: Transaction[] | undefined }
 function listSnapshots(client:QueryClient,targetMonth:string):ListSnapshot[] {
-  const snapshots=client.getQueriesData<Transaction[]>({queryKey:['transactions']}).map(([key,data])=>({key,data}));
+  const snapshots=client.getQueriesData<Transaction[]>({queryKey:['transactions']}).filter(([key])=>key[1]!=='pages').map(([key,data])=>({key,data}));
   const key=transactionListKey(targetMonth);
   if (!snapshots.some(entry=>JSON.stringify(entry.key)===JSON.stringify(key))) snapshots.push({key,data:undefined});
   return snapshots;
@@ -72,7 +72,9 @@ async function saveTransaction(operation: 'create' | 'update', input: AddTransac
   const result = input.occurrenceId ? await supabase.rpc('bill_command',{p_occurrence:input.occurrenceId,p_command:operation==='create'?'record':input.type==='income'?'convert_income':'edit',p_transaction:payload.p_transaction,p_items:payload.p_items,p_confirm_difference:input.confirmDifference??false}) : await supabase.rpc('save_transaction',payload);
   const {error}=result;const data=input.occurrenceId ? result.data?.transaction : result.data;
   if (error) {
-    const message = error.code === '23505' ? 'This transaction was already saved with different details. Reopen it to edit.'
+    const message = error.code === 'BT001' ? 'Insufficient tracked balance. Choose another payment method or correct its balance.'
+      : error.code === 'BT002' ? 'Balance not set. Set an initial balance before paying this bill.'
+      : error.code === '23505' ? 'This transaction was already saved with different details. Reopen it to edit.'
       : ['22023', '23514', '23503'].includes(error.code) ? 'Review the category, amount and item rows before saving.'
       : error.code === '42501' ? 'This transaction is unavailable. Sign in and reopen it.'
       : 'Could not save the transaction. Your draft is still here; please retry.';

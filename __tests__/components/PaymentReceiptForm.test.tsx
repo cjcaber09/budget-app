@@ -16,8 +16,8 @@ function mount(changes:Partial<ExtractedReceipt>={}) {
 it('autofills income, separate sender identifiers and date, and counts the repeated amount once',()=>{
   const {save}=mount();
   expect(screen.getByLabelText('From number').props.value).toBe('0912 *** 0042');
-  expect(screen.getByLabelText('Payment amount').props.value).toBe('1000.00');
-  expect(screen.getByLabelText('Amount').props.value).toBe('1000.00');
+  expect(screen.getByLabelText('Payment amount').props.value).toBe('1,000.00');
+  expect(screen.getByLabelText('Amount').props.value).toBe('1,000.00');
   expect(screen.getByText('2026-09-01')).toBeTruthy();
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0]).toMatchObject({type:'income',amount:1000,transactionDate:'2026-09-01',paymentDetails:{fromNumber:'0912 *** 0042'}});
@@ -27,10 +27,10 @@ it('links edits from both amount fields and recreates a removed summary while pr
   const {save}=mount();
   fireEvent.changeText(screen.getByLabelText('Payment amount'),'1200');
   fireEvent.press(screen.getByLabelText('Edit row 1'));
-  expect(screen.getByLabelText('Row 1 amount').props.value).toBe('1200');
+  expect(screen.getByLabelText('Row 1 amount').props.value).toBe('1,200');
   fireEvent.changeText(screen.getByLabelText('Row 1 amount'),'1100');
   fireEvent.press(screen.getByText('Save item'));
-  expect(screen.getByLabelText('Payment amount').props.value).toBe('1100');
+  expect(screen.getByLabelText('Payment amount').props.value).toBe('1,100');
   fireEvent.press(screen.getByLabelText('Edit row 1'));fireEvent.press(screen.getByLabelText('Remove row 1'));
   expect(screen.getByLabelText('Payment amount').props.value).toBe('');
   expect(screen.getByLabelText('From name').props.value).toBe('Employer');
@@ -60,7 +60,7 @@ it('leaves own-account direction unresolved and offers skipping without saving',
   const {save,discard}=mount({ownAccountTransfer:true});
   expect(screen.getByLabelText('Amount').props.value).toBe('');
   fireEvent.press(screen.getByText('Save')); expect(save).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByText('Skip recording this transaction')); expect(discard).toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Skip transaction')); expect(discard).toHaveBeenCalled();
   fireEvent.press(screen.getByText('Income')); fireEvent.press(screen.getByText('Save'));
   expect(save).toHaveBeenCalled();
 });
@@ -68,7 +68,7 @@ it('does not turn failed payments into completed ones by choosing a type',()=>{
   const {save}=mount({paymentStatus:'failed'});
   fireEvent.press(screen.getByText('Income')); fireEvent.press(screen.getByText('Save'));
   expect(save).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByText('Enter a transaction manually'));
+  fireEvent.press(screen.getByText('Enter manually'));
   fireEvent.press(screen.getByText('Income')); fireEvent.changeText(screen.getByLabelText('Amount'),'25'); fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0]).toMatchObject({type:'income',amount:25,transactionDate:'2026-10-07',paymentDetails:null,items:[]});
 });

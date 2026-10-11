@@ -29,7 +29,7 @@ describe('AddTransactionSheet', () => {
     renderSheet();
     expect(
       screen.getByText(
-        "Photos are sent to Google to read the text (Gemini, with Cloud Vision as a backup — Gemini's free tier may use them to improve Google's products). This app doesn't keep them."
+        "Google reads your receipt using Gemini or Cloud Vision. Gemini's free tier may use photos to improve Google products. The app keeps no photos."
       )
     ).toBeTruthy();
   });
