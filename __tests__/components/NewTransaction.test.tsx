@@ -1,3 +1,5 @@
+jest.mock('../../src/components/TransactionAttachments',()=>({useProofDraft:()=>({busy:false,savedId:null,prepareScan:jest.fn(),upload:async()=>true}),ProofPicker:()=>null,AttachmentRetry:()=>null}));
+jest.mock('../../src/components/BillPaymentForm',()=>({BillPaymentForm:()=>null}));
 jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:({onChange}: {onChange:(id:string)=>void})=>{
  const {Pressable,Text}=require('react-native');
  return <Pressable onPress={()=>onChange('00000000-0000-4000-8000-000000000301')}><Text>Choose salary source</Text></Pressable>;
