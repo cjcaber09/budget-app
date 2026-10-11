@@ -14,6 +14,9 @@ import { useUpdateTransaction, useDeleteTransaction, useTransaction, useTransact
 import { useUiStore } from '../../../src/stores/useUiStore';
 import { TransactionForm } from '../../../src/components/TransactionForm';
 import { MotionPressable } from '../../../src/components/MotionPressable';
+import { ActionSheet } from '../../../src/components/ActionSheet';
+import { Trash2 } from 'lucide-react-native';
+import { useColors } from '../../../src/styles/theme';
 import { QueryState } from '../../../src/components/QueryState';
 import { useFormStyles } from '../../../src/styles/forms';
 import { usePageLayout } from '../../../src/styles/pageLayout';
@@ -53,6 +56,8 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
   const remove = useDeleteTransaction(month);
   const billCommand=useBillCommand();
   const [confirmation,setConfirmation]=useState<UpdateTransactionInput|null>(null);
+  const [destructive,setDestructive]=useState<'delete'|'replace'|null>(null);
+  const colors=useColors();
   const funds=useExpenseBalanceReview<UpdateTransactionInput>(transaction);
   const methodChange=useRef<((id:string|null)=>void)|null>(null);
   const proof=useProofDraft();
@@ -71,9 +76,22 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
       onSubmit={values => {const input={ ...values, occurrenceId:snapshot.transaction.occurrence_id??undefined,id: snapshot.transaction.id, occurredAt:values.transactionDate === effectiveDate(snapshot.transaction) ? snapshot.transaction.occurred_at : occurrenceForDate(values.transactionDate,snapshot.transaction.occurred_at) };if(snapshot.transaction.occurrence_id&&values.type==='expense'&&values.amount!==snapshot.transaction.amount){setConfirmation(input);return;}void funds.review(input,()=>update.mutate(input,{onSuccess:finishSave}));}} />
     </View>
     {confirmation&&<View><Text style={styles.subtitle}>Change this linked expense from {formatMoney(snapshot.transaction.amount)} to {formatMoney(confirmation.amount)}? It will still settle the whole scheduled bill; partial payments are not supported.</Text>{update.isError&&<Text accessibilityRole="alert" style={styles.error}>Could not save this settlement. Your confirmation and draft are still here. Retry or cancel.</Text>}<MotionPressable style={styles.button} disabled={saving} onPress={()=>update.mutate({...confirmation,confirmDifference:true},{onSuccess:finishSave})}><Text style={styles.buttonText}>Confirm full settlement</Text></MotionPressable><MotionPressable style={styles.secondaryButton} disabled={saving} onPress={()=>setConfirmation(null)}><Text style={styles.chipText}>Cancel confirmation</Text></MotionPressable></View>}
-    <MotionPressable style={styles.secondaryButton} disabled={saving} onPress={() => remove.mutate(snapshot.transaction.id, { onSuccess: () => router.back() })}>
+    <MotionPressable style={[styles.secondaryButton,{flexDirection:'row',gap:8,justifyContent:'center'}]} disabled={saving} onPress={() => setDestructive('delete')}>
+      <Trash2 size={18} color={colors.danger}/>
       <Text style={styles.secondaryText}>{snapshot.transaction.occurrence_id ? 'Delete and skip this bill' : 'Delete Transaction'}</Text>
     </MotionPressable>
-    {snapshot.transaction.occurrence_id&&<MotionPressable disabled={saving} style={styles.secondaryButton} onPress={()=>billCommand.mutate({id:snapshot.transaction.occurrence_id!,command:'replace'},{onSuccess:data=>router.replace({pathname:'/transaction/new',params:{visit:createRequestId(),occurrenceId:data.occurrence.id,paymentMethodId:data.occurrence.payment_method_id??undefined,categoryId:data.occurrence.category_id??'',billAmount:String(data.occurrence.amount),billNote:data.occurrence.label??'Scheduled expense'}})})}><Text style={styles.chipText}>Replace this expense</Text></MotionPressable>}
+    <ActionSheet visible={destructive!==null} title={destructive==='replace'?'Replace this expense?':'Delete transaction?'} busy={saving} onClose={()=>{if(!saving)setDestructive(null);}}>
+      <Text style={styles.subtitle}>{formatMoney(snapshot.transaction.amount)} · {effectiveDate(snapshot.transaction)}{snapshot.transaction.note ? ` · ${snapshot.transaction.note}` : ''}</Text>
+      <Text style={styles.subtitle}>This removes the transaction and any attached receipts.{destructive==='replace'?' The bill stays pending until you record or link a replacement payment.':snapshot.transaction.occurrence_id ? ' The linked bill occurrence will be skipped.' : ''} This cannot be undone.</Text>
+      {(destructive==='replace'?billCommand.isError:remove.isError) && <Text accessibilityRole="alert" style={styles.error}>Could not {destructive==='replace'?'replace':'delete'} this transaction. Retry or keep it.</Text>}
+      <MotionPressable accessibilityLabel={destructive==='replace'?'Confirm expense replacement':'Confirm transaction deletion'} disabled={saving} style={[styles.button,{flexDirection:'row',gap:8,justifyContent:'center'}]} onPress={()=>{
+        if(destructive==='replace'&&snapshot.transaction.occurrence_id)billCommand.mutate({id:snapshot.transaction.occurrence_id,command:'replace',transactionId:snapshot.transaction.id},{onSuccess:data=>{setDestructive(null);router.replace({pathname:'/transaction/new',params:{visit:createRequestId(),occurrenceId:data.occurrence.id}});}});
+        else remove.mutate(snapshot.transaction.id,{onSuccess:()=>{setDestructive(null);router.back();}});
+      }}>
+        <Trash2 size={18} color={colors.onPrimary}/><Text style={styles.buttonText}>{saving?'Working…':destructive==='replace'?'Remove and replace':snapshot.transaction.occurrence_id?'Delete and skip bill':'Delete transaction'}</Text>
+      </MotionPressable>
+      <MotionPressable disabled={saving} style={styles.secondaryButton} onPress={()=>setDestructive(null)}><Text style={styles.chipTextSelected}>Keep transaction</Text></MotionPressable>
+    </ActionSheet>
+    {snapshot.transaction.occurrence_id&&<MotionPressable disabled={saving} style={styles.secondaryButton} onPress={()=>setDestructive('replace')}><Text style={styles.chipText}>Replace this expense</Text></MotionPressable>}
   </>;
 }

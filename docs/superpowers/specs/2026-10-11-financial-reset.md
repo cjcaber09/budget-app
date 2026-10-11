@@ -1,0 +1,13 @@
+# Clear finance records
+
+Profile offers Clear records with the current password and a permanent-reset acknowledgment. It removes transactions and items, budgets and monthly allowances, bills and occurrences, scans and receipts, transfers and corrections, categories, income sources and payment methods. The reset restores the seven original default categories and Cash with its tracked balance unset. Auth, display name, avatar and all saved preferences stay.
+
+The Edge Function verifies the JWT owner and current password through an isolated memory-only auth client. It derives ownership from the token, accepts a stable request UUID and starts a private durable job. Clients cannot call initiation or completion RPCs. A failed password starts nothing; status polling cannot initiate a reset. No password enters URLs, storage or logs.
+
+The owner financial lock blocks writes and uploads during cleanup and prevents reset/account-deletion overlap. The worker waits for admitted scans and uploads plus a settling period, then removes only OCR and proof folders through Storage API. It never removes avatars or Auth. SQL completion verifies no active uploads or retained receipt objects, clears financial tables atomically and restores defaults. OCR rows are marked deleted so history disappears while scanning quotas remain enforced.
+
+Completed retries never clear new activity or files. Missing Auth, failed storage calls and ambiguous responses never establish success. The client persists only owner/request/acceptance identities, checks owned status after restart or resume, and distinguishes server completion from failed device refresh. Completion clears finance caches, drafts, temporary exports, local bill reminders and the owner's budget-alert baseline. Saved preferences and Auth stay; navigation and forms remount so old drafts cannot remain visible. Other phones clear their own caches after seeing the completed reset on sync.
+
+Checks cover password mismatch, JWT-owner matching, private RPC permissions, foreign status, active-upload deferral, storage failure, record removal, restored defaults, quota preservation, retained Auth/profile/avatar, owner isolation and completed retries. Rollback-only SQL checks include the existing MVP export/deletion cases. Synthetic browser checks cover the Profile placement and confirmation flow. Physical-phone keyboard and reminder cancellation still require verification.
+
+The user has held builds and updates until explicitly requested. Migration 0030 and the modified Edge Function stay local. When publishing is authorized, deploy through `scripts/deploy-financial-reset.mjs --apply`, run hosted synthetic checks, then publish the compatible UI update. Do not reset a real account while testing.

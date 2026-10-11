@@ -1,6 +1,7 @@
 import {render,screen,fireEvent} from '@testing-library/react-native';
 import SettingsScreen from '../../app/(tabs)/settings';
 const mockLogout=jest.fn();
+jest.mock('../../src/components/FinancialReset',()=>({FinancialResetSettings:()=>{const {Text}=require('react-native');return <Text>Clear records</Text>;}}));
 jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>({data:[]})}));
 jest.mock('../../src/hooks/useRecurringRules',()=>({useRecurringRules:()=>({data:[]})}));
 jest.mock('../../src/hooks/useOcr',()=>({useOcrScans:()=>({data:[]}),useDeleteOcrScan:()=>({mutate:jest.fn()})}));
@@ -25,7 +26,7 @@ it('defaults to categories, bills and scan history',()=>{
 it('groups each section and keeps logout available on every tab',()=>{
  render(<SettingsScreen/>);
  for(const [tab,labels] of [
-  ['Profile',['Profile controls','Delete account']],['Preferences',['Preference controls']],
+  ['Profile',['Profile controls','Clear records','Delete account']],['Preferences',['Preference controls']],
   ['Sources',['Income sources','Payment methods']],['Notifications',['Budget alerts']],
   ['Categories & Bills',['Scan history']],
  ] as const){

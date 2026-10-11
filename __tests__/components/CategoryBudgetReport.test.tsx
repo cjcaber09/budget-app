@@ -11,8 +11,10 @@ test('shows all categories including zero/unset and exposes over-budget amount b
  render(<CategoryBudgetReport categories={categories} budgets={budgets} snapshot={snapshot}/>);
  for(const name of names)expect(screen.getByLabelText(`View ${name} budget`)).toBeTruthy();
  expect(screen.getByText('50%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('80%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('100%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('125%',{includeHiddenElements:true})).toBeTruthy();
- expect(screen.getByText('-$25.00')).toBeTruthy();expect(screen.getByText('$50.00')).toBeTruthy();expect(screen.getByText('Budget reached')).toBeTruthy();expect(screen.getAllByText('No budget')).toHaveLength(3);
+ expect(screen.getByText('$25.00')).toBeTruthy();expect(screen.getByText('$50.00')).toBeTruthy();expect(screen.getByText('Budget reached')).toBeTruthy();expect(screen.getAllByText('No budget')).toHaveLength(3);
  expect(screen.queryByText('Infinity%')).toBeNull();
+ expect(screen.getByText('Over by')).toBeTruthy();expect(screen.getAllByText('Remaining')).toHaveLength(6);
+ expect(screen.getByText('Spent $125.00')).toBeTruthy();
 });
 test('category doughnuts retain fresh read-only detail navigation on every press',()=>{
  render(<CategoryBudgetReport categories={categories} budgets={budgets} snapshot={snapshot}/>);

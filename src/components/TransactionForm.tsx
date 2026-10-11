@@ -150,14 +150,11 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
           </MotionPressable>
         ))}
       </View>
-      {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
+      <Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
+      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
+      {type === 'expense' && <CategoryPicker compact categories={categories} value={categoryId} onChange={setCategoryId}/>}
       {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,setIncomeSourceId):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
-      {attachmentControl}
-      {type === 'expense' && (
-        <>
-          <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId}/>
-        </>
-      )}
+      {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
       <TransactionDateField value={transactionDate} onChange={day => {setTransactionDate(day);setDateEdited(true);}} hint={dateEdited ? 'Edited date' : receipt?.receiptDate ? 'Receipt date' : scanned ? receipt?.receiptDateRaw ? 'Receipt date was unclear; using the date this scan started.' : 'No receipt date found; using the date this scan started.' : undefined} />
       {paymentDetails && <View style={{marginTop:28}}>
         <Text style={styles.title}>Payment details</Text>
@@ -170,8 +167,6 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
         {!summaryDraft && hasRows && <Text style={styles.subtitle}>Calculated from the rows below. Edit rows to change it.</Text>}
         {!summaryDraft && drafts.length>=100 && <Text style={styles.subtitle}>Remove a row before adding a payment amount.</Text>}
       </View>}
-      <Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
-      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
       <TransactionItemsEditor drafts={drafts} onChange={changeDrafts} transactionType={type} />
       {rowError && <Text style={[styles.error, { marginTop: 16 }]} accessibilityRole="alert">{rowError}</Text>}
       {hasRows && !rowError && difference !== null && Math.abs(difference) > 1 && <View style={{ marginTop: 16 }}>
@@ -195,6 +190,7 @@ export function TransactionForm({ categories, initialValues, receipt, receiptTex
         accessibilityLabel="Note" placeholder="What was it for?"
         multiline
       />
+      {attachmentControl}
       <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || !!rowError || !type || blockedPayment}>
         <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
       </MotionPressable>

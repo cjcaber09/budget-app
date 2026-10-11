@@ -3,6 +3,8 @@ import {corsHeaders} from '@supabase/supabase-js/cors';
 import {createRemoteJWKSet,jwtVerify,decodeProtectedHeader} from 'jose';
 import {isUuid,timingSafeEqual} from '../ocr/shared.ts';
 import {processDeletion,cleanupAttachments,type DeletionJob} from './worker.ts';
+import {processFinancialReset,type ResetJob} from './reset-worker.ts';
+import {handleFinancialReset} from './reset-request.ts';
 
 const url=Deno.env.get('SUPABASE_URL')!,serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,anonKey=Deno.env.get('SUPABASE_ANON_KEY')!;
 const admin=createClient(url,serviceKey,{db:{schema:'budget_tracker'},auth:{persistSession:false,autoRefreshToken:false}});
@@ -36,6 +38,11 @@ async function handle(req:Request):Promise<Response>{
   const pending=await admin.from('account_deletions').select('*').order('last_attempt_at').limit(20);
   if(pending.error)return response(503,{error:'status_unavailable'});
   for(const job of pending.data??[]){if(Date.now()-Date.parse(started)>50000)break;await processDeletion(admin,job as DeletionJob);}
+  if(Date.now()-Date.parse(started)<40000){
+   const resets=await admin.from('financial_resets').select('*').eq('state','pending').order('last_attempt_at').limit(10);
+   if(resets.error)return response(503,{error:'status_unavailable'});
+   for(const job of resets.data??[]){if(Date.now()-Date.parse(started)>50000)break;await processFinancialReset(admin,job as ResetJob);}
+  }
   // Completed records survive for status recovery, then are minimized after a final sweep.
   const cutoff=new Date(Date.now()-86400000).toISOString();
   await admin.from('account_deletions').delete().eq('state','completed').lt('completed_at',cutoff).gte('last_attempt_at',started).is('error_code',null);
@@ -45,7 +52,8 @@ async function handle(req:Request):Promise<Response>{
  }
  const token=req.headers.get('Authorization')?.replace(/^Bearer\s+/i,'');if(!token)return response(401,{error:'unauthorized'});
  let owner:string;try{owner=await verifiedOwner(token);}catch{return response(401,{error:'unauthorized'});}
- if(!isUuid(body.requestId)||!['delete','status','resume'].includes(String(body.action)))return response(400,{error:'invalid_request'});
+ if(!isUuid(body.requestId)||!['delete','status','resume','reset','reset-status','reset-resume'].includes(String(body.action)))return response(400,{error:'invalid_request'});
+ if(String(body.action).startsWith('reset'))return handleFinancialReset({admin,url,anonKey,token,owner,body,response});
  const lookup=await admin.from('account_deletions').select('*').eq('owner_id',owner).maybeSingle();
  if(lookup.error)return response(503,{error:'status_unavailable'});
  let job=lookup.data as DeletionJob|null;

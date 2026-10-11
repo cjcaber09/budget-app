@@ -32,8 +32,9 @@ export function CategoryBudgetReport({ categories, budgets, snapshot, month }: {
       const remaining = spent > budget ? `Over by ${money(spent - budget)}` : `Remaining ${money(budget - spent)}`;
       const circumference = 2 * Math.PI * 30;
       return <View key={category.id} style={styles.cell}><MotionPressable style={styles.category} accessibilityLabel={`View ${category.name} budget`} accessibilityHint={`Spent ${money(spent)} of ${money(budget)}. ${state}. ${remaining}.`} onPress={() => router.push({ pathname: '/budget/[categoryId]', params: { categoryId: category.id, visit: createRequestId(),...(month?{month}:{}) } })}>
-        <Text style={styles.name} numberOfLines={2}>{category.name}</Text>
-        <Text style={styles.remaining}>{hasBudget ? money(budget - spent) : '—'}</Text>
+        <Text style={styles.name}>{category.name}</Text>
+        <Text style={styles.caption}>{hasBudget && spent > budget ? 'Over by' : 'Remaining'}</Text>
+        <Text style={styles.remaining}>{hasBudget ? money(Math.abs(budget - spent)) : '—'}</Text>
         <View style={styles.ring} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <Svg width="100%" height="100%" viewBox="0 0 80 80">
             <Circle cx={40} cy={40} r={30} stroke={colors.border} strokeWidth={8} fill="none"/>
@@ -41,6 +42,7 @@ export function CategoryBudgetReport({ categories, budgets, snapshot, month }: {
           </Svg>
           <View style={styles.ringLabel}><Text style={[styles.usage, {color:stateColor}]}>{usage}</Text></View>
         </View>
+        <Text style={styles.figure}>Spent {money(spent)}</Text>
         <Text style={styles.figure}>Budget {money(budget)}</Text>
         <Text style={[styles.state, {color:stateColor}]}>{state}</Text>
       </MotionPressable></View>;
@@ -50,11 +52,11 @@ export function CategoryBudgetReport({ categories, budgets, snapshot, month }: {
 }
 const useStyles = createThemedStyles(c => ({
   row: { flexDirection: 'row', gap: 12, paddingTop: 16, paddingBottom: 4 },
-  cell: { width: 112 }, category: { gap: 6, alignItems: 'center' },
-  name: { ...type.label, fontSize: 13, color: c.text, textAlign: 'center', alignSelf: 'stretch', height: 40 },
+  cell: { width: 132 }, category: { gap: 6, alignItems: 'center' },
+  name: { ...type.label, fontSize: 13, color: c.text, textAlign: 'center', alignSelf: 'stretch', minHeight: 40 },
   ring: { width: 72, height: 72 }, ringLabel: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' },
-  usage: { ...type.number, fontSize: 13 }, state: { ...type.label, fontSize: 11, fontWeight: '400', textAlign: 'center' },
-  figure: { ...type.number, fontSize: 11, color: c.muted, textAlign: 'center' },
+  usage: { ...type.number, fontSize: 13 }, state: { ...type.label, fontSize: 12, fontWeight: '400', textAlign: 'center' },
+  figure: { ...type.number, fontSize: 12, color: c.muted, textAlign: 'center' },
   caption: { ...type.label, fontWeight: '400', fontSize: 12, color: c.muted, textAlign: 'center' },
   remaining: { ...type.number, fontSize: 14, color: c.text, textAlign: 'center', alignSelf: 'stretch' },
   footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', paddingTop: 24 }, amount: { ...type.number, color: c.text, fontSize: 15 },

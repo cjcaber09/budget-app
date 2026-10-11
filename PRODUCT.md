@@ -32,7 +32,7 @@ Users sign in with Supabase Auth. Four primary screens are Overview, Transaction
 - One account currency unit, chosen from ten supported two-decimal currencies. Changing it relabels existing numbers without conversion; no exchange-rate or multi-currency claims.
 - Supabase data belongs to the dedicated budget_tracker schema. Receipt rows use owner RLS and an atomic invoker save with database integrity checks.
 - OCR uses quota-limited Gemini structured extraction with Cloud Vision text fallback; preserve provider privacy disclosures and image handling.
-- Client-triggered atomic SQL catch-up materializes recurring transactions; no server cron.
+- Client-triggered atomic SQL catch-up generates pending bill occurrences; explicit Record/Link actions establish payment. Existing recorded history stays unchanged.
 
 Profiles synchronize display name, private avatar, appearance and financial timezone; signed-in users can change their password. Guidance reserves scheduled bill occurrences and estimates spending pace without claiming bank balances.
 

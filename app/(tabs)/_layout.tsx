@@ -83,7 +83,8 @@ export default function TabsLayout() {
             href: null, with a back button since Tabs has no built-in one. */}
         <Tabs.Screen
           name="transaction/new"
-          options={({route})=>({ href: null, title: (route.params as {occurrenceId?:string}|undefined)?.occurrenceId ? 'Record payment' : 'Add Transaction', headerLeft: renderBackButton })}
+          // Expo Router only handles href:null for static options. Hide this dynamic route explicitly.
+          options={({route})=>({ href: null, tabBarButton:()=>null, tabBarItemStyle:{display:'none'}, title: (route.params as {occurrenceId?:string}|undefined)?.occurrenceId ? 'Record payment' : 'Add Transaction', headerLeft: renderBackButton })}
         />
         <Tabs.Screen
           name="transaction/[id]"
