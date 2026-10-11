@@ -32,13 +32,13 @@ export async function processDeletion(admin:Admin,job:DeletionJob):Promise<'pend
   const scans=await admin.from('account_scan_leases').select('id').eq('owner_id',job.owner_id).gt('expires_at',new Date().toISOString()).limit(1);
   if(scans.error)throw new Error('status_unavailable');
   if(scans.data?.length||Date.now()<Date.parse(job.settle_after))return job.state;
-  for(const bucket of ['budget-tracker-ocr','budget-tracker-avatars'])await purgeFolder(admin,bucket,job.owner_id,deadline);
+  for(const bucket of ['budget-tracker-ocr','budget-tracker-avatars','budget-tracker-proofs'])await purgeFolder(admin,bucket,job.owner_id,deadline);
   const lookup=await admin.auth.admin.getUserById(job.owner_id);
   if(lookup.error&&lookup.error.code!=='user_not_found')throw new Error('lookup_failed');
   if(!lookup.error&&!lookup.data?.user)throw new Error('lookup_failed');
   if(lookup.data?.user){const removed=await admin.auth.admin.deleteUser(job.owner_id,false);if(removed.error)throw new Error('delete_failed');}
   // Sweep a second time after cascades; completed jobs are swept again for 24 hours.
-  for(const bucket of ['budget-tracker-ocr','budget-tracker-avatars'])await purgeFolder(admin,bucket,job.owner_id,deadline);
+  for(const bucket of ['budget-tracker-ocr','budget-tracker-avatars','budget-tracker-proofs'])await purgeFolder(admin,bucket,job.owner_id,deadline);
   const checked=await admin.auth.admin.getUserById(job.owner_id);
   if(checked.error?.code!=='user_not_found')throw new Error('lookup_failed');
   const updated=await admin.from('account_deletions').update({state:'completed',completed_at:job.completed_at??new Date().toISOString(),error_code:null}).eq('request_id',job.request_id);
@@ -49,4 +49,17 @@ export async function processDeletion(admin:Admin,job:DeletionJob):Promise<'pend
   await admin.from('account_deletions').update({error_code:['storage_failed','lookup_failed','delete_failed','status_unavailable'].includes(code)?code:'cleanup_pending'}).eq('request_id',job.request_id);
   return 'pending';
  }finally{await admin.from('account_deletions').update({lease_until:null,last_attempt_at:new Date().toISOString()}).eq('request_id',job.request_id);}
+}
+
+export async function cleanupAttachments(admin:Admin):Promise<void> {
+ const deadline=Date.now()+10000;
+ const batch=await admin.rpc('attachment_cleanup_batch',{});
+ if(batch.error||!Array.isArray(batch.data))throw new Error('storage_failed');
+ for(const row of batch.data){
+  if(Date.now()>deadline)break;
+  const removed=await admin.storage.from('budget-tracker-proofs').remove([row.object_path]);
+  if(removed.error)continue;
+  const saved=await admin.from('attachment_cleanup_jobs').update({completed_at:new Date().toISOString()}).eq('object_path',row.object_path);
+  if(saved.error)throw new Error('storage_failed');
+ }
 }
