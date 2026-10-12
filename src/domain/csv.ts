@@ -1,8 +1,9 @@
 import { reportCents } from './reports';
+import {isUuid} from '../../supabase/functions/ocr/shared';
 
-export type TransactionFilter = 'all' | 'expense' | 'income';
+export type TransactionFilter = 'all' | 'expense' | 'income' | 'refund';
 export function matchesTransactionSearch(row: {type:string; amount:string|number; note:string|null}, category:string, filter:TransactionFilter, search:string) {
-  return (filter === 'all' || row.type === filter) && `${category} ${row.note ?? ''} ${row.type} ${row.amount}`.toLowerCase().includes(search.toLowerCase().trim());
+  return (filter === 'all' || row.type === filter || filter==='expense'&&row.type==='refund') && `${category} ${row.note ?? ''} ${row.type} ${row.amount}`.toLowerCase().includes(search.toLowerCase().trim());
 }
 export function decimalCents(value:unknown) {
   const cents=BigInt(reportCents(value)), absolute=cents<0n?-cents:cents;
@@ -36,7 +37,7 @@ export function analysisCsv(raw:unknown, context:ExportContext) {
     if(row.row_type==='monthly'){
       if(groups.has(month))throw new Error('Duplicate export month.');
       const total=BigInt(reportCents(row.spending)),income=BigInt(reportCents(row.income)),net=BigInt(reportCents(row.net_income));
-      if(total<0n||income<0n||income-total!==net)throw new Error('Export totals do not reconcile.');
+      if(total<0n&&(raw as Record<string,unknown>).refundVersion!==1||income<0n||income-total!==net)throw new Error('Export totals do not reconcile.');
       groups.set(month,{total,count:count(row.expense_count),category:0n,account:0n,categoryCount:0,accountCount:0});
     }
   }
@@ -44,10 +45,10 @@ export function analysisCsv(raw:unknown, context:ExportContext) {
     const month=str(row.month),group=groups.get(month);if(!group)throw new Error('Export monthly totals are missing.');
     const monthly=row.row_type==='monthly',kind=row.row_type;
     if(kind!=='monthly'&&kind!=='category'&&kind!=='account')throw new Error('Unknown export row.');
-    const amount=reportCents(row.spending),n=count(row.expense_count);if(amount<0)throw new Error('Export spending is invalid.');
+    const amount=reportCents(row.spending),n=count(row.expense_count);if(amount<0&&(raw as Record<string,unknown>).refundVersion!==1)throw new Error('Export spending is invalid.');
     if(kind==='category'||kind==='account'){group[kind]+=BigInt(amount);group[kind==='category'?'categoryCount':'accountCount']+=n;str(row.identifier);str(row.name);}
     if(kind==='account'&&(typeof row.archived!=='boolean'||typeof row.payment_type!=='string'||(row.last_four!==null&&!/^\d{4}$/.test(String(row.last_four)))))throw new Error('Export account is invalid.');
-    return [kind,month.slice(0,7),context.currency,context.timezone,generatedAt,row.identifier??'',row.name??'',row.payment_type??'',row.last_four??'',row.archived??'',monthly?decimalCents(row.income):'',decimalCents(row.spending),monthly?decimalCents(row.net_income):'',n,monthly?'':group.total===0n?'':(amount/Number(group.total)*100).toFixed(2)];
+    return [kind,month.slice(0,7),context.currency,context.timezone,generatedAt,row.identifier??'',row.name??'',row.payment_type??'',row.last_four??'',row.archived??'',monthly?decimalCents(row.income):'',decimalCents(row.spending),monthly?decimalCents(row.net_income):'',n,monthly?'':group.total<=0n||amount<0||BigInt(amount)>group.total?'':(amount/Number(group.total)*100).toFixed(2)];
   });
   const expectedMonths=(Number(context.end.slice(0,4))-Number(context.start.slice(0,4)))*12+Number(context.end.slice(5,7))-Number(context.start.slice(5,7))+1;
   if(groups.size!==expectedMonths)throw new Error('Export months are missing.');
@@ -60,11 +61,11 @@ export function transactionCsv(raw:unknown, context:ExportContext, filter:Transa
   const filtered=rows.filter(row=>{
     const id=str(row.transaction_id);if(seen.has(id))throw new Error('Duplicate transaction in export.');seen.add(id);
     const date=str(row.financial_date);if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.slice(0,7)!==context.start.slice(0,7))throw new Error('Transaction date changed.');
-    if(row.type!=='expense'&&row.type!=='income'||reportCents(row.amount)<=0)throw new Error('Invalid transaction in export.');
+    if(!['expense','income','refund'].includes(String(row.type))||row.type==='refund'&&!isUuid(row.refund_of)||reportCents(row.amount)<=0)throw new Error('Invalid transaction in export.');
     for(const key of ['category','payment_account','payment_type','income_source'])str(row[key]);
     if(row.note!==null)str(row.note);
-    return matchesTransactionSearch({type:row.type,amount:Number(decimalCents(row.amount)),note:row.note as string|null},row.search_category===undefined?row.category as string:str(row.search_category),filter,search);
+    return matchesTransactionSearch({type:str(row.type),amount:Number(decimalCents(row.amount)),note:row.note as string|null},row.search_category===undefined?row.category as string:str(row.search_category),filter,search);
   });
-  const headers=['transaction_id','financial_date','type','amount','currency','category','payment_account_id','payment_account','payment_type','last_four','income_source','note','spending_source'];
-  return {count:filtered.length,csv:csvFile(headers,filtered.map(row=>[row.transaction_id,row.financial_date,row.type,decimalCents(row.amount),context.currency,row.category,row.payment_account_id,row.payment_account,row.payment_type,row.last_four,row.income_source,row.note,row.spending_source]),[3])};
+  const headers=['transaction_id','financial_date','type','amount','currency','category','payment_account_id','payment_account','payment_type','last_four','income_source','note','spending_source','refund_of'];
+  return {count:filtered.length,csv:csvFile(headers,filtered.map(row=>[row.transaction_id,row.financial_date,row.type,decimalCents(row.amount),context.currency,row.category,row.payment_account_id,row.payment_account,row.payment_type,row.last_four,row.income_source,row.note,row.spending_source,row.refund_of??'']),[3])};
 }

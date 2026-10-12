@@ -38,7 +38,7 @@ export default function ReportsScreen() {
     return <CategoryBudgetReport categories={categories} budgets={budgets} month={month} snapshot={{allocatedCents:Number(allocated),categoryTotals:owned.map(c=>({id:c.id!,name:c.name,color:c.color,spent:c.spent}))}}/>;
    }}</ReportData>
   </View>
-  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending share</Text><Text style={s.caption}>Share of all expenses, including Uncategorized.</Text>
+  <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending share</Text><Text style={s.caption}>Net expenses after refunds, including Uncategorized.</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=><SpendByCategoryChart reportCategories={rows} expenseCents={totals?.expense} onSelect={key=>key==='uncategorized'?router.push({pathname:'/report/[kind]',params:{kind:'cashflow',month,filter:key,visit:createRequestId()}}):router.push({pathname:'/budget/[categoryId]',params:{categoryId:key,month,visit:createRequestId()}})}/>}</ReportData>
   </View>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Explore reports</Text>

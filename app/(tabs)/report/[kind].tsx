@@ -32,16 +32,16 @@ function ReportDetail({kind,month,filter}:{kind:string;month:string;filter?:stri
  const historyKind=kind==='cashflow'||kind==='income'||kind==='accounts';
  const transactions=useReportTransactions(month,q.supported&&historyKind),transfers=useReportTransfers(month,q.supported&&kind==='cashflow'&&!filter);
  const setMonth=useUiStore(v=>v.setSelectedMonth);
- const [type,setType]=useState<'all'|'income'|'expense'>('all');
+ const [type,setType]=useState<'all'|'income'|'expense'|'refund'>('all');
  const [trend,setTrend]=useState<'daily'|'weekly'|'monthly'>('monthly');
  useFocusEffect(useCallback(()=>{if(q.supported)setMonth(month);},[month,q.supported,setMonth]));
  if(!q.supported||!TITLES[kind])return <View style={[page.screen,page.scrollContent]}><ScreenHeading title="Reports" description="Choose a supported month to continue."/><UnsupportedReport today={q.today}/></View>;
  const data=q.data,totals=data?.totals.data;
  const filtered=(transactions.data??[]).filter(t=>{
   if(kind==='income')return t.type==='income'&&(!filter||(filter==='unspecified'?t.income_source_id==null:t.income_source_id===filter));
-  if(kind==='accounts')return t.type==='expense'&&(!filter||(filter==='cash'?t.payment_method_kind==='cash':t.payment_method_id===filter));
-  if(filter==='uncategorized')return t.type==='expense'&&t.category_id===null;
-  return type==='all'||t.type===type;
+  if(kind==='accounts')return (t.type==='expense'||t.type==='refund')&&(!filter||(filter==='cash'?t.payment_method_kind==='cash':t.payment_method_id===filter));
+  if(filter==='uncategorized')return (t.type==='expense'||t.type==='refund')&&t.category_id===null;
+  return type==='all'||t.type===type||(type==='expense'&&t.type==='refund');
  });
  const history:HistoryRow[]=historyKind&&!transactions.isPending&&!transactions.isError?filtered.map(value=>({kind:'transaction' as const,value})):[];
  if(kind==='cashflow'&&!filter){history.push({kind:'heading',label:'Internal transfers'});if(!transfers.isPending&&!transfers.isError)history.push(...(transfers.data??[]).map(value=>({kind:'transfer' as const,value})));}
@@ -58,7 +58,7 @@ function ReportDetail({kind,month,filter}:{kind:string;month:string;filter?:stri
    <ReportData section={data?.[trend]} loading={q.isPending} error={q.isError} retry={retry}>{points=><MonthlyTrendChart kind={trend} currentMonth={q.today.slice(0,7)+'-01'} totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future,end:p.end}))}/>}</ReportData>
   </View>}
   {historyKind&&<View><Text style={s.heading}>{filter==='uncategorized'?'Uncategorized expenses':kind==='income'?'Income history':kind==='accounts'?'Expense history':'Transaction history'}</Text>{filter&&filter!=='uncategorized'&&<Text style={s.caption}>{(kind==='income'?data?.sources.data:data?.accounts.data)?.find(g=>g.key===filter)?.name??'Selected group'}</Text>}
-   {kind==='cashflow'&&!filter&&<View style={{flexDirection:'row',gap:8,marginTop:12}}>{(['all','income','expense'] as const).map(value=><MotionPressable key={value} style={[s.editButton,value===type&&{backgroundColor:colors.selected,borderColor:colors.primary}]} accessibilityState={{selected:type===value}} onPress={()=>setType(value)}><Text style={s.action}>{value==='all'?'All':value==='income'?'Income':'Expenses'}</Text></MotionPressable>)}</View>}
+   {kind==='cashflow'&&!filter&&<View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:12}}>{(['all','income','expense','refund'] as const).map(value=><MotionPressable key={value} style={[s.editButton,value===type&&{backgroundColor:colors.selected,borderColor:colors.primary}]} accessibilityState={{selected:type===value}} onPress={()=>setType(value)}><Text style={s.action}>{value==='all'?'All':value==='income'?'Income':value==='refund'?'Refunds':'Expenses'}</Text></MotionPressable>)}</View>}
    <QueryState loading={transactions.isPending} error={transactions.isError} retry={()=>void transactions.refetch()}/>
    {!transactions.isPending&&!transactions.isError&&!filtered.length&&<Text style={s.caption}>No entries in this period for this selection.</Text>}
   </View>}
@@ -70,6 +70,6 @@ function ReportDetail({kind,month,filter}:{kind:string;month:string;filter?:stri
   const t=item.value,c=data?.categories.data?.find(c=>c.id===t.category_id);
   const category:Category|undefined=t.category_id?{id:t.category_id,user_id:data?.owner??'',name:c?.name??'Category unavailable',color:c?.color??'#69736A',icon:'tag',is_default:false}:undefined;
   const account=data?.accounts.data?.find(a=>a.id===t.payment_method_id);
-  return <View style={{width:'100%',maxWidth:560,alignSelf:'center'}}>{effectiveDate(t)>q.today&&<Text style={s.caption}>Future-dated entry</Text>}<TransactionListItem transaction={t} category={category} paymentMethodLabel={t.payment_method_id?account?.name??'Payment method unavailable':'Cash'} onPress={()=>router.push({pathname:'/transaction/[id]',params:{id:t.id,visit:createRequestId()}})}/></View>;
+  return <View style={{width:'100%',maxWidth:560,alignSelf:'center'}}>{effectiveDate(t)>q.today&&<Text style={s.caption}>Future-dated entry</Text>}<TransactionListItem transaction={t} category={category} paymentMethodLabel={t.payment_method_id?account?.name??'Payment method unavailable':'Cash'} onPress={()=>router.push({pathname:'/transaction/[id]',params:{id:t.refund_of??t.id,refundId:t.type==='refund'?t.id:undefined,visit:createRequestId()}})}/></View>;
  }}/>;
 }

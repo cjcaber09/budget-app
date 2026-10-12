@@ -19,13 +19,14 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.budgetmanagement",
-      "versionCode": 3
+      "versionCode": 5
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withFreshEmbeddedUpdate",
       "expo-router",
       "expo-notifications",
       [

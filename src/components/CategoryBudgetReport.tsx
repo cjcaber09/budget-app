@@ -22,13 +22,13 @@ export function CategoryBudgetReport({ categories, budgets, snapshot, month }: {
       const spent = snapshot.categoryTotals.find(c => c.id === category.id)?.spent ?? 0;
       const status = computeBudgetStatus(budget, spent);
       const hasBudget = budget > 0;
-      const state = !hasBudget ? 'No budget' : spent > budget ? 'Over budget' : spent === budget ? 'Budget reached' : status.status === 'warning' ? 'Nearing limit' : 'On track';
+      const state = spent<0?'Net refunds':!hasBudget ? 'No budget' : spent > budget ? 'Over budget' : spent === budget ? 'Budget reached' : status.status === 'warning' ? 'Nearing limit' : 'On track';
       const stateColor = !hasBudget ? colors.muted : status.status === 'over' ? colors.danger : status.status === 'warning' ? colors.warning : colors.success;
       const progress = hasBudget ? Math.max(0, Math.min(1, status.percentUsed / 100)) : 0;
       // Keep rounded labels on the correct side of the reached-budget threshold.
       const roundedUsage = Math.round(status.percentUsed * 10) / 10;
       const displayedUsage = spent < budget ? Math.min(99.9, roundedUsage) : spent > budget ? Math.max(100.1, roundedUsage) : 100;
-      const usage = !hasBudget ? '—' : status.percentUsed > 999 ? '999%+' : status.percentUsed > 0 && status.percentUsed < 1 ? '<1%' : `${displayedUsage}%`;
+      const usage = spent<0?'Refund':!hasBudget ? '—' : status.percentUsed > 999 ? '999%+' : status.percentUsed > 0 && status.percentUsed < 1 ? '<1%' : `${displayedUsage}%`;
       const remaining = spent > budget ? `Over by ${money(spent - budget)}` : `Remaining ${money(budget - spent)}`;
       const circumference = 2 * Math.PI * 30;
       return <View key={category.id} style={styles.cell}><MotionPressable style={styles.category} accessibilityLabel={`View ${category.name} budget`} accessibilityHint={`Spent ${money(spent)} of ${money(budget)}. ${state}. ${remaining}.`} onPress={() => router.push({ pathname: '/budget/[categoryId]', params: { categoryId: category.id, visit: createRequestId(),...(month?{month}:{}) } })}>
@@ -42,7 +42,7 @@ export function CategoryBudgetReport({ categories, budgets, snapshot, month }: {
           </Svg>
           <View style={styles.ringLabel}><Text style={[styles.usage, {color:stateColor}]}>{usage}</Text></View>
         </View>
-        <Text style={styles.figure}>Spent {money(spent)}</Text>
+        <Text style={styles.figure}>Net spent {money(spent)}</Text>
         <Text style={styles.figure}>Budget {money(budget)}</Text>
         <Text style={[styles.state, {color:stateColor}]}>{state}</Text>
       </MotionPressable></View>;

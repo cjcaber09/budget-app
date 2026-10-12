@@ -31,7 +31,7 @@ export function useMonthlyTotals(monthsBack: number) {
       return Array.from({ length: monthsBack }, (_, i) => {
         const month = monthKey(monthsBack - 1 - i);
         const total = values.get(month) ?? 0;
-        if (!Number.isFinite(total) || total < 0 || !Number.isSafeInteger(Math.round(total * 100))) throw new Error('The monthly total is outside the supported range.');
+        if (!Number.isFinite(total) || !Number.isSafeInteger(Math.round(total * 100))) throw new Error('The monthly total is outside the supported range.');
         return { month, total };
       });
     },

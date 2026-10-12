@@ -9,28 +9,29 @@ export interface TrendValue extends MonthlyTotal {cents?:number;future?:boolean;
 const label=(date:string,pattern:string)=>format(new Date(date+'T12:00:00'),pattern);
 export function MonthlyTrendChart({totals,currentMonth,kind='monthly'}:{totals:TrendValue[];currentMonth?:string;kind?:'monthly'|'daily'|'weekly'}) {
  const s=useStyles(),colors=useColors(),money=useMoneyCents();const [width,setWidth]=useState(0);
- const maximum=Math.max(...totals.map(t=>t.total),1),height=170,baseline=158;
- const points=totals.map((t,i)=>({x:12+i*Math.max(0,width-24)/Math.max(1,totals.length-1),y:baseline-t.total/maximum*142}));
+ const maximum=Math.max(...totals.map(t=>t.total),1),minimum=Math.min(...totals.map(t=>t.total),0),height=170,range=maximum-minimum,baseline=158-(-minimum)/range*142;
+ const points=totals.map((t,i)=>({x:12+i*Math.max(0,width-24)/Math.max(1,totals.length-1),y:158-(t.total-minimum)/range*142}));
  const line=points.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' ');
  const area=points.length?line+' L'+points[points.length-1].x+','+baseline+' L'+points[0].x+','+baseline+' Z':'';
- const hasSpending=totals.some(t=>t.total>0),pattern=kind==='monthly'?'MMM yyyy':'MMM d';
+ const hasSpending=totals.some(t=>t.total!==0),pattern=kind==='monthly'?'MMM yyyy':'MMM d';
  const peak=totals.reduce<TrendValue>((a,b)=>a.total>b.total?a:b,{month:'',total:0,cents:0});
  const amount=(t:TrendValue)=>money(t.cents??Math.round(t.total*100));
  const step=Math.max(1,Math.ceil((totals.length-1)/5));
  return <View style={s.container}>
   {!!totals.length&&<Text style={s.caption}>{label(totals[0].month,pattern)} – {label(kind==='weekly'?totals[totals.length-1].end??totals[totals.length-1].month:totals[totals.length-1].month,pattern)}</Text>}
-  {hasSpending?<View onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={s.plot} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+  {hasSpending?<View testID="spending-trend-plot" onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={s.plot} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
    <Text style={s.scale}>{amount(peak)}</Text>
-   {width>0&&<Svg width={width} height={height}>{[0,0.5,1].map(n=><Line key={n} x1={12} x2={width-12} y1={baseline-n*142} y2={baseline-n*142} stroke={colors.border}/>)}
-    <Path d={area} fill={colors.primary} fillOpacity={0.1}/><Path d={line} fill="none" stroke={colors.primary} strokeWidth={2.5}/>
+   {width>0&&<Svg width={width} height={height}>{[0,0.5,1].map(n=><Line key={n} x1={12} x2={width-12} y1={158-n*142} y2={158-n*142} stroke={colors.border}/>)}
+    <Line x1={12} x2={width-12} y1={baseline} y2={baseline} stroke={colors.muted}/><Path d={area} fill={colors.primary} fillOpacity={0.1}/><Path d={line} fill="none" stroke={colors.primary} strokeWidth={2.5}/>
     {points.map((p,i)=><Circle key={totals[i].month} cx={p.x} cy={p.y} r={totals.length>12?2.5:3.5} fill={totals[i].future?colors.muted:colors.primary}/>)}
    </Svg>}
    <View style={s.axis}>{totals.filter((_,i)=>i%step===0||i===totals.length-1).map(t=><Text key={t.month} style={s.axisLabel}>{label(t.month,kind==='monthly'?'MMM':'d')}</Text>)}</View>
-  </View>:<Text style={s.empty}>No recorded expenses in this period.</Text>}
+  </View>:<Text style={s.empty}>No net expenses in this period.</Text>}
   <View style={s.values}>{totals.map(t=><View key={t.month} style={s.row} accessible accessibilityLabel={label(t.month,pattern)+(t.end?' to '+label(t.end,'MMM d'):'')+': '+amount(t)+(t.future?', future-dated records':'')}>
    <View style={s.month}><Text style={s.label}>{label(t.month,pattern)}{t.end?' – '+label(t.end,'MMM d'):''}</Text>{kind==='monthly'&&t.month===currentMonth&&<Text style={s.caption}>Current month—in progress</Text>}{t.future&&<Text style={s.caption}>Future-dated records</Text>}</View><Text style={s.amount}>{amount(t)}</Text>
   </View>)}</View>
-  <Text style={s.caption}>Recorded expenses, including future-dated entries. This is spending history, not a forecast.</Text>
+  {minimum<0&&<Text style={s.caption}>Negative amounts mean refunds exceed spending.</Text>}
+  <Text style={s.caption}>Net expenses after refunds, including future-dated entries. This is spending history, not a forecast.</Text>
  </View>;
 }
 const useStyles=createThemedStyles(c=>({

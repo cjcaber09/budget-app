@@ -1,4 +1,5 @@
 jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:()=>null,IncomeSourcesSettings:()=>null}));
+jest.mock('../../src/components/RefundsPanel',()=>({RefundsPanel:()=>null}));
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import EditTransactionScreen from '../../app/(tabs)/transaction/[id]';
 let mockFeeTransfers:any[]=[];let mockTransferDialogProps:any;

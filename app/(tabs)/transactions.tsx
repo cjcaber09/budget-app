@@ -26,7 +26,7 @@ export default function TransactionsScreen() {
   const categoriesQuery = useCategories();
   const paymentMethods = usePaymentMethods();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'refund'>('all');
   const [debouncedSearch,setDebouncedSearch]=useState('');
   useEffect(()=>{const timer=setTimeout(()=>setDebouncedSearch(search),250);return()=>clearTimeout(timer);},[search]);
   const transactionsQuery = useTransactionHistory(selectedMonth,filter,debouncedSearch);
@@ -46,7 +46,7 @@ export default function TransactionsScreen() {
       <CsvExport month={selectedMonth} kind="transactions" filter={filter} search={search}/>
       <View style={styles.toolbar}>
         <View style={styles.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Search transactions" value={search} onChangeText={setSearch} maxLength={500} placeholder="Search transactions" placeholderTextColor={colors.subtle} style={styles.searchInput} /></View>
-        <View style={styles.filters}>{(['all', 'expense', 'income'] as const).map(option => <MotionPressable key={option} accessibilityState={{ selected: option === filter }} onPress={() => setFilter(option)} style={[styles.filter, filter === option && styles.activeFilter]}><Text style={[styles.filterText, filter === option && styles.activeFilterText]}>{option === 'all' ? 'All' : option === 'expense' ? 'Expenses' : 'Income'}</Text></MotionPressable>)}</View>
+        <View style={styles.filters}>{(['all', 'expense', 'income','refund'] as const).filter(option=>option!=='refund'||paymentMethods.refundSupported).map(option => <MotionPressable key={option} accessibilityState={{ selected: option === filter }} onPress={() => setFilter(option)} style={[styles.filter, filter === option && styles.activeFilter]}><Text style={[styles.filterText, filter === option && styles.activeFilterText]}>{option === 'all' ? 'All' : option === 'expense' ? 'Expenses' : option==='refund'?'Refunds':'Income'}</Text></MotionPressable>)}</View>
       </View>
       <View style={styles.listHeading}><Text style={styles.heading}>Activity</Text><Text style={styles.caption}>{transactions.length} {transactionsQuery.hasNextPage?'shown':transactions.length === 1 ? 'entry' : 'entries'}</Text></View>
     </View>}
@@ -58,7 +58,7 @@ export default function TransactionsScreen() {
       {transactionsQuery.hasNextPage&&<MotionPressable accessibilityLabel="Load more transactions" disabled={transactionsQuery.isFetching} onPress={()=>void transactionsQuery.fetchNextPage()} style={styles.loadMore}><Text style={styles.activeFilterText}>{transactionsQuery.isFetchingNextPage?'Loading…':transactionsQuery.isFetchNextPageError?'Retry load more':'Load more'}</Text></MotionPressable>}
       {transactionsQuery.isRefetchError&&transactions.length>0&&<MotionPressable style={styles.loadMore} onPress={()=>void transactionsQuery.refetch()}><Text style={styles.activeFilterText}>Could not refresh. Retry</Text></MotionPressable>}
     </View>}
-    renderItem={({ item }) => <View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.id, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
+    renderItem={({ item }) => <View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
   /></View>;
 }
 const useStyles = createThemedStyles(colors => ({
@@ -66,8 +66,8 @@ const useStyles = createThemedStyles(colors => ({
   header: { gap: 28 }, toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 },
   search: { flex: 1, minWidth: 220, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchInput: { ...type.body, color: colors.text, paddingVertical: 12, paddingRight: 14, minHeight: 48, flex: 1 },
-  filters: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceAlt, padding: 4, borderRadius: 10 },
-  filter: { paddingHorizontal: 18, minHeight: 48, justifyContent: 'center', borderRadius: 7 }, activeFilter: { backgroundColor: colors.surface },
+  filters: { flexWrap:'wrap', flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceAlt, padding: 4, borderRadius: 10 },
+  filter: { paddingHorizontal: 12, minHeight: 48, justifyContent: 'center', borderRadius: 7 }, activeFilter: { backgroundColor: colors.surface },
   filterText: { ...type.label, color: colors.muted }, activeFilterText: { ...type.label, color: colors.primary },
   listHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   heading: { ...type.heading, color: colors.text }, caption: { ...type.label, color: colors.muted, fontWeight: '400' },

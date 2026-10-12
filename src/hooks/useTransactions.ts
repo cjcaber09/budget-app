@@ -95,7 +95,8 @@ export function useTransactions(month: string, enabled = true) {
     enabled,
     queryFn: async (): Promise<Transaction[]> => {
       const rows:Transaction[]=[];
-      for(let start=0;;start+=1000){const {data,error}=await supabase.from('transactions').select('*').or(monthFilter(month,profile?.timezone)).order('occurred_at',{ascending:false}).order('id',{ascending:false}).range(start,start+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
+      let table='financial_activity';
+      for(let start=0;;start+=1000){const read=()=>supabase.from(table).select('*').or(monthFilter(month,profile?.timezone)).order('occurred_at',{ascending:false}).order('id',{ascending:false}).range(start,start+999);let result=await read();if(start===0&&result.error?.code==='PGRST205'){table='transactions';result=await read();}if(result.error)throw result.error;rows.push(...result.data);if(result.data.length<1000)break;}
       return rows.sort((a,b) => effectiveDate(b).localeCompare(effectiveDate(a)) || b.occurred_at.localeCompare(a.occurred_at));
     },
   });

@@ -15,14 +15,17 @@ import {useColors} from '../styles/theme';
 import {usePageLayout} from '../styles/pageLayout';
 import {ActionSheet} from './ActionSheet';
 import {MotionPressable} from './MotionPressable';
+import {Trash2} from 'lucide-react-native';
+import {useHelpBlocker} from '../stores/useHelpStore';
 
 export function AccountDeletionSettings(){
  const owner=usePreferencesStore(s=>s.profile?.user_id);
  return <AccountDeletionSettingsContent key={owner} owner={owner}/>;
 }
 function AccountDeletionSettingsContent({owner}:{owner?:string}){
- const form=useFormStyles(),router=useRouter();
+ const form=useFormStyles(),router=useRouter(),colors=useColors();
  const [open,setOpen]=useState(false),[password,setPassword]=useState(''),[ack,setAck]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useHelpBlocker('account-deletion',open);
  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  async function start(){
   if(!owner||busy||!password||!ack)return;setBusy(true);setError('');
@@ -42,8 +45,8 @@ function AccountDeletionSettingsContent({owner}:{owner?:string}){
   }finally{useAccountDeletionStore.setState({starting:false});if(alive.current)setBusy(false);}
  }
  return <>
-  <MotionPressable style={form.secondaryButton} onPress={()=>{setOpen(true);setAck(false);setError('');}}><Text style={form.secondaryText}>Delete account</Text></MotionPressable>
-  <ActionSheet title="Permanently delete account" visible={open} onClose={()=>{setOpen(false);setPassword('');}} busy={busy}>
+  <MotionPressable accessibilityLabel="Delete account" disabled={!owner||busy} style={[form.secondaryButton,{flexDirection:'row',justifyContent:'center',gap:8}]} onPress={()=>{setOpen(true);setPassword('');setAck(false);setError('');}}><Trash2 size={18} color={colors.danger}/><Text style={[form.secondaryText,{color:colors.danger}]}>Delete account</Text></MotionPressable>
+  <ActionSheet title="Permanently delete account" visible={open} onClose={()=>{setOpen(false);setPassword('');setAck(false);}} busy={busy}>
    <Text style={form.subtitle}>Your transactions, budgets, bills, payment methods, profile, avatar and scan history will be permanently removed. This cannot be undone. Cleanup can remove files before the account deletion finishes.</Text>
    <MotionPressable style={form.secondaryButton} disabled={busy} onPress={()=>{setOpen(false);setPassword('');router.push('/reports');}}><Text style={form.chipTextSelected}>Go to Reports to export</Text></MotionPressable>
    <Text style={form.label}>Current password</Text><TextInput accessibilityLabel="Deletion current password" style={form.input} secureTextEntry autoComplete="current-password" value={password} onChangeText={setPassword} editable={!busy}/>

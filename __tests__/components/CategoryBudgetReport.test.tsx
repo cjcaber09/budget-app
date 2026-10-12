@@ -14,7 +14,7 @@ test('shows all categories including zero/unset and exposes over-budget amount b
  expect(screen.getByText('$25.00')).toBeTruthy();expect(screen.getByText('$50.00')).toBeTruthy();expect(screen.getByText('Budget reached')).toBeTruthy();expect(screen.getAllByText('No budget')).toHaveLength(3);
  expect(screen.queryByText('Infinity%')).toBeNull();
  expect(screen.getByText('Over by')).toBeTruthy();expect(screen.getAllByText('Remaining')).toHaveLength(6);
- expect(screen.getByText('Spent $125.00')).toBeTruthy();
+ expect(screen.getByText('Net spent $125.00')).toBeTruthy();
 });
 test('category doughnuts retain fresh read-only detail navigation on every press',()=>{
  render(<CategoryBudgetReport categories={categories} budgets={budgets} snapshot={snapshot}/>);

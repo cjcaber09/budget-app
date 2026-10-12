@@ -25,7 +25,11 @@ function handleQueryError(error: unknown) {
 }
 
 const queryClient = new QueryClient({
-  queryCache: new QueryCache({ onError: handleQueryError }),
+  queryCache: new QueryCache({ onError: (error,query) => {
+    const shouldNotify=query.meta?.shouldNotify;
+    if(typeof shouldNotify==='function'&&!shouldNotify())return;
+    handleQueryError(error);
+  } }),
   mutationCache: new MutationCache({ onError: (error, _variables, _context, mutation) => {
     const shouldNotify = mutation.meta?.shouldNotify;
     if (typeof shouldNotify === 'function' && !shouldNotify()) return;
