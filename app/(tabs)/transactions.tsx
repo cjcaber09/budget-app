@@ -12,6 +12,7 @@ import { paymentMethodLabel } from '../../src/domain/paymentMethods';
 import { useUiStore } from '../../src/stores/useUiStore';
 import { TransactionListItem } from '../../src/components/TransactionListItem';
 import { ScreenHeading } from '../../src/components/ScreenHeading';
+import {UpdateBanner} from '../../src/components/AppUpdates';
 import { MonthPicker } from '../../src/components/MonthPicker';
 import { QueryState } from '../../src/components/QueryState';
 import { MotionPressable } from '../../src/components/MotionPressable';
@@ -47,6 +48,7 @@ export default function TransactionsScreen() {
     contentContainerStyle={[pageLayout.scrollContent, styles.content]}
     ListHeaderComponent={<View style={styles.header}>
       <ScreenHeading title="Transactions" action={<MonthPicker />} />
+      <UpdateBanner/>
       <CsvExport month={selectedMonth} kind="transactions" filter={filter} search={search}/>
       <View style={styles.toolbar}>
         <View style={styles.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Search transactions" value={search} onChangeText={setSearch} maxLength={500} placeholder="Search transactions" placeholderTextColor={colors.subtle} style={styles.searchInput} /></View>

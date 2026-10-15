@@ -13,6 +13,7 @@ import {CategoryBudgetReport} from '../../src/components/CategoryBudgetReport';
 import {DailySpendingPace} from '../../src/components/DailySpendingPace';
 import {ReportData,ReportLink,UnsupportedReport} from '../../src/components/ReportWidgets';
 import {ScreenHeading} from '../../src/components/ScreenHeading';
+import {UpdateBanner} from '../../src/components/AppUpdates';
 import {MonthPicker} from '../../src/components/MonthPicker';
 import {QueryState} from '../../src/components/QueryState';
 import {usePageLayout} from '../../src/styles/pageLayout';
@@ -27,6 +28,7 @@ export default function ReportsScreen() {
  if(!report.supported)return <View style={[page.screen,page.scrollContent]}><ScreenHeading title="Reports" description="Choose a supported month to continue."/><UnsupportedReport today={report.today}/></View>;
  return <ScrollView style={page.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={page.scrollContent}><View style={page.workspace}>
   <ScreenHeading title="Reports" action={<MonthPicker minMonth="0001-12-01" maxMonth={maxMonth}/>}/>
+  <UpdateBanner/>
   <CsvExport month={month} kind="analysis"/>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Category budgets</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=>{

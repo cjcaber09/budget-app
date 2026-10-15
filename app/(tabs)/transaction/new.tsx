@@ -9,6 +9,7 @@ import type {TransactionFormValues} from '../../../src/components/TransactionFor
 import type {TransactionDraft,TransactionDraftFields} from '../../../src/domain/transactionDraft';
 import {saveTransactionDraft,clearTransactionDraft,transactionDraftGeneration} from '../../../src/lib/transactionDraftStorage';
 import {draftItem} from '../../../src/domain/itemDrafts';
+import {useUpdateBlocker} from '../../../src/stores/useUpdateSafetyStore';
 import {useFormStyles} from '../../../src/styles/forms';
 import {supabase} from '../../../src/lib/supabase';
 import {isUuid} from '../../../supabase/functions/ocr/shared';
@@ -93,6 +94,7 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
   const owner=profile?.user_id;
   const [draftGeneration]=useState(()=>owner?transactionDraftGeneration(owner):0);
   const [draftError,setDraftError]=useState(''),[draftBusy,setDraftBusy]=useState(false),[pendingInput,setPendingInput]=useState<AddTransactionInput|null>(restored?.pending??null),[saved,setSaved]=useState(false);
+  useUpdateBlocker(draftBusy||!!draftError||!!pendingInput&&!saved||transferLocked);
   const draftRef=useRef<TransactionDraft|null>(restored??null),running=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const [scanContext] = useState(() => { if(entryRestored)return {startedAt:entryRestored.startedAt,day:entryRestored.day,timezone:entryRestored.timezone}; const now=new Date();const timezone=activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });

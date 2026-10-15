@@ -10,8 +10,11 @@ import {createRequestId} from '../domain/ocr';
 import {useFormStyles} from '../styles/forms';
 import {useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
+import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
+import {useScreenActive} from '../hooks/useScreenActive';
 
 export function useProofDraft(){
+ const active=useScreenActive();
  const currentOwner=usePreferencesStore(s=>s.profile?.user_id);
  const [owner,setOwner]=useState(currentOwner);
  // Defaults can arrive after a deep-linked form mounts. Bind once, never to a second owner.
@@ -19,6 +22,7 @@ export function useProofDraft(){
  const [file,setFile]=useState<ProofFile|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const [savedId,setSavedId]=useState<string|null>(null);
  const [savedKind,setSavedKind]=useState<ProofParent['kind']>('transaction');
+ useUpdateBlocker(busy||active&&!!file);
  const client=useQueryClient();
  const upload=async(id:string,kind:ProofParent['kind']=savedKind)=>{
   setSavedKind(kind);

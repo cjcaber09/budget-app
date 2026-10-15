@@ -13,6 +13,7 @@ import { BackButton } from '../../src/components/BackButton';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
 import {InitialHelp} from '../../src/components/InitialHelp';
 import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
+import {AppUpdatesProvider} from '../../src/components/AppUpdates';
 
 function renderBackButton() {
   return <BackButton />;
@@ -51,7 +52,7 @@ export default function TabsLayout() {
   const pathname = usePathname();
 
   return (
-    <View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.background }}>
+    <AppUpdatesProvider pathname={pathname}><View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.background }}>
       <Tabs
         backBehavior="history"
         screenOptions={{
@@ -118,6 +119,6 @@ export default function TabsLayout() {
           by that screen's container and reliably paints above the tab bar. */}
       {TAB_PAGES.has(pathname) && <AddTransactionFab />}
       <InitialHelp />
-    </View>
+    </View></AppUpdatesProvider>
   );
 }

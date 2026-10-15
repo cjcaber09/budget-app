@@ -1,6 +1,8 @@
+import {KeyboardViewport} from './KeyboardViewport';
+import {useFocusedFieldScroll} from '../hooks/useFocusedFieldScroll';
 import { MoneyInput } from './MoneyInput';
 import { useContext,useEffect,useRef,useState } from 'react';
-import { View,Text,TextInput,Switch,Modal,ScrollView,KeyboardAvoidingView,Platform } from 'react-native';
+import { View,Text,TextInput,Switch,Modal,ScrollView } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Plus,ChevronRight,X,Trash2 } from 'lucide-react-native';
@@ -49,6 +51,8 @@ function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete,onDr
  const draftListener=useRef(onDraft),previous=useRef<string|null>(null);
  useEffect(()=>{draftListener.current=onDraft;},[onDraft]);
  useEffect(()=>{const next={...draft,...(draft.kind==='item'?{unitPriceDraft:price,unitPriceCents:price?decimalToCents(price):null}:{unitPriceDraft:undefined})};const signature=JSON.stringify(next);if(previous.current!==null&&signature!==previous.current)draftListener.current?.(next);previous.current=signature;},[draft,price]);
+ const [footerHeight,setFooterHeight]=useState(66);
+ const scroll=useFocusedFieldScroll(true,footerHeight);
  const prefix=`Row ${index+1}`;
  const patch=(change:Partial<ItemDraft>)=>{setDraft(value=>({...value,...change}));setError('');};
  function save() {
@@ -60,12 +64,12 @@ function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete,onDr
   if(!onSave(next))setError('100-row limit reached. Cancel and remove a row first.');
  }
  return <Modal visible transparent animationType={reduced?'none':'slide'} onRequestClose={onClose} statusBarTranslucent>
-  <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={styles.modal}>
+  <KeyboardViewport>
    <MotionPressable style={styles.scrim} accessibilityLabel="Close item editor" onPress={onClose}/>
    <View style={[styles.sheet,{paddingBottom:Math.max(insets?.bottom??0,16)}]} accessibilityViewIsModal onAccessibilityEscape={onClose}>
     <View style={styles.grabber}/>
     <View style={styles.sheetHeader}><View style={{flex:1}}><Text accessibilityRole="header" style={styles.sheetTitle}>{isNew?'Add item':'Edit item'}</Text><Text style={styles.caption}>Saves this item only.</Text></View><MotionPressable accessibilityLabel="Cancel item edit" style={styles.closeButton} onPress={onClose}><X size={22} color={colors.text}/></MotionPressable></View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>
+    <ScrollView {...scroll} style={{flexShrink:1}} automaticallyAdjustKeyboardInsets={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>
      <Text style={form.label}>Label</Text><TextInput style={form.input} placeholderTextColor={colors.subtle} accessibilityLabel={`${prefix} label`} placeholder="What is this row for?" value={draft.label} maxLength={200} onChangeText={label=>patch({label})}/>
      <Text style={form.label}>Line amount</Text><MoneyInput style={form.input} placeholderTextColor={colors.subtle} accessibilityLabel={`${prefix} amount`} keyboardType="decimal-pad" value={draft.amount} placeholder="0.00" onChangeText={amount=>patch({amount})}/>
      <Text style={form.label}>Kind</Text><View style={form.optionRow}>{KINDS.map(([kind])=><MotionPressable key={kind} accessibilityLabel={`${prefix}: ${kindName(kind,direction)}`} accessibilityState={{selected:draft.kind===kind}} style={[form.chip,draft.kind===kind&&form.chipSelected]} onPress={()=>{
@@ -82,9 +86,9 @@ function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete,onDr
      {!!error&&<Text accessibilityRole="alert" style={[form.error,{marginTop:16}]}>{error}</Text>}
      {!isNew&&<MotionPressable accessibilityLabel={`Remove row ${index+1}`} style={styles.deleteButton} onPress={onDelete}><Trash2 size={17} color={colors.danger}/><Text style={styles.deleteText}>Remove item</Text></MotionPressable>}
     </ScrollView>
-    <View style={styles.sheetFooter}><MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable><MotionPressable accessibilityLabel={isNew?'Save new item':'Save item'} style={styles.saveButton} onPress={save}><Text style={styles.saveText}>{isNew?'Add item':'Save item'}</Text></MotionPressable></View>
+    <View style={styles.sheetFooter} onLayout={event=>setFooterHeight(event.nativeEvent.layout.height)}><MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable><MotionPressable accessibilityLabel={isNew?'Save new item':'Save item'} style={styles.saveButton} onPress={save}><Text style={styles.saveText}>{isNew?'Add item':'Save item'}</Text></MotionPressable></View>
    </View>
-  </KeyboardAvoidingView>
+  </KeyboardViewport>
  </Modal>;
 }
 const useStyles=createThemedStyles(c=>({

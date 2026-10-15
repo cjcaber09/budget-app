@@ -94,6 +94,8 @@ components:
 
 Financial wayfinding on a phone: read the month, understand spending, choose the next action.
 
+Overview begins with current Total cash and an account stack above the calendar. Payment-method cards are the deliberate vibrant exception to the neutral surface system: stable emerald, blue, violet, rose, amber and teal gradients, white text, soft shadows, bold names and diminishing header peeks. Only the front card is interactive. Current balances stay separate from the selected month's budgeting figures. The bottom Monthly highlights section uses one centered pill with a measured moving indicator and three stable-height panels: Recent, Categories and Methods. Swipes and springs respect Reduced Motion; buttons, keyboard and accessibility actions provide equivalent navigation. See the [Overview plan](docs/superpowers/plans/2026-10-16-overview-accounts-highlights.md) for financial definitions and state handling.
+
 Budget Tracker uses a clear mobile hierarchy across authentication, Overview, Transactions, Reports, Settings, and nested editing screens. Warm surfaces, forest actions, system type, fine separators, and aligned amounts organize existing budgeting and receipt workflows. Web is a phone-layout development preview. No desktop layout is specified.
 
 The independent finish review returned “Ship at verified mobile web-preview scope.” Phone previews at 390x844 and 360x800 used synthetic fixtures, including dark theme and reduced-motion interactions. Production iOS and Android Hermes exports pass. Native picker presentation, safe-area behavior, keyboard and screen-reader behavior, release-build motion feel, and performance still require device verification. No generated raster ships in this redesign; existing icon assets remain unchanged.
@@ -158,6 +160,8 @@ Fields and option chips use 8px corners; primary buttons, month controls, and ic
 
 Settings uses a horizontally scrollable tab strip with icons, text labels, a shared divider and an underline for selection. Categories & Bills opens by default and contains scan history. Profile, Preferences, Sources and Notifications separate the remaining controls. Logout stays in the fixed Settings header; account deletion belongs to Profile. Switching tabs preserves drafts and loaded history.
 
+App updates has its own Settings tab. A compact inline status beneath primary-page headings shows download progress or an update-ready action. The App updates tab uses its own status and controls. Restart is explicit and waits for current work; Later dismisses the ready banner. Update failures stay local to Settings. Respect Reduce Motion and keep banners in flow above the page content.
+
 Month navigation covers the current financial month and earlier months. Next beyond the current month shows a dismissible toast. Over-budget banners have separate detail and dismiss actions; dismissing a banner does not change financial totals or phone notification thresholds.
 
 Do:
@@ -167,6 +171,8 @@ Do:
 - Use shared theme, layout, and form styles.
 - Preserve safe areas, font scaling, focus visibility, and 48px-or-larger control targets.
 - Verify phone rendering and distinguish web-preview evidence from native-device evidence.
+
+Money fields use plain digits while focused and grouping after blur, without changing their saved value on focus. Monthly budget Edit turns the displayed amount into the input, with a currency prefix and Save/Cancel underneath. Shared input sheets reserve keyboard clearance once and scroll focused fields into view. Nested transfer account creation reuses the current sheet. Overview account cards advance on downward swipes; upward finger movement scrolls the page, with Previous/Next controls for both directions.
 
 Don't:
 

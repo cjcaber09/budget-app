@@ -8,8 +8,16 @@ jest.mock('react-native-reanimated', () => {
     default: { View, createAnimatedComponent: (component) => component },
     cubicBezier: jest.requireActual('./node_modules/react-native-reanimated/src/css/easing').cubicBezier,
     useReducedMotion: jest.fn(() => true),
+    useSharedValue: initial => require('react').useRef({value:initial,get(){return this.value;},set(value){this.value=value;}}).current,
+    useAnimatedStyle: callback => callback(),
+    useEvent: callback => callback,
+    withTiming: (value, _config, callback) => {callback?.(true);return value;},
+    withSpring: (value, _config, callback) => {callback?.(true);return value;},
+    cancelAnimation: jest.fn(),
+    runOnJS: callback => callback,
   };
 });
+require('react-native-gesture-handler/jestSetup');
 // Native picker integration is verified on device; calendar selection logic is tested separately.
 jest.mock('@expo/ui/community/datetime-picker', () => ({ __esModule: true, default: props => {
   const React = require('react'); const { View } = require('react-native');

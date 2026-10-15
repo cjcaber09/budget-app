@@ -39,7 +39,12 @@ export function useSavePaymentMethod() {
       payload={...input,name:input.name.trim(),paymentType:input.paymentType.trim(),openingBalance:centsToDecimal(decimalToCents(input.openingBalance)!),lastFour:input.lastFour||null};
     }
     const result=await bounded(signal=>supabase.rpc('save_payment_method',{p_method:payload}).abortSignal(signal));
-    if(result.error)throw new Error(result.error.code==='22023'?result.error.message:'Could not save this payment method. Check the fields and retry; your draft is still here.');
+    if(result.error){
+      const error=new Error(result.error.code==='22023'?result.error.message:'Could not save this payment method. Check the fields and retry; your draft is still here.');
+      // A Postgres rejection is definite; transport failures may have committed.
+      if(/^(22|23|42|P0)/.test(result.error.code??''))Object.assign(error,{rejected:true});
+      throw error;
+    }
     const method=result.data as PaymentMethod;
     if(!method?.id||method.user_id!==owner)throw new Error('The save response was incomplete. Retry this same draft.');
     return method;

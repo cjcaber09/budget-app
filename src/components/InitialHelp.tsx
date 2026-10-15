@@ -1,5 +1,7 @@
+import {KeyboardViewport} from './KeyboardViewport';
+import {useFocusedFieldScroll} from '../hooks/useFocusedFieldScroll';
 import {useContext,useEffect,useRef,useState} from 'react';
-import {Image,KeyboardAvoidingView,Modal,Platform,ScrollView,Text,View} from 'react-native';
+import {Image,Modal,ScrollView,Text,View} from 'react-native';
 import {SafeAreaInsetsContext} from 'react-native-safe-area-context';
 import {usePathname} from 'expo-router';
 import {useReducedMotion} from 'react-native-reanimated';
@@ -83,12 +85,13 @@ function HelpContent({owner}:{owner:string}) {
       setRefreshNeeded(true);
     } finally {busy.current=false;}
   }
+  const scroll=useFocusedFieldScroll(visible);
   const total=confirmed&&!unset?3:4;
   const current=Math.min(step,total-1);
   return <Modal visible={visible} transparent animationType={reduced?'none':'slide'} onRequestClose={close}>
-    <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{flex:1,backgroundColor:colors.scrim,justifyContent:'flex-end'}}>
+    <KeyboardViewport visible={visible} style={{backgroundColor:colors.scrim}}>
       <View accessibilityViewIsModal onAccessibilityEscape={close} style={{backgroundColor:colors.surface,borderTopLeftRadius:16,borderTopRightRadius:16,width:'100%',maxWidth:560,maxHeight:'90%',alignSelf:'center',paddingBottom:Math.max(insets?.bottom??0,16)}}>
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:24,gap:16}}>
+        <ScrollView {...scroll} style={{flexShrink:1}} automaticallyAdjustKeyboardInsets={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:24,gap:16}}>
           <View style={{flexDirection:'row',alignItems:'center',gap:12}}><Text accessibilityRole="header" style={{...type.heading,color:colors.text,flex:1}}>{TITLES[current]}</Text><MotionPressable accessibilityLabel="Close help" disabled={save.isPending} onPress={close} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={20} color={colors.muted}/></MotionPressable></View>
           <Text accessibilityLiveRegion="polite" style={{...type.label,color:colors.muted}}>Step {current+1} of {total}</Text>
           {current===0&&<Text style={form.subtitle}>Track income, spending and bills in one place. Set a budget, record your money and see what remains.</Text>}
@@ -114,6 +117,6 @@ function HelpContent({owner}:{owner:string}) {
           <MotionPressable disabled={save.isPending} onPress={close} style={{minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={{...type.label,color:colors.muted}}>Later</Text></MotionPressable>
         </ScrollView>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardViewport>
   </Modal>;
 }

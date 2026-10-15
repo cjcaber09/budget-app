@@ -14,4 +14,6 @@ npx.cmd eas-cli@latest update --channel preview --platform android --environment
 
 The app checks for updates when it opens. It starts with its saved code and downloads an update in the background. After the download finishes, restart the app to apply it. Install the first APK with update support over the old APK once. The old APK cannot add update support remotely.
 
+The local update-status feature adds a compact download banner and **Settings → App updates**, using real download progress when available. When ready, **Restart now** applies the downloaded update; **Later** dismisses the banner while leaving Settings controls available. Restart waits for forms, scans, saves and local draft writes. Failed checks/downloads offer an inline retry; the app remains usable. Web and development builds show an availability note without calling native update APIs. These controls appear only after a version containing the feature is installed. See [implementation and verification](superpowers/plans/2026-10-16-ota-update-status.md).
+
 These instructions use local Gradle builds and the original signing key. Before using EAS cloud builds, configure that same key. Do not generate a different key for an existing installation.

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {saveTransactionDraft,loadTransactionDraft,clearTransactionDraft,transactionDraftGeneration} from '../../src/lib/transactionDraftStorage';
+import {saveTransactionDraft,loadTransactionDraft,clearTransactionDraft,transactionDraftGeneration,settleTransactionDraftWrites} from '../../src/lib/transactionDraftStorage';
 import {usePreferencesStore,defaultProfile} from '../../src/stores/usePreferencesStore';
 import type {TransactionDraft} from '../../src/domain/transactionDraft';
 const owner='00000000-0000-4000-8000-000000000001';
@@ -24,4 +24,14 @@ test('storage failure is reported and preserves the prior draft',async()=>{
  await saveTransactionDraft(draft());jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('Full storage'));
  await expect(saveTransactionDraft({...draft(),fields:{...draft().fields,note:'Failed'}})).rejects.toThrow('Full storage');
  expect((await loadTransactionDraft(owner))?.fields.note).toBe('Draft');
+});
+
+test('restart waits for queued draft edits to reach storage',async()=>{
+ let write!:()=>void;const set=jest.mocked(AsyncStorage.setItem);
+ set.mockImplementationOnce(()=>new Promise<void>(resolve=>{write=resolve;}));
+ const first=saveTransactionDraft(draft());let settled=false;
+ const finishing=settleTransactionDraftWrites().then(()=>{settled=true;});
+ await Promise.resolve();await Promise.resolve();expect(settled).toBe(false);
+ const final=saveTransactionDraft({...draft(),fields:{...draft().fields,note:'Last queued edit'}});
+ write();await Promise.all([first,final,finishing]);expect(settled).toBe(true);expect((await loadTransactionDraft(owner))?.fields.note).toBe('Last queued edit');
 });

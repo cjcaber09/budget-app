@@ -1,12 +1,12 @@
 import {useState,useRef,useEffect,type ReactNode} from 'react';
-import {Modal,View,Text,TextInput,ScrollView} from 'react-native';
+import {View,Text,TextInput} from 'react-native';
 import {useIncomeSources,useSaveIncomeSource,type IncomeSource,type SaveIncomeSource} from '../hooks/useIncomeSources';
 import {useIncomeSourceDraftStore} from '../stores/useIncomeSourceDraftStore';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {createRequestId} from '../domain/ocr';
 import {useFormStyles} from '../styles/forms';
 import {useColors,type} from '../styles/theme';
-import {usePageLayout} from '../styles/pageLayout';
+import {KeyboardSheet} from './KeyboardSheet';
 import {MotionPressable} from './MotionPressable';
 import {QueryState} from './QueryState';
 
@@ -32,8 +32,7 @@ function SourceForm({source,onSaved,onCancel}:{source?:IncomeSource;onSaved:(s:I
  </View>;
 }
 function SourceModal({children,onClose}:{children:ReactNode;onClose:()=>void}) {
- const colors=useColors(),page=usePageLayout({safeTop:true});
- return <Modal transparent animationType="none" onRequestClose={onClose}><View style={{flex:1,backgroundColor:colors.scrim,justifyContent:'flex-end'}}><ScrollView keyboardShouldPersistTaps="handled" style={{maxHeight:'90%',backgroundColor:colors.surface,borderTopLeftRadius:16,borderTopRightRadius:16}} contentContainerStyle={[page.scrollContent,{paddingBottom:40}]}><View style={{width:'100%',maxWidth:560}}>{children}</View></ScrollView></View></Modal>;
+ return <KeyboardSheet title="Income sources" onClose={onClose} animationType="none">{children}</KeyboardSheet>;
 }
 export function IncomeSourcePicker({value,onChange}:{value:string|null;onChange:(id:string|null)=>void}) {
  const q=useIncomeSources(),form=useFormStyles();
