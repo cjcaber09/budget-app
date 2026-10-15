@@ -77,6 +77,7 @@ export default function TabsLayout() {
         />
         <Tabs.Screen name="reports" options={{ title: 'Reports', headerShown: false, tabBarIcon: renderReportsIcon }} />
         <Tabs.Screen name="report/[kind]" options={{ href:null,title:'Report details',headerLeft:renderBackButton }}/>
+        <Tabs.Screen name="transfer/[id]" options={{ href:null,title:'Transfer',headerLeft:renderBackButton }}/>
         <Tabs.Screen name="settings" options={{ title: 'Settings', headerShown: false, tabBarIcon: renderSettingsIcon }} />
 
         {/* Detail/edit screens: nested inside (tabs) so the tab bar stays

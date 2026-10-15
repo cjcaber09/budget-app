@@ -8,7 +8,7 @@ import {
   ocrScanPath,
   timingSafeEqual,
   validateImagePayload,
-  reconcileReceipt,
+  reconcileTransferReceipt,
   receiptForClient,
   type OcrScanResult,
 } from './shared.ts';
@@ -159,7 +159,7 @@ async function runNewScan(
   scanId: string,
   imageBase64: string,
   mimeType: string,
-  receiptVersion: 1 | 2 = 1
+  receiptVersion: 1 | 2 | 3 = 1
 ): Promise<Response> {
   const outcome = await readWithFallback(ocrAttempts(imageBase64, mimeType));
   // Reason codes only (e.g. BILLING_DISABLED, RESOURCE_EXHAUSTED) — never messages or text.
@@ -172,7 +172,7 @@ async function runNewScan(
 
   const { text, truncated } = clampOcrText(outcome.text);
   const path = ocrScanPath(userId, scanId);
-  const receipt = outcome.receipt ? reconcileReceipt(outcome.receipt) : null;
+  const receipt = outcome.receipt ? reconcileTransferReceipt(outcome.receipt) : null;
   const active=await admin.rpc('account_is_active',{p_owner:userId});
   if(active.error||active.data!==true){await markFailed(admin,scanId);return json(409,{error:'account_unavailable'});}
   const published = await publishReceipt(admin.storage.from(OCR_BUCKET), path, text, receipt);
@@ -198,7 +198,7 @@ async function runNewScan(
 
 // Same requestId again (client retry, lost response) or an image this user already
 // scanned: never spend another Vision unit.
-async function replayScan(admin: AdminClient, userId: string, scanId: string, status: string, receiptVersion: 1 | 2 = 1): Promise<Response> {
+async function replayScan(admin: AdminClient, userId: string, scanId: string, status: string, receiptVersion: 1 | 2 | 3 = 1): Promise<Response> {
   if (status === 'failed') {
     // Explicit replay retry also retries an orphan JSON cleanup after failed text publication.
     const { error } = await admin.storage.from(OCR_BUCKET).remove([receiptPath(userId, scanId)]);
@@ -229,8 +229,8 @@ async function scanImage(admin: AdminClient, userId: string, body: unknown): Pro
   const payload = validateImagePayload(body);
   if (!payload.ok) return json(400, { error: payload.error });
   const requestedVersion = (body as { receiptSchemaVersion?: unknown }).receiptSchemaVersion;
-  if (requestedVersion !== undefined && requestedVersion !== 1 && requestedVersion !== 2) return json(400,{error:'invalid_request'});
-  const receiptVersion = requestedVersion === 2 ? 2 : 1;
+  if (requestedVersion !== undefined && requestedVersion !== 1 && requestedVersion !== 2 && requestedVersion !== 3) return json(400,{error:'unsupported_receipt_version'});
+  const receiptVersion = requestedVersion === 3 ? 3 : requestedVersion === 2 ? 2 : 1;
 
   const { data: rows, error } = await admin.rpc('try_consume_ocr_quota', {
     p_user_id: userId,

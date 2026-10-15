@@ -1,3 +1,4 @@
+jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>({transferEntrySupported:false})}));
 import {act,cleanup,renderHook,waitFor} from '@testing-library/react-native';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import type {PropsWithChildren} from 'react';

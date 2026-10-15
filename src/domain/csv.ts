@@ -1,7 +1,7 @@
 import { reportCents } from './reports';
 import {isUuid} from '../../supabase/functions/ocr/shared';
 
-export type TransactionFilter = 'all' | 'expense' | 'income' | 'refund';
+export type TransactionFilter = 'all' | 'expense' | 'income' | 'refund' | 'transfer';
 export function matchesTransactionSearch(row: {type:string; amount:string|number; note:string|null}, category:string, filter:TransactionFilter, search:string) {
   return (filter === 'all' || row.type === filter || filter==='expense'&&row.type==='refund') && `${category} ${row.note ?? ''} ${row.type} ${row.amount}`.toLowerCase().includes(search.toLowerCase().trim());
 }
@@ -68,4 +68,19 @@ export function transactionCsv(raw:unknown, context:ExportContext, filter:Transa
   });
   const headers=['transaction_id','financial_date','type','amount','currency','category','payment_account_id','payment_account','payment_type','last_four','income_source','note','spending_source','refund_of'];
   return {count:filtered.length,csv:csvFile(headers,filtered.map(row=>[row.transaction_id,row.financial_date,row.type,decimalCents(row.amount),context.currency,row.category,row.payment_account_id,row.payment_account,row.payment_type,row.last_four,row.income_source,row.note,row.spending_source,row.refund_of??'']),[3])};
+}
+
+export function activityCsv(raw:unknown,context:ExportContext,filter:TransactionFilter,search:string){
+ const {rows}=exportEnvelope(raw,context),envelope=obj(raw),seen=new Set<string>();
+ if(envelope.activityVersion!==1||envelope.filter!==filter||envelope.search!==search.trim().toLowerCase())throw new Error('Export filters changed. Retry.');
+ const headers=['row_kind','transaction_id','financial_date','type','amount','currency','category','payment_account_id','payment_account','payment_type','last_four','income_source','note','refund_of','transfer_id','source_account_id','source_account','destination_account_id','destination_account','fee_amount','income_effect','spending_effect'];
+ const output=rows.map(row=>{
+  const kind=str(row.row_kind),type=str(row.type),id=str(row.transaction_id),key=`${kind}:${id}`,date=str(row.financial_date),amount=reportCents(row.amount),income=reportCents(row.income_effect),spending=reportCents(row.spending_effect),fee=reportCents(row.fee_amount);
+  if(!isUuid(id)||seen.has(key)||!['transaction','refund','transfer'].includes(kind)||!['income','expense','refund','transfer'].includes(type)||kind!==(type==='transfer'?'transfer':type==='refund'?'refund':'transaction')||!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.slice(0,7)!==context.start.slice(0,7)||amount<=0||fee<0||income!==(type==='income'?amount:0)||spending!==(type==='expense'?amount:type==='refund'?-amount:0)||type==='refund'&&!isUuid(row.refund_of)||type==='transfer'&&(!isUuid(row.source_account_id)||!isUuid(row.destination_account_id)||row.source_account_id===row.destination_account_id))throw new Error('Export activity does not reconcile.');
+  if(filter!=='all'&&type!==filter&&!(filter==='expense'&&type==='refund'))throw new Error('Export type changed.');seen.add(key);
+  for(const field of ['category','payment_account','payment_type','income_source','source_account','destination_account'])str(row[field]);
+  if(row.note!==null)str(row.note);
+  return [kind,id,date,type,decimalCents(row.amount),context.currency,row.category,row.payment_account_id,row.payment_account,row.payment_type,row.last_four,row.income_source,row.note,row.refund_of,row.transfer_id,row.source_account_id,row.source_account,row.destination_account_id,row.destination_account,decimalCents(row.fee_amount),decimalCents(row.income_effect),decimalCents(row.spending_effect)];
+ });
+ return {count:output.length,csv:csvFile(headers,output,[4,19,20,21])};
 }

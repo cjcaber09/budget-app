@@ -4,6 +4,12 @@ Android APKs can update an existing installation with the same signing key. The 
 
 ## Bill payments and attachments
 
+Overview's **Total cash** combines active Cash, bank, wallet and debit/prepaid balances, excluding credit cards, Other and archived methods. It shows current manually tracked balances regardless of the selected budget month; unset balances show recovery instead of a partial total.
+
+In Settings → Sources → Payment methods, open a method and choose **Activity** to search its complete monthly transactions, refunds, transfers and corrections. Ordinary transaction details offers **Repeat transaction**, creating a reviewable copy for today without attachments, payment references or bill links.
+
+Unfinished manual/repeated new transactions are saved locally per owner. **Resume draft** restores text, selections and item edits; proof files must be reattached after restarting. Drafts do not sync to Supabase and use unencrypted AsyncStorage/local storage. Attempted saves retain their request ID for safe retries. Confirmed saves, explicit discard, sign-out and Clear records clear the local draft. Receipt scans, bill-payment forms and existing-record edits are excluded.
+
 Upcoming bills' **Record expense** uses the saved bill amount, category, note and scheduled date. The form asks for a payment method and an optional image or PDF. The server rejects insufficient spendable balances and changed bill details. Credit cards continue tracking debt.
 
 Income and expense forms also accept attachments. Receipt scans are attached when saved unless removed first. Images become WebP on the device, with a maximum edge of 2000 pixels and 80% quality. PDFs stay unchanged. Files are limited to 10 MB each, with up to three per transaction. They live in private Storage; only the owner can open them through short-lived links. A failed upload can be retried after the transaction is saved without recording it again.
@@ -260,3 +266,9 @@ Migration 0030 and the reset worker are deployed to the configured project. See 
 Bills stay pending until explicitly recorded or linked. Payments use the actual payment date; due dates stay separate. New-bill creation uses exact retries, and deleting/replacing expenses requires confirmation. The staged UI also groups Overview warnings, simplifies transaction entry and clarifies report figures. See [review fixes](docs/superpowers/specs/2026-10-11-confirmed-bills-review-fixes.md).
 
 Migration 0031 is deployed to the configured project. `node scripts/confirmed-bills-sql-test.mjs --deployed` runs synthetic bill/reset/MVP checks within a rollback. Android runtime remains 1.0.1; the new signed APK uses versionCode 3 and updates the existing installation. See [Android updates](docs/android-updates.md).
+
+## Withdrawal and transfer entry
+
+Add Transaction offers Transfer alongside Expense and Income. Completed withdrawal scans select Transfer, default the destination to Cash and require an explicit source account. Principal moves between tracked accounts without affecting income or spending; an optional fee creates one linked expense. Transfers support private proof files, searchable accounts, history/editing, exact-request recovery and owner/device drafts.
+
+Migration 0035 and the matching OCR function are required. `node scripts/deploy-transfer-entry.mjs` previews pending migrations; add `--apply` to deploy them and OCR after validating the app/CLI project match. Verify with `node scripts/transfer-entry-sql-test.mjs --deployed --mvp`, `node scripts/transfer-entry-concurrency-test.mjs` and `node scripts/transfer-entry-live-test.mjs`. The latter two use disposable owners with cleanup. Older app versions retain transfer create/read access and must update to edit/delete transfers. See [implementation and verification](docs/superpowers/plans/2026-10-15-withdrawal-transfer-entry.md).

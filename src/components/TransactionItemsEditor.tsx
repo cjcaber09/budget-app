@@ -1,5 +1,5 @@
 import { MoneyInput } from './MoneyInput';
-import { useContext,useState } from 'react';
+import { useContext,useEffect,useRef,useState } from 'react';
 import { View,Text,TextInput,Switch,Modal,ScrollView,KeyboardAvoidingView,Platform } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -16,7 +16,7 @@ type Direction='income'|'expense'|null;
 function kindName(kind:TransactionItemKind,direction:Direction) {
  return direction==='income'&&kind==='item'?'Earning':direction==='income'&&kind==='deduction'?'Deduction':direction==='income'&&kind==='tax'?'Tax withheld':KINDS.find(([value])=>value===kind)![1];
 }
-export function TransactionItemsEditor({drafts,onChange,transactionType='expense'}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;transactionType?:Direction}) {
+export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transactionType='expense'}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;onUnfinishedDraft?:(rows:ItemDraft[])=>void;transactionType?:Direction}) {
  const form=useFormStyles();const styles=useStyles();const colors=useColors();
  const [editing,setEditing]=useState<{row:ItemDraft;isNew:boolean;index:number}|null>(null);
  const capped=drafts.length>=100;
@@ -39,20 +39,23 @@ export function TransactionItemsEditor({drafts,onChange,transactionType='expense
   <View style={[form.optionRow,{marginTop:16}]}>{[['item','Item'],['deduction','Discount / adjustment']].map(([kind,label])=><MotionPressable key={kind} disabled={capped} style={styles.addButton} accessibilityLabel={`Add ${label.toLowerCase()}`} onPress={()=>open({...draftItem(),kind:kind as TransactionItemKind},drafts.length,true)}><Plus size={16} color={colors.primary}/><Text style={styles.addText}>{transactionType==='income'?kind==='item'?'Earning':'Deduction / adjustment':label}</Text></MotionPressable>)}</View>
   {capped&&<Text style={styles.caption}>100-row limit reached. Remove a row to add another.</Text>}
   </View>
-  {editing&&<ItemEditorSheet key={editing.row.id} row={editing.row} index={editing.index} isNew={editing.isNew} direction={transactionType} onClose={()=>setEditing(null)} onSave={row=>{if(editing.isNew&&drafts.length>=100)return false;onChange(editing.isNew?[...drafts,row]:drafts.map(item=>item.id===row.id?row:item));setEditing(null);return true;}} onDelete={()=>{onChange(drafts.filter(item=>item.id!==editing.row.id));setEditing(null);}}/>}
+  {editing&&<ItemEditorSheet key={editing.row.id} row={editing.row} index={editing.index} isNew={editing.isNew} direction={transactionType} onDraft={row=>onUnfinishedDraft?.(editing.isNew?[...drafts,row]:drafts.map(item=>item.id===row.id?row:item))} onClose={()=>{onUnfinishedDraft?.(drafts);setEditing(null);}} onSave={row=>{if(editing.isNew&&drafts.length>=100)return false;onChange(editing.isNew?[...drafts,row]:drafts.map(item=>item.id===row.id?row:item));setEditing(null);return true;}} onDelete={()=>{onChange(drafts.filter(item=>item.id!==editing.row.id));setEditing(null);}}/>}
  </View>;
 }
 
-function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete}:{row:ItemDraft;index:number;isNew:boolean;direction:Direction;onClose:()=>void;onSave:(row:ItemDraft)=>boolean;onDelete:()=>void}) {
+function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete,onDraft}:{row:ItemDraft;index:number;isNew:boolean;direction:Direction;onClose:()=>void;onSave:(row:ItemDraft)=>boolean;onDelete:()=>void;onDraft?:(row:ItemDraft)=>void}) {
  const form=useFormStyles();const styles=useStyles();const colors=useColors();const reduced=useReducedMotion();const insets=useContext(SafeAreaInsetsContext);
- const [draft,setDraft]=useState(row);const [price,setPrice]=useState(row.unitPriceCents===null?'':centsToDecimal(row.unitPriceCents));const [error,setError]=useState('');
+ const [draft,setDraft]=useState(row);const [price,setPrice]=useState(row.unitPriceDraft??(row.unitPriceCents===null?'':centsToDecimal(row.unitPriceCents)));const [error,setError]=useState('');
+ const draftListener=useRef(onDraft),previous=useRef<string|null>(null);
+ useEffect(()=>{draftListener.current=onDraft;},[onDraft]);
+ useEffect(()=>{const next={...draft,...(draft.kind==='item'?{unitPriceDraft:price,unitPriceCents:price?decimalToCents(price):null}:{unitPriceDraft:undefined})};const signature=JSON.stringify(next);if(previous.current!==null&&signature!==previous.current)draftListener.current?.(next);previous.current=signature;},[draft,price]);
  const prefix=`Row ${index+1}`;
  const patch=(change:Partial<ItemDraft>)=>{setDraft(value=>({...value,...change}));setError('');};
  function save() {
   if(draft.kind==='item'&&draft.quantity!==null&&(!/^(?:0|[1-9]\d{0,8})(?:\.\d{1,3})?$/.test(draft.quantity)||Number(draft.quantity)<=0)){setError('Quantity must be positive, with up to three decimal places.');return;}
   const unitPrice=draft.kind==='item'&&price.trim()?decimalToCents(price):null;
   if(draft.kind==='item'&&price.trim()&&(!/^\d+(?:\.\d{0,2})?$/.test(price)||unitPrice===null||unitPrice<0||unitPrice>MAX_MONEY_CENTS)){setError('Enter a valid unit price with up to two decimal places.');return;}
-  const next={...draft,unitPriceCents:unitPrice};const parsed=parseItemDrafts([next]);
+  const next={...draft,unitPriceCents:unitPrice,unitPriceDraft:undefined};const parsed=parseItemDrafts([next]);
   if(parsed.error){setError(parsed.error.replace('Row 1: ','').replace(/^./,letter=>letter.toUpperCase()));return;}
   if(!onSave(next))setError('100-row limit reached. Cancel and remove a row first.');
  }

@@ -99,11 +99,8 @@ function HelpContent({owner}:{owner:string}) {
             <Text style={form.subtitle}>Manual Entry lets you enter the details yourself. Proof files are optional for income, expenses and bill payments.</Text>
           </>}
           {current===2&&<>
-            <Text style={form.subtitle}>Budgets set your monthly spending limits. Reports show where your money went.</Text>
-            <Text style={form.subtitle}>Bills track upcoming payments. Record or link a payment when it is paid.</Text>
-            <Text style={form.subtitle}>Refund an expense from its details once the money returns.</Text>
-            <Text style={form.subtitle}>Payment methods track your balances manually; they do not connect to your bank. Transfers move money between methods, and transfer fees count as expenses.</Text>
-            <Text style={form.subtitle}>Income sources group earnings. Manage categories, sources and preferences in Settings.</Text>
+            <Text style={form.subtitle}>Set your monthly budget in Overview. Category budgets share this amount.</Text>
+            <Text style={form.subtitle}>Safe to spend shows what remains after expenses and bills. Reports show where your money went.</Text>
           </>}
           {current===3&&<>
             <Text style={form.subtitle}>Enter the Cash you have available now. This sets today’s starting balance, without creating income or deducting old transactions again.</Text>

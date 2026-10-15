@@ -24,6 +24,7 @@ import { usePageLayout } from '../../../src/styles/pageLayout';
 import { decimalToCents,isUuid, type TransactionItemInput } from '../../../supabase/functions/ocr/shared';
 import type { Transaction, Category } from '../../../src/types/database';
 import { effectiveDate, occurrenceForDate } from '../../../src/domain/transactionDates';
+import {canRepeatTransaction} from '../../../src/domain/repeatTransaction';
 import {RefundsPanel} from '../../../src/components/RefundsPanel';
 
 export default function EditTransactionScreen() {
@@ -84,6 +85,7 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
       onSubmit={values => {const input={ ...values, occurrenceId:snapshot.transaction.occurrence_id??undefined,id: snapshot.transaction.id, occurredAt:values.transactionDate === effectiveDate(snapshot.transaction) ? snapshot.transaction.occurred_at : occurrenceForDate(values.transactionDate,snapshot.transaction.occurred_at) };if(snapshot.transaction.occurrence_id&&values.type==='expense'&&values.amount!==snapshot.transaction.amount){setConfirmation(input);return;}void funds.review(input,()=>update.mutate(input,{onSuccess:finishSave}));}} />
     </View>
     {confirmation&&<View><Text style={styles.subtitle}>Change this linked expense from {formatMoney(snapshot.transaction.amount)} to {formatMoney(confirmation.amount)}? It will still settle the whole scheduled bill; partial payments are not supported.</Text>{update.isError&&<Text accessibilityRole="alert" style={styles.error}>Could not save this settlement. Your confirmation and draft are still here. Retry or cancel.</Text>}<MotionPressable style={styles.button} disabled={saving} onPress={()=>update.mutate({...confirmation,confirmDifference:true},{onSuccess:finishSave})}><Text style={styles.buttonText}>Confirm full settlement</Text></MotionPressable><MotionPressable style={styles.secondaryButton} disabled={saving} onPress={()=>setConfirmation(null)}><Text style={styles.chipText}>Cancel confirmation</Text></MotionPressable></View>}
+    {canRepeatTransaction(snapshot.transaction)&&<MotionPressable accessibilityLabel="Repeat transaction" disabled={saving} style={styles.secondaryButton} onPress={()=>router.push({pathname:'/transaction/new',params:{visit:createRequestId(),repeatId:snapshot.transaction.id}})}><Text style={styles.chipTextSelected}>Repeat transaction</Text></MotionPressable>}
     {snapshot.transaction.type==='expense'&&<RefundsPanel transaction={snapshot.transaction}/>}
     <MotionPressable style={[styles.secondaryButton,{flexDirection:'row',gap:8,justifyContent:'center'}]} disabled={saving} onPress={() => setDestructive('delete')}>
       <Trash2 size={18} color={colors.danger}/>

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { formatOcrLimitMessage } from '../domain/ocr';
 import {
   OCR_BUCKET,
+  validateImagePayload,
   ocrScanPath,
   type OcrLimitReason,
   type OcrScanResult,
@@ -59,12 +60,7 @@ export function shouldRetryOcrScan(failureCount: number, error: unknown): boolea
   return failureCount < 1 && (error as { retryable?: unknown } | null)?.retryable === true;
 }
 
-export function useOcrScan(shouldNotify?: () => boolean) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    meta: { shouldNotify },
-    mutationFn: async ({
+export async function invokeReceiptScan({
       base64,
       mimeType,
       requestId,
@@ -72,15 +68,28 @@ export function useOcrScan(shouldNotify?: () => boolean) {
       base64: string;
       mimeType: string;
       requestId: string;
-    }): Promise<OcrScanResult> => {
-      const { data, error } = await supabase.functions.invoke<OcrScanResult>('ocr', {
-        body: { imageBase64: base64, mimeType, requestId, receiptSchemaVersion: 2 },
+    }): Promise<OcrScanResult> {
+      let { data, error } = await supabase.functions.invoke<OcrScanResult>('ocr', {
+        body: { imageBase64: base64, mimeType, requestId, receiptSchemaVersion: 3 },
         timeout: OCR_TIMEOUT_MS,
       });
+      if(error instanceof FunctionsHttpError&&error.context?.status===400&&validateImagePayload({imageBase64:base64,mimeType,requestId}).ok){
+        const body=await error.context.clone().json().catch(()=>null);
+        if(body?.error==='unsupported_receipt_version'||body?.error==='invalid_request'){
+          ({data,error}=await supabase.functions.invoke<OcrScanResult>('ocr',{body:{imageBase64:base64,mimeType,requestId,receiptSchemaVersion:2},timeout:OCR_TIMEOUT_MS}));
+        }
+      }
       if (error) throw await mapOcrInvokeError(error);
       if (!data) throw new OcrRequestError(GENERIC_SCAN_ERROR, false);
       return data;
-    },
+}
+
+export function useOcrScan(shouldNotify?: () => boolean) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: { shouldNotify },
+    mutationFn: invokeReceiptScan,
     retry: shouldRetryOcrScan,
     retryDelay: 1500,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ocrScans'] }),

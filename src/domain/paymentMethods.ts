@@ -6,8 +6,14 @@ export interface PaymentMethod {
   has_activity:boolean;related_bills:{id:string;label:string}[];
 }
 export interface PaymentMethodValues {id:string;method:PaymentMethodKind;paymentType:string;name:string;lastFour:string;openingBalance:string;confirmOpening?:boolean}
-export interface PaymentTransfer {id:string;source_id:string;destination_id:string;amount:string;transfer_date:string;note:string|null;fee_amount?:string;fee_mode?:import('./transferFees').TransferFeeMode}
+export interface PaymentTransfer {id:string;source_id:string;destination_id:string;amount:string;transfer_date:string;note:string|null;fee_amount?:string;fee_mode?:import('./transferFees').TransferFeeMode;version?:number;created_at?:string;created_at_inferred?:boolean}
 export interface BalanceCorrection {id:string;method_id:string;target_balance:string;delta:string;note:string|null;created_at:string}
+export function paymentBalanceCents(value:unknown):number|null {
+ if(typeof value!=='string')return null;
+ const match=/^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(value);if(!match)return null;
+ const amount=(BigInt(match[2])*100n+BigInt((match[3]??'').padEnd(2,'0')||'0'))*(match[1]?-1n:1n);
+ return amount>BigInt(Number.MAX_SAFE_INTEGER)||amount<BigInt(Number.MIN_SAFE_INTEGER)?null:Number(amount);
+}
 export function isCreditCard(value:Pick<PaymentMethod,'method'|'payment_type'>) {return value.method==='card'&&value.payment_type==='Credit card';}
 export const CARD_PRIVACY_NOTE='We store only the optional last four digits of your card. Never enter your full card number, PIN, or CVV.';
 export function paymentMethodLabel(value:Pick<PaymentMethod,'name'|'payment_type'|'last_four'>) {

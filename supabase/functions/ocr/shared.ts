@@ -33,6 +33,7 @@ export interface TransactionItemInput {
   taxIncluded: boolean;
 }
 export interface ExtractedReceipt {
+  transferKind?: 'withdrawal' | 'internal' | 'unknown';
   transactionType?: 'income' | 'expense' | 'unknown';
   documentKind?: DocumentKind;
   paymentStatus?: 'completed' | 'pending' | 'failed' | 'unknown';
@@ -54,7 +55,8 @@ export interface ExtractedReceipt {
   total: number | null;
 }
 export interface ReconciledReceipt {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
+  transfer?: {kind:'withdrawal'|'internal';receivedCents:number|null;feeCents:number|null;totalDebitedCents:number|null;requiresReview:boolean};
   transactionType?: 'income' | 'expense' | 'unknown';
   documentKind?: DocumentKind;
   paymentStatus?: 'completed' | 'pending' | 'failed' | 'unknown';
@@ -169,6 +171,13 @@ export function reconcileReceipt(receipt: ExtractedReceipt): ReconciledReceipt {
 export function validateCachedReceipt(value: unknown): ReconciledReceipt | null {
   if (!value || typeof value !== 'object') return null;
   const cached = value as ReconciledReceipt;
+  if(cached.schemaVersion===3){
+    const base=validatePaymentCache({...cached,schemaVersion:2});if(!base)return null;
+    const t=cached.transfer;
+    if(t&&(!['withdrawal','internal'].includes(t.kind)||typeof t.requiresReview!=='boolean'||![t.receivedCents,t.feeCents,t.totalDebitedCents].every(n=>n===null||Number.isSafeInteger(n)&&n>=0&&n<=MAX_MONEY_CENTS)))return null;
+    if(t&&!t.requiresReview&&(!(t.receivedCents!>0)||t.feeCents===null||t.totalDebitedCents!==t.receivedCents!+t.feeCents))return null;
+    return {...base,schemaVersion:3,...(t?{transfer:t}:{})};
+  }
   if (cached.schemaVersion === 2) return validatePaymentCache(cached);
   if (cached.schemaVersion !== 1 || !Array.isArray(cached.rows) || cached.rows.length > MAX_RECEIPT_ROWS
     || !cached.rows.every(row => row && validItem(row))
@@ -271,8 +280,13 @@ function validatePaymentCache(cached: ReconciledReceipt): ReconciledReceipt | nu
   const computedTotalCents = type === 'unknown' ? null : sumItemCents(cached.rows,type);
   return { ...cached, transactionType: type, totalCents, computedTotalCents, matchesTotal: totalCents === null || computedTotalCents === null || !cached.rows.length ? null : Math.abs(totalCents-computedTotalCents)<=1 };
 }
-export function receiptForClient(receipt: ReconciledReceipt | null, version: 1 | 2): ReconciledReceipt | null {
+export function receiptForClient(receipt: ReconciledReceipt | null, version: 1 | 2 | 3): ReconciledReceipt | null {
   if (!receipt) return null;
+  if(version===3)return receipt;
+  if(receipt.schemaVersion===3){
+    const {transfer,...base}=receipt;
+    receipt={...base,schemaVersion:2,...(transfer?{transactionType:'unknown' as const,documentKind:'transfer' as const,paymentDetails:null,rows:[],principalCents:null,netReceivedCents:null,totalDebitedCents:null,totalCents:null,computedTotalCents:null,matchesTotal:null}:{})};
+  }
   if (version === 2) {
     if (receipt.schemaVersion === 2) return receipt;
     return { ...receipt, schemaVersion: 2, transactionType: 'unknown', documentKind: 'unknown', paymentStatus: 'completed',
@@ -286,6 +300,22 @@ export function receiptForClient(receipt: ReconciledReceipt | null, version: 1 |
   return { schemaVersion: 1, merchant: receipt.merchant, rows: receipt.rows.map(({ affectsTotal: _a,isPaymentSummary: _s,requiresCountingReview: _r,feeParty:_p,...row }) => row),
     totalCents: receipt.totalDebitedCents ?? null, computedTotalCents: sumItemCents(receipt.rows), matchesTotal: receipt.matchesTotal,
     droppedRowCount: receipt.droppedRowCount, cappedRowCount: receipt.cappedRowCount };
+}
+
+/** Canonical transfer amounts are received principal and source-paid fee. */
+export function reconcileTransferReceipt(extracted:ExtractedReceipt):ReconciledReceipt {
+ const base=reconcilePaymentReceipt(extracted);
+ const kind=extracted.transferKind;
+ if(kind!=='withdrawal'&&kind!=='internal')return {...base,schemaVersion:3};
+ let received=positiveMoney(extracted.netReceived??extracted.principal),debited=positiveMoney(extracted.totalDebited);
+ let fee=0,unknown=false;
+ for(const row of extracted.fees){const n=decimalToCents(row.amount);if(n===null||n<0){unknown=true;continue;}if(row.chargedTo==='sender')fee+=n;else if(n>0)unknown=true;}
+ if(!Number.isSafeInteger(fee)||fee>MAX_MONEY_CENTS)unknown=true;
+ if(received===null&&debited!==null&&!unknown)received=debited-fee;
+ if(debited===null&&received!==null&&!unknown)debited=received+fee;
+ const review=unknown||received===null||received<=0||debited===null||debited>MAX_MONEY_CENTS||received+fee!==debited;
+ return {...base,schemaVersion:3,transactionType:'unknown',documentKind:'transfer',paymentDetails:null,rows:[],totalCents:null,computedTotalCents:null,matchesTotal:null,
+ transfer:{kind,receivedCents:received!==null&&received>0&&received<=MAX_MONEY_CENTS?received:null,feeCents:unknown?null:fee,totalDebitedCents:debited!==null&&debited>0&&debited<=MAX_MONEY_CENTS?debited:null,requiresReview:review}};
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
