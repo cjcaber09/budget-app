@@ -24,3 +24,11 @@ Production web and Android/iOS Hermes exports passed in `dist/update-visual-veri
 Synthetic native update events in the real production web app passed light390/dark360, normal and Reduced Motion: actual percentage rendering, indeterminate status, ready/Later, Settings navigation, preserved profile drafts with disabled restart, check/download/reload errors and retries, one successful restart request and no horizontal overflow. Current screenshots were inspected. Runtime checking caught a React Native Web accessibility mapping gap; the progress bar now exposes explicit ARIA minimum, maximum and current values as well as native accessibility values.
 
 ADB reported no connected device. Actual native update delivery, download meter events and reload behavior remain unverified on a phone. No OTA publication, APK build, hosted migration, source commit or push was performed.
+
+## Authorized release follow-up
+
+The subsequent request to create the PR and publish OTA was completed on October 16, 2026 (Asia/Manila). Source commit `9ae2743` is in [PR #10](https://github.com/cjcaber09/budget-app/pull/10), covering Overview, form fixes and update status. The earlier transfer PR #9 was initially open but became merged during release, so a fresh branch and PR keep the newer changes reviewable. No PR was merged by this release task.
+
+Published the audited Android export to the existing `preview` channel/environment on runtime `1.0.1`: group `4ce6324f-af29-4cb5-96af-0880251b1cc6`, update `01a14199-d384-769b-aae4-568aaa8e1b4d`, created `2026-10-15T22:06:02.628Z`. The export is newer than application sources; preview public settings match the bundled configuration and no private environment values occur in staged files or release assets. No native or database changes were needed for this publication; migration 0036 was already deployed.
+
+The live preview manifest serves the new update and matches the audited launch bundle SHA-256 and all 29 asset hashes. Direct launch-asset download returned HTTP 403/text-html, so downloaded-byte comparison and physical-phone installation remain unverified. No APK, iOS OTA, merge or real financial data write was performed. Users on the previous version must download and restart once before these update controls can appear.
