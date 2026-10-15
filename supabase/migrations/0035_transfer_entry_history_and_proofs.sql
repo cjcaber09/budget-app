@@ -3,7 +3,10 @@ alter table budget_tracker.payment_transfers
  add column created_at timestamptz not null default clock_timestamp(),
  add column created_at_inferred boolean not null default false,
  add column version integer not null default 1 check(version>0);
-update budget_tracker.payment_transfers set created_at=least(source_assigned_at,destination_assigned_at),created_at_inferred=true;
+-- Rows present when these columns are added need a marked, inferred timestamp.
+update budget_tracker.payment_transfers
+ set created_at=least(source_assigned_at,destination_assigned_at),created_at_inferred=true
+ where created_at_inferred=false;
 create index transfers_entry_history on budget_tracker.payment_transfers(user_id,transfer_date desc,created_at desc,id desc);
 
 create table budget_tracker.financial_activity_ids(
