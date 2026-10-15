@@ -18,7 +18,13 @@ import {MotionPressable} from './MotionPressable';
 import {ActionSheet} from './ActionSheet';
 import {MoneyInput} from './MoneyInput';
 import {TransactionDateField} from './TransactionDateField';
-import {MethodChoices} from './PaymentActivityForms';
+import {paymentMethodLabel} from '../domain/paymentMethods';
+import {RefundDestination} from './RefundDestination';
+
+function readableDate(day:string) {
+ const date=new Date(day+'T12:00:00Z');
+ return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(date);
+}
 
 export function RefundsPanel({transaction}:{transaction:Transaction}) {
  const methods=usePaymentMethods(),query=useRefunds(transaction.id,!!methods.refundSupported);
@@ -33,13 +39,13 @@ export function RefundsPanel({transaction}:{transaction:Transaction}) {
   <Text accessibilityRole="header" style={{...type.heading,color:colors.text}}>Refunds</Text>
   <Text style={form.subtitle}>Refunds reduce spending when received; they do not count as income.{transaction.occurrence_id?' This bill stays marked paid.':''}</Text>
   {isUuid(refundId)&&query.data&&!query.data.rows.some(r=>r.id===refundId)&&<Text style={form.subtitle}>This refund was removed. Showing the original expense.</Text>}
-  {query.data&&<><Text style={form.subtitle}>Refunded: {money(query.data.refunded)} · Remaining: {money(query.data.amount-query.data.refunded)}</Text>{query.data.rows.map(r=><MotionPressable key={r.id} accessibilityLabel={'Edit refund '+money(decimalToCents(r.amount)!)} disabled={busy} style={[form.secondaryButton,{marginTop:0}]} onPress={()=>setVisit({key:createRequestId(),refund:r})}><Text style={form.chipTextSelected}>{money(decimalToCents(r.amount)!)} · {r.refund_date}</Text><Text style={form.subtitle}>{methods.methods?.find(m=>m.id===r.method_id)?.name??'Saved payment method'}{r.note?' · '+r.note:''}</Text></MotionPressable>)}</>}
+  {query.data&&<><Text style={form.subtitle}>Refunded: {money(query.data.refunded)} · Remaining: {money(query.data.amount-query.data.refunded)}</Text>{query.data.rows.map(r=>{const method=methods.methods?.find(m=>m.id===r.method_id);const destination=method?paymentMethodLabel(method):'Saved payment method';return <MotionPressable key={r.id} accessibilityLabel={'Edit refund '+money(decimalToCents(r.amount)!)+', received '+readableDate(r.refund_date)+', into '+destination+(r.note?', '+r.note:'')} disabled={busy} style={[form.secondaryButton,{marginTop:0}]} onPress={()=>setVisit({key:createRequestId(),refund:r})}><Text style={form.chipTextSelected}>{money(decimalToCents(r.amount)!)} · {readableDate(r.refund_date)}</Text><Text style={form.subtitle}>{destination}{r.note?' · '+r.note:''}</Text></MotionPressable>;})}</>}
   {!!query.data?.refunded&&<Text style={form.subtitle}>Remove refunds before deleting this expense or changing it to income.</Text>}
   {query.isError&&<><Text accessibilityRole="alert" style={form.error}>{query.error.message}</Text><MotionPressable style={form.secondaryButton} onPress={()=>void query.refetch()}><Text style={form.chipTextSelected}>Retry refunds</Text></MotionPressable></>}
   {query.data&&<MotionPressable accessibilityLabel="Refresh refunds" disabled={query.isFetching||busy} onPress={()=>void query.refetch()} style={{minHeight:44,justifyContent:'center',alignSelf:'flex-start'}}><Text style={form.chipTextSelected}>{query.isFetching?'Refreshing…':'Refresh refunds'}</Text></MotionPressable>}
   {methods.isError&&<MotionPressable style={form.secondaryButton} onPress={()=>void methods.refetch()}><Text style={form.chipTextSelected}>Could not check refunds. Retry payment methods</Text></MotionPressable>}
   {!methods.refundSupported&&!methods.isPending&&!methods.isError&&<Text style={form.subtitle}>Refunds are not available yet.</Text>}
-  <MotionPressable accessibilityLabel="Record refund" disabled={!query.data||query.isFetching||query.isError||methods.isError||methods.isFetching||query.data.refunded>=query.data.amount} style={[form.secondaryButton,{marginTop:0,flexDirection:'row',gap:8,justifyContent:'center'}]} onPress={()=>setVisit({key:createRequestId()})}><RotateCcw size={18} color={colors.primary}/><Text style={form.chipTextSelected}>Record refund</Text></MotionPressable>
+  <MotionPressable accessibilityLabel={query.data&&query.data.refunded>=query.data.amount?'Fully refunded':'Record refund'} disabled={!query.data||query.isFetching||query.isError||methods.isError||methods.isFetching||query.data.refunded>=query.data.amount} style={[form.secondaryButton,{marginTop:0,flexDirection:'row',gap:8,justifyContent:'center'}]} onPress={()=>setVisit({key:createRequestId()})}><RotateCcw size={18} color={colors.primary}/><Text style={form.chipTextSelected}>{query.data&&query.data.refunded>=query.data.amount?'Fully refunded':'Record refund'}</Text></MotionPressable>
   <ActionSheet visible={!!visit} title={visit?.refund?'Edit refund':'Record refund'} onClose={()=>{if(!busy){setVisit(null);void query.refetch();}}} busy={busy}>{visit&&query.data&&<RefundForm key={visit.key} transaction={transaction} initial={visit.refund} refunded={query.data.refunded} purchase={query.data.amount} expenseCreatedAt={transaction.created_at??query.data.expenseCreatedAt} onBusy={setBusy} onSaved={()=>{setBusy(false);setVisit(null);}}/>}</ActionSheet>
  </View>;
 }
@@ -64,10 +70,16 @@ function RefundForm({transaction,initial,refunded,purchase,expenseCreatedAt,onBu
  }
  if(remove)return <View><Text style={form.subtitle}>Remove this {money(decimalToCents(initial!.amount)!)} refund? Spending and the credited balance will be recalculated. The original purchase and bill payment stay.</Text>{error&&<Text accessibilityRole="alert" style={form.error}>{error}</Text>}<MotionPressable accessibilityLabel="Confirm removing refund" style={[form.button,{flexDirection:'row',gap:8}]} disabled={save.isPending} onPress={()=>void submit(true)}><Trash2 size={18} color={colors.onPrimary}/><Text style={form.buttonText}>Remove refund</Text></MotionPressable><MotionPressable style={form.secondaryButton} disabled={save.isPending} onPress={()=>setRemove(false)}><Text style={form.chipTextSelected}>Keep refund</Text></MotionPressable></View>;
  return <View>
+  <View style={{gap:6,marginBottom:12}}>
+   <Text style={form.label}>Original purchase</Text>
+   <Text style={form.subtitle}>{transaction.note?.trim()||'Expense'} · {readableDate(effectiveDate(transaction))}</Text>
+   <Text style={form.subtitle}>Purchase: {money(purchase)} · Refunded: {money(refunded)}</Text>
+   <Text style={form.subtitle}>Remaining refundable: {money(purchase-refunded)}</Text>
+  </View>
   <Text style={form.subtitle}>Record money you have already received back. Maximum: {money(maximum)}.</Text>
   <Text style={form.label}>Refund amount</Text><MoneyInput accessibilityLabel="Refund amount" value={amount} onChangeText={value=>{setAmount(value);setError('');}} style={form.input} editable={!save.isPending}/>
   <TransactionDateField label="Received date" accessibilityLabel="Refund received date" value={date} onChange={setDate}/>
-  <MethodChoices label="Received into" methods={methods.methods??[]} value={method} onChange={setMethod} disabled={save.isPending||methods.isFetching||methods.isError}/>
+  <RefundDestination label="Received into" methods={methods.methods??[]} value={method} onChange={setMethod} disabled={save.isPending||methods.isFetching||methods.isError}/>
   {methods.isError&&<MotionPressable style={form.secondaryButton} onPress={()=>void methods.refetch()}><Text style={form.chipTextSelected}>Retry payment methods</Text></MotionPressable>}
   <Text style={form.label}>Note (optional)</Text><TextInput accessibilityLabel="Refund note" value={note} onChangeText={setNote} style={form.input} maxLength={500} editable={!save.isPending}/>
   {error&&<Text accessibilityRole="alert" style={form.error}>{error}</Text>}

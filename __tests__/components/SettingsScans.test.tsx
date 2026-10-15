@@ -17,7 +17,7 @@ jest.mock('../../src/hooks/useOcr', () => ({
 jest.mock('../../src/hooks/useCategories', () => ({ useCategories: () => ({ data: [] }) }));
 jest.mock('../../src/hooks/useRecurringRules', () => ({ useRecurringRules: () => ({ data: [] }) }));
 jest.mock('../../src/lib/supabase', () => ({ supabase: { auth: { signOut: jest.fn() } } }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }),useLocalSearchParams:()=>({}) }));
 
 describe('Settings — Scan history', () => {
   beforeEach(() => {mockDeleteScan.mockReset();mockLoadMore.mockReset();mockHasMore=false;mockLoadingMore=false;mockLoadError=false;});

@@ -45,7 +45,7 @@ describe('Vision request and response', () => {
 
 describe('Gemini structured receipt request and response', () => {
   const receipt = { merchant: 'Shop', text: 'TOTAL 12.50', items: [{ name: 'Coffee', amount: 12.5 }], deductions: [], taxes: [], fees: [], total: 12.5,
-    transactionType:'expense',documentKind:'purchase',paymentStatus:'completed',classificationReason:'Purchase receipt',ownAccountTransfer:false,paymentDetails:null,paymentSummary:null,
+    transferKind:'unknown',transactionType:'expense',documentKind:'purchase',paymentStatus:'completed',classificationReason:'Purchase receipt',ownAccountTransfer:false,paymentDetails:null,paymentSummary:null,
     principal:null,netReceived:null,totalDebited:12.5,receiptDate:null,receiptDateRaw:null };
   const answer = (value: unknown, finishReason = 'STOP') => ({ candidates: [{ finishReason, content: { parts: [{ text: 'reasoning', thought: true }, { text: JSON.stringify(value) }] } }] });
   it('requests supported structured JSON with a bounded output budget', () => {

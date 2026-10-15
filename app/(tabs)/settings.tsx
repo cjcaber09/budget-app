@@ -1,7 +1,7 @@
 import { formatMoney } from "../../src/domain/money";
-import { useState, useRef } from "react";
+import { useEffect,useState, useRef } from "react";
 import { ScrollView, View, Text, Linking } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams,useRouter } from "expo-router";
 import { format } from "date-fns";
 import {
   FileText,
@@ -55,6 +55,7 @@ export default function SettingsScreen() {
 }
 
 function SettingsContent() {
+  const {section,visit}=useLocalSearchParams<{section?:string;visit?:string}>();
   const router = useRouter();
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
@@ -64,9 +65,13 @@ function SettingsContent() {
   const recurringRules = useRecurringRules();
   const scans = useOcrScans();
   const { mutate: deleteScan } = useDeleteOcrScan();
-  const [tab, setTab] = useState<SettingsTab>('organize');
-  const [visited, setVisited] = useState<SettingsTab[]>(['organize']);
+  const [tab, setTab] = useState<SettingsTab>(()=>section==='sources'?'sources':'organize');
+  const [visited, setVisited] = useState<SettingsTab[]>(()=>[section==='sources'?'sources':'organize']);
+  const request=section==='sources'?visit??'sources':null;
+  const [handledRequest,setHandledRequest]=useState(request);
+  if(request!==null&&request!==handledRequest){setHandledRequest(request);setTab('sources');setVisited(current=>current.includes('sources')?current:[...current,'sources']);}
   const content = useRef<ScrollView>(null);
+  useEffect(()=>{if(section==='sources')content.current?.scrollTo({y:0,animated:false});},[section,visit]);
   function selectTab(next: SettingsTab) {
     setTab(next);
     setVisited(current => current.includes(next) ? current : [...current, next]);

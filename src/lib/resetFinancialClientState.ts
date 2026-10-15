@@ -7,9 +7,11 @@ import {useUiStore} from '../stores/useUiStore';
 import {clearExportFiles} from './exportFiles';
 import {cancelPhoneReminders,serializeNotifications} from './phoneNotifications';
 import {localDateKey} from '../domain/transactionDates';
+import {clearTransactionDraft} from './transactionDraftStorage';
 export async function resetFinancialClientState(client:QueryClient,owner:string):Promise<void> {
  if(usePreferencesStore.getState().profile?.user_id!==owner)throw new Error('owner_changed');
  await client.cancelQueries();
+ await clearTransactionDraft(owner);
  await serializeNotifications(async()=>{
   if(usePreferencesStore.getState().profile?.user_id!==owner)return;
   await cancelPhoneReminders(owner);

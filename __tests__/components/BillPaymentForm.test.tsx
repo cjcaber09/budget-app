@@ -51,5 +51,5 @@ it('binds an attachment draft when owner defaults arrive after a cold deep link'
  const {result}=renderHook(()=>useProofDraft(),{wrapper:({children})=><QueryClientProvider client={client}>{children}</QueryClientProvider>});
  act(()=>usePreferencesStore.getState().setProfile(profile));await act(async()=>{await result.current.choose();});
  expect(result.current.file?.name).toBe('receipt.webp');
- await act(async()=>{expect(await result.current.upload('transaction')).toBe(true);});expect(mockUpload).toHaveBeenCalledWith('transaction',expect.objectContaining({name:'receipt.webp'}),owner);
+ await act(async()=>{expect(await result.current.upload('transaction')).toBe(true);});expect(mockUpload).toHaveBeenCalledWith({kind:'transaction',id:'transaction'},expect.objectContaining({name:'receipt.webp'}),owner);
 });

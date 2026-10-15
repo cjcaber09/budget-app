@@ -19,6 +19,7 @@ import { createThemedStyles, type, useColors } from '../../src/styles/theme';
 import { useDashboard } from '../../src/hooks/useDashboard';
 import { SpendingGuidance } from '../../src/components/SpendingGuidance';
 import { UpcomingBillsBell } from '../../src/components/UpcomingBillsBell';
+import {TotalCash} from '../../src/components/TotalCash';
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function OverviewScreen() {
     <View style={pageLayout.workspace}>
       <ScreenHeading title="Overview" action={<UpcomingBillsBell query={dashboard}/>} />
       <View style={styles.monthPicker}><MonthPicker /></View>
+      <TotalCash/>
       <QueryState loading={categoriesQuery.isPending || budgetsQuery.isPending} error={categoriesQuery.isError || budgetsQuery.isError} retry={() => { void categoriesQuery.refetch(); void budgetsQuery.refetch(); }}>
         <View style={{gap:8}}>
         {alerts.length > 1 && <MotionPressable accessibilityLabel="Over-budget categories" accessibilityState={{expanded:!!expanded[alertGroup]}} style={styles.alertSummary} onPress={() => setExpanded(current => ({...current,[alertGroup]:!current[alertGroup]}))}>

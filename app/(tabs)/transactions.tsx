@@ -1,3 +1,6 @@
+import {activityKey} from '../../src/domain/activityPages';
+import type {TransactionFilter} from '../../src/domain/csv';
+import {useMoney} from '../../src/domain/money';
 import { useEffect, useState } from 'react';
 import { FlatList, View, Text, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,6 +22,7 @@ import {CsvExport} from '../../src/components/CsvExport';
 
 export default function TransactionsScreen() {
   const router = useRouter();
+  const money=useMoney();
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
   const colors = useColors();
@@ -26,7 +30,7 @@ export default function TransactionsScreen() {
   const categoriesQuery = useCategories();
   const paymentMethods = usePaymentMethods();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'refund'>('all');
+  const [filter, setFilter] = useState<TransactionFilter>('all');
   const [debouncedSearch,setDebouncedSearch]=useState('');
   useEffect(()=>{const timer=setTimeout(()=>setDebouncedSearch(search),250);return()=>clearTimeout(timer);},[search]);
   const transactionsQuery = useTransactionHistory(selectedMonth,filter,debouncedSearch);
@@ -39,14 +43,14 @@ export default function TransactionsScreen() {
     initialNumToRender={10}
     maxToRenderPerBatch={10}
     windowSize={5}
-    keyExtractor={item => item.id}
+    keyExtractor={activityKey}
     contentContainerStyle={[pageLayout.scrollContent, styles.content]}
     ListHeaderComponent={<View style={styles.header}>
       <ScreenHeading title="Transactions" action={<MonthPicker />} />
       <CsvExport month={selectedMonth} kind="transactions" filter={filter} search={search}/>
       <View style={styles.toolbar}>
         <View style={styles.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Search transactions" value={search} onChangeText={setSearch} maxLength={500} placeholder="Search transactions" placeholderTextColor={colors.subtle} style={styles.searchInput} /></View>
-        <View style={styles.filters}>{(['all', 'expense', 'income','refund'] as const).filter(option=>option!=='refund'||paymentMethods.refundSupported).map(option => <MotionPressable key={option} accessibilityState={{ selected: option === filter }} onPress={() => setFilter(option)} style={[styles.filter, filter === option && styles.activeFilter]}><Text style={[styles.filterText, filter === option && styles.activeFilterText]}>{option === 'all' ? 'All' : option === 'expense' ? 'Expenses' : option==='refund'?'Refunds':'Income'}</Text></MotionPressable>)}</View>
+        <View style={styles.filters}>{(['all', 'expense', 'income','refund','transfer'] as const).filter(option=>(option!=='refund'||paymentMethods.refundSupported)&&(option!=='transfer'||paymentMethods.transferEntrySupported)).map(option => <MotionPressable key={option} accessibilityState={{ selected: option === filter }} onPress={() => setFilter(option)} style={[styles.filter, filter === option && styles.activeFilter]}><Text style={[styles.filterText, filter === option && styles.activeFilterText]}>{option === 'all' ? 'All' : option === 'expense' ? 'Expenses' : option==='refund'?'Refunds':option==='transfer'?'Transfers':'Income'}</Text></MotionPressable>)}</View>
       </View>
       <View style={styles.listHeading}><Text style={styles.heading}>Activity</Text><Text style={styles.caption}>{transactions.length} {transactionsQuery.hasNextPage?'shown':transactions.length === 1 ? 'entry' : 'entries'}</Text></View>
     </View>}
@@ -58,7 +62,7 @@ export default function TransactionsScreen() {
       {transactionsQuery.hasNextPage&&<MotionPressable accessibilityLabel="Load more transactions" disabled={transactionsQuery.isFetching} onPress={()=>void transactionsQuery.fetchNextPage()} style={styles.loadMore}><Text style={styles.activeFilterText}>{transactionsQuery.isFetchingNextPage?'Loading…':transactionsQuery.isFetchNextPageError?'Retry load more':'Load more'}</Text></MotionPressable>}
       {transactionsQuery.isRefetchError&&transactions.length>0&&<MotionPressable style={styles.loadMore} onPress={()=>void transactionsQuery.refetch()}><Text style={styles.activeFilterText}>Could not refresh. Retry</Text></MotionPressable>}
     </View>}
-    renderItem={({ item }) => <View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
+    renderItem={({ item }) => item.type==='transfer'?<MotionPressable accessibilityLabel={`Transfer from ${item.source_label} to ${item.destination_label}, ${money(Number(item.amount))} received`} style={[styles.item,{paddingVertical:18,gap:6}]} onPress={()=>router.push({pathname:'/transfer/[id]',params:{id:item.id,visit:createRequestId()}})}><Text style={styles.heading}>{item.source_label} → {item.destination_label}</Text><Text style={styles.caption}>{money(Number(item.amount))} received · {item.financial_date}{Number(item.fee_amount)>0?` · ${money(Number(item.fee_amount))} fee`:''}</Text>{item.note&&<Text style={styles.caption}>{item.note}</Text>}</MotionPressable>:<View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
   /></View>;
 }
 const useStyles = createThemedStyles(colors => ({

@@ -28,3 +28,26 @@ test('refund edit opens from history and removal requires confirmation; cancel m
  await screen.findByLabelText('Refund amount');fireEvent.press(screen.getByText('Remove refund'));expect(mockSave).not.toHaveBeenCalled();fireEvent.press(screen.getByText('Keep refund'));expect(mockSave).not.toHaveBeenCalled();
  fireEvent.press(screen.getByText('Remove refund'));fireEvent.press(screen.getByLabelText('Confirm removing refund'));await waitFor(()=>expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({id:refund.id,operation:'delete',expectedVersion:1})));await waitFor(()=>expect(screen.queryByLabelText('Refund amount')).toBeNull());
 });
+
+test('equal refunds have distinct received dates in their labels and show purchase context',()=>{
+ mockQuery.data.refunded=5000;
+ mockQuery.data.rows=['2026-01-02','2026-01-03'].map((date,i)=>({id:String(i),amount:'25.00',refund_date:date,method_id:method,note:null}));
+ render(<RefundsPanel transaction={{...transaction,note:'Weekly groceries'}}/>);
+ const refunds=screen.getAllByLabelText(/Edit refund .*received/);
+ expect(refunds[0].props.accessibilityLabel).not.toEqual(refunds[1].props.accessibilityLabel);
+ fireEvent.press(refunds[0]);
+ expect(screen.getByText(/Weekly groceries/)).toBeTruthy();
+ expect(screen.getByText(/Remaining refundable/)).toBeTruthy();
+});
+
+test('destination selection stays in the refund sheet and preserves the amount draft',()=>{
+ render(<RefundsPanel transaction={transaction}/>);fireEvent.press(screen.getByLabelText('Record refund'));
+ fireEvent.changeText(screen.getByLabelText('Refund amount'),'25');
+ fireEvent.press(screen.getByLabelText(/Change refund destination/));
+ fireEvent.changeText(screen.getByLabelText('Search refund destinations'),'unmatched');
+ expect(screen.getByText('No matching payment methods.')).toBeTruthy();
+ fireEvent.press(screen.getByText('Keep selection'));
+ expect(screen.getByLabelText('Refund amount').props.value).toBe('25');
+ expect(screen.queryByLabelText('Search refund destinations')).toBeNull();
+ expect(mockSave).not.toHaveBeenCalled();
+});

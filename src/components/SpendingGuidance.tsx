@@ -36,10 +36,46 @@ export function SpendingGuidance({
   return (
     <View style={styles.container}>
       <View style={styles.section}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          {s.month < s.today.slice(0, 7) + "-01"
+            ? "Final budget remaining"
+            : "Safe to spend"}
+        </Text>
+        <Text style={styles.caption}>
+          After expenses and bills. Not your bank balance.
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Available</Text>
+          <Text style={styles.value}>
+            {guidance.safe === null
+              ? "Set a budget"
+              : money(guidance.safe / 100)}
+          </Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.caption}>Reserved for bills</Text>
+          <Text style={styles.number}>{money(s.reservedCents / 100)}</Text>
+        </View>
+        {guidance.allowance !== null && (
+          <View style={styles.row}>
+            <Text style={styles.caption}>
+              Per day · {guidance.remainingDays} days left
+            </Text>
+            <Text style={styles.number}>{money(guidance.allowance / 100)}</Text>
+          </View>
+        )}
+        {guidance.shortfall > 0 && (
+          <Text style={form.error}>
+            Expenses and bills exceed your monthly budget by{" "}
+            {money(guidance.shortfall / 100)}.
+          </Text>
+        )}
+      </View>
+      <View style={styles.section}>
         <View style={styles.headingRow}>
           <Text style={styles.heading}>Monthly budget</Text>
           <MotionPressable
-            accessibilityLabel="Edit monthly spending limit"
+            accessibilityLabel="Edit monthly budget"
             style={styles.editButton}
             onPress={edit}
           >
@@ -55,14 +91,14 @@ export function SpendingGuidance({
         </Text>
         {s.preview && (
           <Text style={styles.caption}>
-            Previous allowance. Save to customize.
+            Previous monthly budget. Save to customize.
           </Text>
         )}
         {editing && (
           <View>
             <MoneyInput
               style={form.input}
-              accessibilityLabel="Monthly spending limit"
+              accessibilityLabel="Monthly budget"
               value={amount}
               onChangeText={setAmount}
               keyboardType="decimal-pad"
@@ -81,10 +117,10 @@ export function SpendingGuidance({
                 onPress={() => {
                   const cents = decimalToCents(amount);
                   if (cents === null || cents < 0 || cents > 999999999999) {
-                    setError("Enter a valid limit, including zero if needed.");
+                    setError("Enter a valid monthly budget, including zero if needed.");
                     return;
                   }
-                  if(cents<s.allocatedCents){setError('Monthly allowance cannot be less than combined category budgets. Reduce category budgets first.');return;}
+                  if(cents<s.allocatedCents){setError('Monthly budget cannot be less than combined category budgets. Reduce category budgets first.');return;}
                   setError('');
                   limit.mutate(centsToDecimal(cents), {
                     onSuccess: () => setEditing(false),
@@ -92,7 +128,7 @@ export function SpendingGuidance({
                 }}
               >
                 <Text style={styles.saveButtonText}>
-                  {limit.isPending ? "Saving…" : "Save limit"}
+                  {limit.isPending ? "Saving…" : "Save budget"}
                 </Text>
               </MotionPressable>
               <MotionPressable
@@ -112,57 +148,21 @@ export function SpendingGuidance({
           <Text style={styles.caption}>Remaining</Text>
           <Text style={styles.number}>
             {guidance.remaining === null
-              ? "Set a limit"
+              ? "Set a budget"
               : money(guidance.remaining / 100)}
           </Text>
         </View>
         <Text style={styles.caption}>
-          Category budgets share this allowance.
+          Category budgets share this monthly budget.
         </Text>
         <Text style={styles.caption}>
           Allocated: {money(s.allocatedCents / 100)}
           {s.limitCents === null
             ? ""
             : s.allocatedCents > s.limitCents
-              ? ` · ${money((s.allocatedCents - s.limitCents) / 100)} above your limit`
+              ? ` · ${money((s.allocatedCents - s.limitCents) / 100)} above your monthly budget`
               : ` · ${money((s.limitCents - s.allocatedCents) / 100)} unallocated`}
         </Text>
-      </View>
-      <View style={styles.section}>
-        <Text accessibilityRole="header" style={styles.heading}>
-          {s.month < s.today.slice(0, 7) + "-01"
-            ? "Final budget remaining"
-            : "Safe to spend"}
-        </Text>
-        <Text style={styles.caption}>
-          After expenses and bills. Not your bank balance.
-        </Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Available</Text>
-          <Text style={styles.value}>
-            {guidance.safe === null
-              ? "Set a limit"
-              : money(guidance.safe / 100)}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.caption}>Reserved for bills</Text>
-          <Text style={styles.number}>{money(s.reservedCents / 100)}</Text>
-        </View>
-        {guidance.allowance !== null && (
-          <View style={styles.row}>
-            <Text style={styles.caption}>
-              Per day · {guidance.remainingDays} days left
-            </Text>
-            <Text style={styles.number}>{money(guidance.allowance / 100)}</Text>
-          </View>
-        )}
-        {guidance.shortfall > 0 && (
-          <Text style={form.error}>
-            Expenses and bills exceed your allowance by{" "}
-            {money(guidance.shortfall / 100)}.
-          </Text>
-        )}
       </View>
       {s.legacyDuplicates > 0 && (
         <Text style={form.error}>

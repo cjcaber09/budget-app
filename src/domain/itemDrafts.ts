@@ -12,6 +12,7 @@ export interface ItemDraft {
   negative: boolean;
   quantity: string | null;
   unitPriceCents: number | null;
+  unitPriceDraft?:string;
   taxIncluded: boolean;
 }
 export function draftItem(row?: TransactionItemInput): ItemDraft {
@@ -24,6 +25,7 @@ export function parseItemDrafts(drafts: ItemDraft[]): { rows: TransactionItemInp
   const rows: TransactionItemInput[] = [];
   if (drafts.length > 100) return { rows, error: 'A transaction can have up to 100 rows.' };
   for (const [index, draft] of drafts.entries()) {
+    if(draft.unitPriceDraft?.trim()&&!/^\d+(?:\.\d{0,2})?$/.test(draft.unitPriceDraft))return {rows:[],error:`Row ${index+1}: finish reviewing the unit price.`};
     if (draft.requiresCountingReview) return { rows:[],error:`Row ${index+1}: choose whether this charge affects your total.` };
     const magnitude = /^(?:\d+)(?:\.\d{0,2})?$/.test(draft.amount) ? decimalToCents(draft.amount) : null;
     const row: TransactionItemInput = { kind: draft.kind, label: draft.label.trim(),
