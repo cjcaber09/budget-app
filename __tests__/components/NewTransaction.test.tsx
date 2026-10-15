@@ -120,7 +120,7 @@ describe('NewTransactionScreen', () => {
     mockRunOcr.mockImplementation((_v,o)=>o.onSuccess({scanId:'s1',text:'Withdrawal',truncated:false,receipt}));useScanStore.getState().setPendingImage(IMAGE);
     render(<NewTransactionScreen/>);await act(async()=>{await Promise.resolve();});
     expect(screen.getByText('Transfer').parent?.props.style).toBeDefined();
-    expect(screen.getByText('Cash · Cash')).toBeTruthy();expect(screen.getByText('Choose an account')).toBeTruthy();
+    expect(screen.getByLabelText('To account').props.value).toBe('Cash');expect(screen.getByLabelText('From account').props.value).toBe('');
     expect(screen.getByLabelText('Transfer amount').props.value).toBe('2,000.00');
     expect(screen.getByText('Total deducted: $2,015.00')).toBeTruthy();
     fireEvent.press(screen.getByText('Record transfer'));expect(mockTransferSave).not.toHaveBeenCalled();

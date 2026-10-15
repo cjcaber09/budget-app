@@ -9,6 +9,11 @@ const prefix='budget-tracker:transaction-draft:v1:';
 const generations=new Map<string,number>();
 let queue:Promise<unknown>=Promise.resolve();
 function serialized<T>(task:()=>Promise<T>):Promise<T>{const next=queue.catch(()=>{}).then(task);queue=next;return next;}
+// Wait for the existing serialized writes before a deliberate app restart.
+export async function settleTransactionDraftWrites():Promise<void> {
+ let observed:Promise<unknown>;
+ do {observed=queue;await observed;} while(observed!==queue);
+}
 const available=()=>Platform.OS!=='web'||typeof window!=='undefined';
 export async function loadTransactionDraft(owner:string):Promise<EntryDraft|null> {
  return serialized(async()=>{if(!available())return null;const raw=await AsyncStorage.getItem(prefix+owner);return raw?decodeEntryDraft(raw,owner):null;});

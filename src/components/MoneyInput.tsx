@@ -1,34 +1,22 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { TextInput, type TextInputProps } from 'react-native';
-import { formatMoneyInput, moneyInputEdit, type InputSelection } from '../domain/moneyInput';
+import { formatMoneyInput } from '../domain/moneyInput';
 
 type Props = Omit<TextInputProps, 'value' | 'defaultValue' | 'onChangeText' | 'selection'> & {
   value: string;
   onChangeText: (value: string) => void;
 };
 
-export function MoneyInput({ value, onChangeText, onSelectionChange, keyboardType = 'decimal-pad', ...props }: Props) {
-  const cursor = useRef<InputSelection | undefined>(undefined);
-  const [selection, setSelection] = useState<InputSelection>();
-  const display = formatMoneyInput(value);
+// Let the native input own selection; grouping is presentation on blur only.
+export function MoneyInput({ value, onChangeText, onFocus, onBlur, editable, keyboardType = 'decimal-pad', ...props }: Props) {
+  const [focused, setFocused] = useState(false);
   return <TextInput
     {...props}
     keyboardType={keyboardType}
-    value={display}
-    selection={selection && {
-      start: Math.min(selection.start, display.length),
-      end: Math.min(selection.end, display.length),
-    }}
-    onSelectionChange={event => {
-      cursor.current = event.nativeEvent.selection;
-      setSelection(event.nativeEvent.selection);
-      onSelectionChange?.(event);
-    }}
-    onChangeText={text => {
-      const edit = moneyInputEdit(display, text, cursor.current);
-      cursor.current = edit.selection;
-      setSelection(edit.selection);
-      onChangeText(edit.value);
-    }}
+    editable={editable}
+    value={focused && editable !== false ? value : formatMoneyInput(value)}
+    onFocus={event => { setFocused(true); onFocus?.(event); }}
+    onBlur={event => { setFocused(false); onBlur?.(event); }}
+    onChangeText={text => onChangeText(text.replace(/,/g, ''))}
   />;
 }

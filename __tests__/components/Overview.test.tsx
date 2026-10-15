@@ -1,17 +1,20 @@
 import { act,fireEvent, render, screen } from '@testing-library/react-native';
 import {defaultProfile,usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import OverviewScreen from '../../app/(tabs)/index';
-jest.mock('../../src/components/TotalCash',()=>({TotalCash:()=>null}));
+jest.mock('../../src/components/OverviewAccounts',()=>({OverviewAccounts:()=>null}));
+jest.mock('../../src/components/OverviewHighlights',()=>({OverviewHighlights:()=>null}));
 const mockPush = jest.fn();
+const mockLimit=jest.fn();
+let mockMonth='2026-07-01';
 const mockDashboard = { data: { complete: true, today: '2026-07-10', month: '2026-07-01', limitCents: 200000, allocatedCents: 120000, incomeCents: 250000, expenseCents: 138000, spentToDateCents: 138000, futureRecordedCents: 0, discretionaryToDateCents: 10000, futureDiscretionaryCents: 0, reservedCents: 0, bills: [], legacyDuplicates: 0, categoryTotals: [{ id: 'cat-1', spent: 18000 }, { id: 'cat-2', spent: 120000 }] }, isPending: false, isError: false, refetch: jest.fn() };
 const mockCategories = { data: [{id:'cat-1',name:'Groceries',color:'#55816A'},{id:'cat-2',name:'Rent',color:'#61889A'}], isPending:false,isError:false,refetch:jest.fn() };
 jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>mockCategories}));
 jest.mock('../../src/hooks/useBudgets',()=>({useBudgets:()=>({data:[{category_id:'cat-1',amount:200},{category_id:'cat-2',amount:1000}],isPending:false,isError:false,refetch:jest.fn()})}));
-jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>mockDashboard,useSetMonthlyLimit:()=>({mutate:jest.fn()})}));
-jest.mock('../../src/stores/useUiStore',()=>({useUiStore:(s:any)=>s({selectedMonth:'2026-07-01'})}));
+jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>mockDashboard,useSetMonthlyLimit:()=>({mutate:mockLimit})}));
+jest.mock('../../src/stores/useUiStore',()=>({useUiStore:(s:any)=>s({selectedMonth:mockMonth})}));
 jest.mock('../../src/components/UpcomingBillsBell',()=>({UpcomingBillsBell:()=>null}));
 jest.mock('expo-router',()=>({useRouter:()=>({push:mockPush})}));
-beforeEach(()=>{mockPush.mockClear();mockCategories.isError=false;mockDashboard.isPending=false;mockDashboard.isError=false;});
+beforeEach(()=>{mockMonth='2026-07-01';mockLimit.mockReset();mockPush.mockClear();mockCategories.isError=false;mockDashboard.isPending=false;mockDashboard.isError=false;});
 afterEach(()=>act(()=>usePreferencesStore.getState().setProfile(null)));
 test('all overview totals react to saved PHP without a dashboard refetch',()=>{
  act(()=>usePreferencesStore.getState().setProfile(defaultProfile('owner')));
@@ -74,4 +77,12 @@ test('groups multiple overages, then keeps individual navigation and dismissal',
  fireEvent.press(screen.getByLabelText('View Rent budget'));
  expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({params:expect.objectContaining({categoryId:'cat-2'})}));
  mockDashboard.data.categoryTotals=previous;
+});
+
+test('fresh dashboard retry recovers a saved month after leaving its failed-refresh editor',async()=>{
+ act(()=>usePreferencesStore.getState().setProfile(defaultProfile('owner')));mockDashboard.refetch.mockResolvedValue({isError:true,data:mockDashboard.data});
+ const view=render(<OverviewScreen/>);fireEvent.press(screen.getByLabelText('Edit monthly budget'));fireEvent.press(screen.getByText('Save budget'));await act(async()=>mockLimit.mock.calls[0][1].onSuccess());
+ expect(screen.getByText('Retry refresh')).toBeTruthy();mockMonth='2026-08-01';view.rerender(<OverviewScreen/>);mockMonth='2026-07-01';view.rerender(<OverviewScreen/>);
+ expect(screen.queryByText('Safe to spend')).toBeNull();mockDashboard.refetch.mockResolvedValue({isError:false,data:mockDashboard.data});await act(async()=>fireEvent.press(screen.getByText('Try again')));
+ expect(screen.getByText('Safe to spend')).toBeTruthy();expect(screen.getByLabelText('Edit monthly budget')).toBeTruthy();expect(mockLimit).toHaveBeenCalledTimes(1);
 });

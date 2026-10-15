@@ -1,14 +1,15 @@
 import {useEffect,useRef,useState} from 'react';
 import {Text,TextInput,View} from 'react-native';
-import {usePaymentMethods,useSavePaymentMethod} from '../hooks/usePaymentMethods';
+import {usePaymentMethods} from '../hooks/usePaymentMethods';
 import {useTransferCommand,transferStatus} from '../hooks/useTransferEntry';
+import {useScreenActive} from '../hooks/useScreenActive';
+import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {useFormStyles} from '../styles/forms';
-import {useColors} from '../styles/theme';
 import {useMoneyCents} from '../domain/money';
 import {createRequestId} from '../domain/ocr';
 import {localDateKey} from '../domain/transactionDates';
-import {paymentMethodLabel,type PaymentMethod,type PaymentTransfer} from '../domain/paymentMethods';
+import {type PaymentMethod,type PaymentTransfer} from '../domain/paymentMethods';
 import {transferAmounts,transferEnteredAmount} from '../domain/transferFees';
 import type {TransferCommand,TransferFields} from '../domain/transferEntry';
 import type {TransferDraft} from '../domain/transferDraft';
@@ -17,20 +18,25 @@ import {centsToDecimal,isCalendarDate} from '../../supabase/functions/ocr/shared
 import {MotionPressable} from './MotionPressable';
 import {MoneyInput} from './MoneyInput';
 import {TransactionDateField} from './TransactionDateField';
-import {PaymentMethodForm} from './PaymentMethodForm';
+import {TransferMethodCreation,type AccountChoice} from './TransferMethodCreation';
+import {TransferAccountAutocomplete} from './TransferAccountAutocomplete';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from './TransactionAttachments';
 
 interface Props {defaultCash?:boolean;entryContext?:{startedAt:string;day:string;timezone:string;currency:string};id?:string;initial?:PaymentTransfer;initialFields?:Partial<TransferFields>;restored?:TransferDraft;methods:PaymentMethod[];active?:boolean;persist?:boolean;proof?:ReturnType<typeof useProofDraft>;onClose:()=>void;onSaved?:()=>void;onBusyChange?:(busy:boolean)=>void;onUncertainChange?:(busy:boolean)=>void}
-export function TransferEntryForm({id:entryId,initial,initialFields,restored,methods:initialMethods,defaultCash=false,active=true,persist=false,proof:externalProof,entryContext,onClose,onSaved,onBusyChange,onUncertainChange}:Props){
- const profile=usePreferencesStore(s=>s.profile),[owner]=useState(()=>profile?.user_id),form=useFormStyles(),colors=useColors(),money=useMoneyCents();
- const query=usePaymentMethods(),save=useTransferCommand(),create=useSavePaymentMethod(),localProof=useProofDraft(),proof=externalProof??localProof;
+export function TransferEntryForm({id:entryId,initial,initialFields,restored,methods:initialMethods,defaultCash=false,active:activeProp=true,persist=false,proof:externalProof,entryContext,onClose,onSaved,onBusyChange,onUncertainChange}:Props){
+ const active=useScreenActive()&&activeProp;
+ const profile=usePreferencesStore(s=>s.profile),[owner]=useState(()=>profile?.user_id),form=useFormStyles(),money=useMoneyCents();
+ const query=usePaymentMethods(),save=useTransferCommand(),localProof=useProofDraft(),proof=externalProof??localProof;
  const methods=query.methods??initialMethods;
  const [id]=useState(()=>initial?.id??restored?.id??entryId??createRequestId());
  const [context]=useState(()=>({startedAt:restored?.startedAt??entryContext?.startedAt??new Date().toISOString(),day:restored?.day??entryContext?.day??localDateKey(new Date(),profile?.timezone),timezone:restored?.timezone??entryContext?.timezone??profile?.timezone??'UTC',currency:restored?.currency??entryContext?.currency??profile?.currency??'USD'}));
  const [generation]=useState(()=>owner?transactionDraftGeneration(owner):0);
  const [fields,setFields]=useState<TransferFields>(()=>restored?.fields??{sourceId:initial?.source_id??'',destinationId:initial?.destination_id??'',amount:initial?transferEnteredAmount(initial.amount,initial.fee_amount,initial.fee_mode):'',fee:initial?.fee_amount??'',feeMode:initial?.fee_mode??'added',date:initial?.transfer_date??context.day,note:initial?.note??'',reviewRequired:false,...initialFields});
  const [pending,setPending]=useState<TransferCommand|null>(restored?.pending??null),[error,setError]=useState(''),[preparing,setPreparing]=useState(false),[deleting,setDeleting]=useState(false),[financialSaved,setFinancialSaved]=useState(false);
- const [chooser,setChooser]=useState<'sourceId'|'destinationId'|null>(null),[search,setSearch]=useState(''),[creating,setCreating]=useState(false);
+ const [accountUi,setAccountUi]=useState<{mode:'closed'}|{mode:'search';target:'sourceId'|'destinationId'}|{mode:'create';target:'sourceId'|'destinationId'}>({mode:'closed'});
+ const [creationTarget,setCreationTarget]=useState<'sourceId'|'destinationId'|null>(null);
+ const [createdChoices,setCreatedChoices]=useState<AccountChoice[]>([]);
+ const creating=accountUi.mode==='create';
  const [current,setCurrent]=useState<PaymentTransfer|null>(null);
  const [version,setVersion]=useState(initial?.version);
  const [recoveryStarted,setRecoveryStarted]=useState(persist||!!restored);
@@ -39,8 +45,9 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
  if(defaultCash&&!cashApplied&&cash){if(!fields.destinationId)setFields({...fields,destinationId:cash.id});setCashApplied(true);}
  const alive=useRef(true),running=useRef(false),lastDraft=useRef('');
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- const busy=preparing||save.isPending||proof.busy||create.isPending,locked=busy||!!pending||financialSaved;
- useEffect(()=>{onBusyChange?.(busy||!!pending);onUncertainChange?.(busy||!!pending||financialSaved);},[busy,pending,financialSaved,onBusyChange,onUncertainChange]);
+ const busy=preparing||save.isPending||proof.busy,locked=busy||!!pending||financialSaved||creating;
+ useUpdateBlocker(busy||!!pending&&!financialSaved);
+ useEffect(()=>{onBusyChange?.(busy||!!pending||creating);onUncertainChange?.(busy||!!pending||financialSaved||creating);},[busy,pending,financialSaved,creating,onBusyChange,onUncertainChange]);
  useEffect(()=>()=>{onBusyChange?.(false);onUncertainChange?.(false);},[onBusyChange,onUncertainChange]);
  const totals=transferAmounts(fields.amount,fields.fee,fields.feeMode);
  const validOwner=()=>!!owner&&usePreferencesStore.getState().profile?.user_id===owner;
@@ -90,9 +97,6 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   finally{running.current=false;if(alive.current)setPreparing(false);}
  }
  if(financialSaved&&proof.savedId)return <AttachmentRetry draft={proof} onDone={onClose}/>;
- const selected=chooser?methods.find(m=>m.id===fields[chooser]):null;
- const other=chooser==='sourceId'?fields.destinationId:fields.sourceId;
- const choices=methods.filter(m=>(!m.archived||m.id===selected?.id)&&m.id!==other&&paymentMethodLabel(m).toLowerCase().includes(search.trim().toLowerCase()));
  return <View style={{gap:12}}>
   {restored&&<Text style={form.subtitle}>Recovered transfer · {context.currency} · {fields.date}. Review accounts and amounts before saving.</Text>}
   <Text style={form.subtitle}>Move money between your accounts. Only fees count as spending.</Text>
@@ -102,8 +106,14 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   {!query.transferEntrySupported&&!query.isPending&&!query.isError&&<Text style={form.error}>Refresh after the server update to enable transfers.</Text>}
   {pending&&!financialSaved&&<View style={{gap:12}}><Text style={form.subtitle}>Save request retained. Your fields are locked until the outcome is confirmed.</Text><MotionPressable disabled={busy} style={form.button} onPress={()=>void send(pending)}><Text style={form.buttonText}>Retry same save</Text></MotionPressable><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>void check()}><Text style={form.chipTextSelected}>Check whether it saved</Text></MotionPressable></View>}
   {current&&<View><Text style={form.subtitle}>Saved: {current.transfer_date} · {money(Math.round(Number(current.amount)*100))} received · {current.note??''}</Text><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>{setFields({sourceId:current.source_id,destinationId:current.destination_id,amount:transferEnteredAmount(current.amount,current.fee_amount,current.fee_mode),fee:current.fee_amount??'',feeMode:current.fee_mode??'added',date:current.transfer_date,note:current.note??'',reviewRequired:false});setVersion(current.version);setCurrent(null);setPending(null);setError('Saved values loaded. Review before saving.');}}><Text style={form.chipTextSelected}>Use saved values</Text></MotionPressable></View>}
-  {(['sourceId','destinationId'] as const).map((key)=><View key={key}><Text style={form.label}>{key==='sourceId'?'From account':'To account'}</Text><MotionPressable accessibilityLabel={key==='sourceId'?'Choose from account':'Choose to account'} disabled={locked} style={form.chip} onPress={()=>{setChooser(chooser===key?null:key);setSearch('');setCreating(false);}}><Text style={form.chipText}>{methods.find(m=>m.id===fields[key])?paymentMethodLabel(methods.find(m=>m.id===fields[key])!):fields[key]?'Saved account':'Choose an account'}</Text></MotionPressable></View>)}
-  {chooser&&<View style={{gap:8}}>{creating?<PaymentMethodForm submitting={create.isPending} error={create.error?.message} onCancel={()=>setCreating(false)} onSave={values=>create.mutate({...values,operation:'create'},{onSuccess:method=>{if(validOwner()){change(chooser,method.id);setCreating(false);setChooser(null);}}})}/>:<><TextInput accessibilityLabel="Search transfer accounts" style={form.input} value={search} onChangeText={setSearch} placeholder="Search accounts" placeholderTextColor={colors.subtle}/>{choices.map(m=><MotionPressable key={m.id} disabled={locked||m.archived&&m.id!==fields[chooser]} style={form.chip} onPress={()=>{change(chooser,m.id);setChooser(null);}}><Text style={form.chipText}>{paymentMethodLabel(m)}{m.archived?' · Archived':''}</Text></MotionPressable>)}{choices.length===0&&<Text style={form.subtitle}>No matching accounts.</Text>}<MotionPressable disabled={locked} style={form.secondaryButton} onPress={()=>setCreating(true)}><Text style={form.chipTextSelected}>Add payment method</Text></MotionPressable></>}</View>}
+  {(['sourceId','destinationId'] as const).map(key=><View key={key}>
+   <TransferAccountAutocomplete label={key==='sourceId'?'From account':'To account'} value={fields[key]} excludedId={key==='sourceId'?fields.destinationId:fields.sourceId}
+    methods={[...methods,...createdChoices.filter(m=>!methods.some(current=>current.id===m.id))]} disabled={locked||!active} open={accountUi.mode==='search'&&accountUi.target===key}
+    onOpen={()=>{if(active&&!locked)setAccountUi({mode:'search',target:key});}}
+    onClose={()=>setAccountUi(current=>current.mode==='search'&&current.target===key?{mode:'closed'}:current)} onChange={value=>change(key,value)}
+    onCreate={()=>{if(active&&!locked&&validOwner()){setCreationTarget(previous=>previous??key);setAccountUi({mode:'create',target:key});}}}/></View>)}
+  {creationTarget&&owner&&<TransferMethodCreation owner={owner} active={active&&validOwner()} open={creating} onClose={reset=>{setAccountUi({mode:'closed'});if(reset)setCreationTarget(null);}}
+   onCreated={method=>{if(alive.current&&validOwner()&&active){setCreatedChoices(previous=>[...previous.filter(m=>m.id!==method.id),method]);setFields(previous=>({...previous,[creationTarget]:method.id}));}}}/>}
   {fields.reviewRequired&&<View><Text style={form.error}>The scan amounts or completion status need review. Clear them before entering this transfer manually.</Text><MotionPressable disabled={locked} style={form.secondaryButton} onPress={()=>setFields(f=>({...f,amount:'',fee:'',reviewRequired:false}))}><Text style={form.chipTextSelected}>Clear scan amounts and enter manually</Text></MotionPressable></View>}
   <Text style={form.label}>Transfer amount</Text><MoneyInput accessibilityLabel="Transfer amount" style={form.input} editable={!locked} value={fields.amount} onChangeText={v=>change('amount',v)} keyboardType="decimal-pad" placeholder="0.00"/>
   <Text style={form.label}>Fee (optional)</Text><MoneyInput accessibilityLabel="Transfer fee" style={form.input} editable={!locked} value={fields.fee} onChangeText={v=>change('fee',v)} keyboardType="decimal-pad" placeholder="0.00"/>
@@ -115,7 +125,7 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   {initial&&<SavedAttachments transferId={id}/>}
   {!pending&&!financialSaved&&<MotionPressable disabled={locked||!query.transferEntrySupported} style={form.button} onPress={()=>submit(initial?'update':'create')}><Text style={form.buttonText}>{busy?'Saving…':initial?'Save transfer changes':'Record transfer'}</Text></MotionPressable>}
   {financialSaved&&<MotionPressable disabled={busy} style={form.button} onPress={()=>void finish('saved')}><Text style={form.buttonText}>Finish saved transfer</Text></MotionPressable>}
-  <MotionPressable disabled={busy} style={form.secondaryButton} onPress={onClose}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
+  <MotionPressable disabled={busy||creating} style={form.secondaryButton} onPress={onClose}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
   {initial&&!pending&&!financialSaved&&<MotionPressable disabled={locked} style={form.secondaryButton} onPress={()=>setDeleting(!deleting)}><Text style={form.secondaryText}>Delete transfer</Text></MotionPressable>}
   {deleting&&!pending&&<View><Text style={form.subtitle}>Delete this transfer and its fee expense? Both tracked balances will be recalculated.</Text><MotionPressable disabled={locked} style={form.button} onPress={()=>submit('delete')}><Text style={form.buttonText}>Confirm delete transfer</Text></MotionPressable></View>}
  </View>;

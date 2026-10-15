@@ -1,5 +1,5 @@
 import {TransferEntryForm as TransferForm} from '../../src/components/TransferEntryForm';
-import {fireEvent,render,screen,waitFor} from '@testing-library/react-native';
+import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 jest.mock('../../src/hooks/useReports',()=>({useReportTransactions:()=>({data:[],isPending:false,isError:false}),useReportTransfers:()=>({data:[],isPending:false,isError:false})}));
 jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>({data:[],isPending:false,isError:false})}));
 import {PaymentMethodForm} from '../../src/components/PaymentMethodForm';
@@ -7,6 +7,7 @@ import {PaymentMethodPicker,PaymentMethodsSettings} from '../../src/components/P
 import {TransactionForm} from '../../src/components/TransactionForm';
 import {BalanceCorrectionForm} from '../../src/components/PaymentActivityForms';
 import {CARD_PRIVACY_NOTE,type PaymentMethod} from '../../src/domain/paymentMethods';
+const mockSaveAsync=jest.fn();
 const mockSave=jest.fn();const mockRefetch=jest.fn();const mockCorrect=jest.fn();
 const mockTransfer=jest.fn();
 const mockLoadDraft=jest.fn();
@@ -14,11 +15,11 @@ const mockSaveDraft=jest.fn();
 jest.mock('../../src/lib/transactionDraftStorage',()=>({loadTransactionDraft:()=>mockLoadDraft(),saveTransactionDraft:(...args:unknown[])=>mockSaveDraft(...args),clearTransactionDraft:async()=>{},transactionDraftGeneration:()=>0}));
 jest.mock('../../src/hooks/useTransferEntry',()=>({useTransferCommand:()=>({mutateAsync:mockTransfer,isPending:false}),useTransferEntry:()=>({isPending:false,isSuccess:false})}));
 jest.mock('../../src/components/TransactionAttachments',()=>({useProofDraft:()=>({busy:false,savedId:null,upload:async()=>true}),ProofPicker:()=>null,AttachmentRetry:()=>null,SavedAttachments:()=>null}));
-let mockQuery:any;let mockPending=false;
-jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>mockQuery,useSavePaymentMethod:()=>({mutate:mockSave,isPending:mockPending,reset:jest.fn()}),useSavePaymentTransfer:()=>({mutate:mockTransfer,isPending:false}),useCorrectMethodBalance:()=>({mutate:mockCorrect,isPending:false})}));
-jest.mock('../../src/stores/usePreferencesStore',()=>({activeTimezone:()=> 'Asia/Manila',usePreferencesStore:Object.assign((selector:any)=>selector({profile:{user_id:'owner',timezone:'Asia/Manila'}}),{getState:()=>({profile:{user_id:'owner',timezone:'Asia/Manila'}})})}));
+let mockQuery:any;let mockPending=false;let mockOwner='owner';
+jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>mockQuery,useSavePaymentMethod:()=>({mutate:mockSave,mutateAsync:mockSaveAsync,isPending:mockPending,reset:jest.fn()}),useSavePaymentTransfer:()=>({mutate:mockTransfer,isPending:false}),useCorrectMethodBalance:()=>({mutate:mockCorrect,isPending:false})}));
+jest.mock('../../src/stores/usePreferencesStore',()=>({activeTimezone:()=> 'Asia/Manila',usePreferencesStore:Object.assign((selector:any)=>selector({profile:{user_id:mockOwner,timezone:'Asia/Manila'}}),{getState:()=>({profile:{user_id:mockOwner,timezone:'Asia/Manila'}})})}));
 const card:PaymentMethod={id:'card-1',user_id:'owner',method:'card',payment_type:'Debit card',name:'Metrobank',last_four:'8035',opening_balance:'40300.50',baseline_at:'2026-10-08T00:00:00Z',archived:false,balance:'40200.50',has_activity:true,related_bills:[]};
-beforeEach(()=>{mockQuery={transferEntrySupported:true,methods:[card],isPending:false,isError:false,refetch:mockRefetch};mockPending=false;jest.clearAllMocks();mockLoadDraft.mockResolvedValue(null);mockSaveDraft.mockResolvedValue(undefined);mockTransfer.mockRejectedValue(new Error('Synthetic retry'));});
+beforeEach(()=>{mockOwner='owner';mockQuery={transferEntrySupported:true,methods:[card],isPending:false,isError:false,refetch:mockRefetch};mockPending=false;jest.clearAllMocks();mockRefetch.mockResolvedValue({isError:false,data:{owner:"owner"}});mockSaveAsync.mockResolvedValue({...card,id:"new-method",name:"New bank"});mockLoadDraft.mockResolvedValue(null);mockSaveDraft.mockResolvedValue(undefined);mockTransfer.mockRejectedValue(new Error('Synthetic retry'));});
 function fill(balance='40300.50'){fireEvent.changeText(screen.getByLabelText('Payment method name'),'Metrobank');fireEvent.changeText(screen.getByLabelText('Initial balance'),balance);}
 
 test('bank types use pills and preserve an existing generic bank type until changed',()=>{
@@ -90,7 +91,7 @@ test('starts transfers from method details with that method selected and saves u
  fireEvent.press(screen.getByLabelText('Edit payment method Metrobank'));
  fireEvent.press(screen.getByLabelText('Transfer between payment methods'));
  expect(screen.getByLabelText('Transfer amount')).toBeTruthy();
- fireEvent.press(screen.getByText('Choose an account'));fireEvent.press(screen.getByText('Cash · Cash'));
+ fireEvent(screen.getByLabelText('To account'),'focus');fireEvent.press(screen.getByText('Cash · Cash'));
  fireEvent.changeText(screen.getByLabelText('Transfer amount'),'1,000.50');
  fireEvent.press(screen.getByText('Record transfer'));
  await waitFor(()=>expect(mockTransfer).toHaveBeenCalledWith(expect.objectContaining({sourceId:card.id,destinationId:cash.id,amount:'1000.50'})));
@@ -103,4 +104,45 @@ test('Settings transfer keeps another unfinished draft and sends no financial re
  fireEvent.press(screen.getByText('Record transfer'));
  await screen.findByText('Another unfinished entry is saved. Resume or discard it in Add Transaction first.');
  expect(mockTransfer).not.toHaveBeenCalled();expect(mockSaveDraft).not.toHaveBeenCalled();
+});
+
+for(const label of ['From account','To account'])test('late blur cannot hide creation for '+label+'; cancel restores both fields',()=>{
+ render(<TransferForm methods={[card]} onClose={jest.fn()}/>);
+ fireEvent.changeText(screen.getByLabelText('Transfer amount'),'1200');fireEvent.changeText(screen.getByLabelText('Transfer note'),'Keep draft');
+ const input=screen.getByLabelText(label);fireEvent(input,'focus');fireEvent.press(screen.getByText('Add payment method'));fireEvent(input,'blur');
+ expect(screen.getByLabelText('Payment method name')).toBeTruthy();fireEvent.press(screen.getByLabelText('Close Add payment method'));
+ expect(screen.getByLabelText('From account').props.editable).toBe(true);expect(screen.getByLabelText('To account').props.editable).toBe(true);
+ expect(screen.getByLabelText('Transfer amount').props.value).toBe('1,200');expect(screen.getByLabelText('Transfer note').props.value).toBe('Keep draft');
+ fireEvent(screen.getByLabelText(label),'focus');expect(screen.getByText('Add payment method')).toBeTruthy();
+});
+test('lost method response retries the exact UUID/payload and retains its label until refresh',async()=>{
+ mockSaveAsync.mockRejectedValueOnce(new Error('timeout'));mockRefetch.mockResolvedValueOnce({isError:true});
+ render(<TransferForm methods={[card]} onClose={jest.fn()}/>);fireEvent(screen.getByLabelText('To account'),'focus');fireEvent.press(screen.getByText('Add payment method'));fill('1000');fireEvent.press(screen.getByText('Create payment method'));
+ await waitFor(()=>expect(screen.getByText('Retry same payment method')).toBeTruthy());const first=mockSaveAsync.mock.calls[0][0];fireEvent.press(screen.getByText('Retry same payment method'));
+ await waitFor(()=>expect(screen.getByText('Retry refreshing accounts')).toBeTruthy());expect(mockSaveAsync.mock.calls[1][0]).toEqual(first);
+ fireEvent.press(screen.getByText('Retry refreshing accounts'));await waitFor(()=>expect(screen.getByLabelText('To account').props.value).toBe('New bank'));expect(mockSaveAsync).toHaveBeenCalledTimes(2);expect(screen.getByLabelText('From account').props.value).toBe('');
+});
+test('Settings transfer reuses its one native modal while creating an account',()=>{
+ const {Modal}=require('react-native');const view=render(<PaymentMethodsSettings/>);fireEvent.press(screen.getByLabelText('Edit payment method Metrobank'));fireEvent.press(screen.getByLabelText('Transfer between payment methods'));
+ fireEvent(screen.getByLabelText('To account'),'focus');fireEvent.press(screen.getByText('Add payment method'));expect(screen.getByLabelText('Payment method name')).toBeTruthy();expect(view.UNSAFE_getAllByType(Modal)).toHaveLength(1);
+ fireEvent.press(screen.getByText('Cancel'));expect(screen.getByLabelText('To account').props.editable).toBe(true);
+});
+
+test('method creation ignores a late response after leaving the active visit',async()=>{
+ let resolve!:(method:PaymentMethod)=>void;mockSaveAsync.mockImplementationOnce(()=>new Promise<PaymentMethod>(done=>{resolve=done;}));
+ const view=render(<TransferForm active methods={[card]} onClose={jest.fn()}/>);fireEvent(screen.getByLabelText('From account'),'focus');fireEvent.press(screen.getByText('Add payment method'));fill('1000');fireEvent.press(screen.getByText('Create payment method'));
+ view.rerender(<TransferForm active={false} methods={[card]} onClose={jest.fn()}/>);
+ await act(async()=>resolve({...card,id:'late',name:'Late account'}));expect(mockRefetch).not.toHaveBeenCalled();expect(screen.getByLabelText('From account').props.value).toBe('');expect(screen.queryByLabelText('Payment method name')).toBeNull();
+});
+test('method creation cannot select a late result for a different owner',async()=>{
+ let resolve!:(method:PaymentMethod)=>void;mockSaveAsync.mockImplementationOnce(()=>new Promise<PaymentMethod>(done=>{resolve=done;}));
+ render(<TransferForm methods={[card]} onClose={jest.fn()}/>);fireEvent(screen.getByLabelText('To account'),'focus');fireEvent.press(screen.getByText('Add payment method'));fill('1000');fireEvent.press(screen.getByText('Create payment method'));mockOwner='other';
+ await act(async()=>resolve({...card,id:'late',name:'Late account'}));expect(mockRefetch).not.toHaveBeenCalled();expect(screen.getByLabelText('To account').props.value).toBe('');
+});
+
+test('a definite method rejection restores the same editable draft',async()=>{
+ mockSaveAsync.mockRejectedValueOnce(Object.assign(new Error('Choose another name'),{rejected:true}));
+ render(<TransferForm methods={[card]} onClose={jest.fn()}/>);fireEvent(screen.getByLabelText('From account'),'focus');fireEvent.press(screen.getByText('Add payment method'));fill('1000');fireEvent.press(screen.getByText('Create payment method'));
+ await waitFor(()=>expect(screen.getByText('Choose another name')).toBeTruthy());expect(screen.getByLabelText('Payment method name').props.value).toBe('Metrobank');expect(screen.getByLabelText('Initial balance').props.value).toBe('1,000');
+ const first=mockSaveAsync.mock.calls[0][0];fireEvent.changeText(screen.getByLabelText('Payment method name'),'Accepted name');fireEvent.press(screen.getByText('Create payment method'));await waitFor(()=>expect(mockSaveAsync).toHaveBeenCalledTimes(2));expect(mockSaveAsync.mock.calls[1][0]).toEqual({...first,name:'Accepted name'});
 });

@@ -16,6 +16,7 @@ import { createThemedStyles, type } from "../styles/theme";
 import { createRequestId } from "../domain/ocr";
 import { MotionPressable } from "./MotionPressable";
 import timezoneNames from "../domain/timezones.json";
+import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
 
 const AVATARS = "budget-tracker-avatars";
 export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' | 'preferences'} = {}) {
@@ -41,6 +42,7 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
   const [confirm, setConfirm] = useState("");
   const [nonce, setNonce] = useState("");
   const [nonceNeeded, setNonceNeeded] = useState(false);
+  useUpdateBlocker(nameDirty && name !== profile?.display_name || busy || !!currency || zoneOpen || passwordOpen);
   const avatar = useQuery({
     queryKey: ["avatar", profile?.user_id, profile?.avatar_path],
     enabled: !!profile?.avatar_path,

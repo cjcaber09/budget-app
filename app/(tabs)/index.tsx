@@ -1,5 +1,7 @@
+import {useFocusedFieldScroll} from '../../src/hooks/useFocusedFieldScroll';
 import { createRequestId } from '../../src/domain/ocr';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gesture-handler';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import { useMoneyCents } from '../../src/domain/money';
 import { View, ScrollView, Text } from 'react-native';
@@ -19,10 +21,13 @@ import { createThemedStyles, type, useColors } from '../../src/styles/theme';
 import { useDashboard } from '../../src/hooks/useDashboard';
 import { SpendingGuidance } from '../../src/components/SpendingGuidance';
 import { UpcomingBillsBell } from '../../src/components/UpcomingBillsBell';
-import {TotalCash} from '../../src/components/TotalCash';
+import {OverviewAccounts} from '../../src/components/OverviewAccounts';
+import {OverviewHighlights} from '../../src/components/OverviewHighlights';
+import {UpdateBanner} from '../../src/components/AppUpdates';
 
 export default function OverviewScreen() {
   const router = useRouter();
+  const scrollGesture=useMemo(()=>Gesture.Native(),[]);
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
   const colors = useColors();
@@ -34,6 +39,13 @@ export default function OverviewScreen() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const alertGroup = `${owner}:${selectedMonth}`;
   const dashboard=useDashboard(selectedMonth);
+  const scroll=useFocusedFieldScroll(true);
+  const [refreshGroup,setRefreshGroup]=useState<string|null>(null);
+  const needsRefresh=refreshGroup===alertGroup;
+  const retryDashboard=async()=>{
+    const result=await dashboard.refetch();
+    if(!result.isError&&result.data)setRefreshGroup(current=>current===alertGroup?null:current);
+  };
   const categoriesQuery = useCategories();
   const budgetsQuery = useBudgets(selectedMonth);
   const categories = categoriesQuery.data ?? [];
@@ -44,13 +56,14 @@ export default function OverviewScreen() {
   const income = dashboard.data?.incomeCents ?? 0;
   const expenses = dashboard.data?.expenseCents ?? 0;
   const loading = dashboard.isPending;
-  const error = dashboard.isError;
-  const alerts = !dashboard.isPending && !dashboard.isError ? rows.filter(row => row.status.spent > row.status.budgeted && !dismissed[`${alertGroup}:${row.category.id}`]) : [];
-  return <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
+  const error = dashboard.isError||needsRefresh;
+  const alerts = !dashboard.isPending && !error ? rows.filter(row => row.status.spent > row.status.budgeted && !dismissed[`${alertGroup}:${row.category.id}`]) : [];
+  return <GestureHandlerRootView style={{flex:1}}><GestureDetector gesture={scrollGesture}><ScrollView {...scroll} automaticallyAdjustKeyboardInsets={false} style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
     <View style={pageLayout.workspace}>
       <ScreenHeading title="Overview" action={<UpcomingBillsBell query={dashboard}/>} />
+      <UpdateBanner/>
+      <OverviewAccounts scrollGesture={scrollGesture}/>
       <View style={styles.monthPicker}><MonthPicker /></View>
-      <TotalCash/>
       <QueryState loading={categoriesQuery.isPending || budgetsQuery.isPending} error={categoriesQuery.isError || budgetsQuery.isError} retry={() => { void categoriesQuery.refetch(); void budgetsQuery.refetch(); }}>
         <View style={{gap:8}}>
         {alerts.length > 1 && <MotionPressable accessibilityLabel="Over-budget categories" accessibilityState={{expanded:!!expanded[alertGroup]}} style={styles.alertSummary} onPress={() => setExpanded(current => ({...current,[alertGroup]:!current[alertGroup]}))}>
@@ -65,8 +78,8 @@ export default function OverviewScreen() {
         })}
         </View>
       </QueryState>
-      <QueryState loading={loading} error={error} retry={() => { void dashboard.refetch(); }}>
-        {dashboard.data&&<SpendingGuidance key={selectedMonth} snapshot={dashboard.data}/>}
+      <SpendingGuidance key={alertGroup} month={selectedMonth} snapshot={dashboard.data} available={!loading&&!error} onRefreshRequired={required=>setRefreshGroup(required?alertGroup:null)} refresh={async()=>{const result=await dashboard.refetch();if(result.isError||!result.data)throw new Error('Refresh failed');}}/>
+      <QueryState loading={loading} error={error} retry={() => { void retryDashboard(); }}>
         <View style={[styles.summary, compact && styles.compactSummary]}>
           <View style={styles.summaryCell}>
             <View style={styles.summaryLabelRow}><ArrowDownLeft size={17} color={colors.success} /><Text style={styles.label}>Income</Text></View>
@@ -85,8 +98,9 @@ export default function OverviewScreen() {
       </QueryState>
 
       <MotionPressable style={styles.reportLink} onPress={() => router.push('/reports')}><Text style={styles.actionLabel}>View reports</Text><ChevronRight size={16} color={colors.primary} /></MotionPressable>
+      <OverviewHighlights month={selectedMonth}/>
     </View>
-  </ScrollView>;
+  </ScrollView></GestureDetector></GestureHandlerRootView>;
 }
 const useStyles = createThemedStyles(colors => ({
   alertSummary: {minHeight:48,flexDirection:'row',alignItems:'center',gap:10,padding:12,backgroundColor:colors.warningBg,borderRadius:8},

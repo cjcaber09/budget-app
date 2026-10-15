@@ -12,6 +12,7 @@ import {
   ChevronDown,
   UserRound, Settings2, Wallet, Bell, Tags,
   CircleHelp,
+  Download,
 } from "lucide-react-native";
 import { useCategories } from "../../src/hooks/useCategories";
 import { useRecurringRules } from "../../src/hooks/useRecurringRules";
@@ -39,6 +40,7 @@ import {FinancialResetSettings} from '../../src/components/FinancialReset';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import {SettingsTabStrip} from '../../src/components/SettingsTabStrip';
 import {useHelpStore} from '../../src/stores/useHelpStore';
+import {AppUpdatesSettings,UpdateBanner} from '../../src/components/AppUpdates';
 
 const SETTINGS_TABS = [
   {id: 'organize', label: 'Categories & Bills', icon: Tags},
@@ -46,6 +48,7 @@ const SETTINGS_TABS = [
   {id: 'preferences', label: 'Preferences', icon: Settings2},
   {id: 'sources', label: 'Sources', icon: Wallet},
   {id: 'notifications', label: 'Notifications', icon: Bell},
+  {id: 'updates', label: 'App updates', icon: Download},
 ] as const;
 type SettingsTab = typeof SETTINGS_TABS[number]['id'];
 
@@ -65,13 +68,14 @@ function SettingsContent() {
   const recurringRules = useRecurringRules();
   const scans = useOcrScans();
   const { mutate: deleteScan } = useDeleteOcrScan();
-  const [tab, setTab] = useState<SettingsTab>(()=>section==='sources'?'sources':'organize');
-  const [visited, setVisited] = useState<SettingsTab[]>(()=>[section==='sources'?'sources':'organize']);
-  const request=section==='sources'?visit??'sources':null;
+  const requestedTab=section==='sources'||section==='updates'?section:null;
+  const [tab, setTab] = useState<SettingsTab>(()=>requestedTab??'organize');
+  const [visited, setVisited] = useState<SettingsTab[]>(()=>[requestedTab??'organize']);
+  const request=requestedTab?`${requestedTab}:${visit??requestedTab}`:null;
   const [handledRequest,setHandledRequest]=useState(request);
-  if(request!==null&&request!==handledRequest){setHandledRequest(request);setTab('sources');setVisited(current=>current.includes('sources')?current:[...current,'sources']);}
+  if(request!==null&&request!==handledRequest&&requestedTab){setHandledRequest(request);setTab(requestedTab);setVisited(current=>current.includes(requestedTab)?current:[...current,requestedTab]);}
   const content = useRef<ScrollView>(null);
-  useEffect(()=>{if(section==='sources')content.current?.scrollTo({y:0,animated:false});},[section,visit]);
+  useEffect(()=>{if(section==='sources'||section==='updates')content.current?.scrollTo({y:0,animated:false});},[section,visit]);
   function selectTab(next: SettingsTab) {
     setTab(next);
     setVisited(current => current.includes(next) ? current : [...current, next]);
@@ -93,6 +97,7 @@ function SettingsContent() {
               <LogOut size={17} color={colors.danger}/><Text style={styles.signOutText}>Logout</Text>
             </MotionPressable>
           }/>
+          {tab!=='updates'&&<UpdateBanner/>}
           <SettingsTabStrip tabs={SETTINGS_TABS} selected={tab} onSelect={selectTab}/>
         </View>
       </View>
@@ -102,6 +107,7 @@ function SettingsContent() {
       contentContainerStyle={[pageLayout.scrollContent, {paddingTop: 16}]}
     >
       <View style={pageLayout.workspace}>
+        {visited.includes('updates')&&<View style={[pageLayout.section,tab!=='updates'&&{display:'none'}]}><AppUpdatesSettings/></View>}
         {(visited.includes('profile') || visited.includes('preferences')) && <View style={tab === 'profile' || tab === 'preferences' ? undefined : {display: 'none'}}>
           <ProfileSettings section={tab === 'preferences' ? 'preferences' : 'profile'}/>
           <View style={tab === 'profile' ? undefined : {display: 'none'}}><FinancialResetSettings/><AccountDeletionSettings/></View>

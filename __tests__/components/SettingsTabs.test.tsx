@@ -24,6 +24,11 @@ it('defaults to categories, bills and scan history',()=>{
  expect(screen.queryByText('Income sources')).toBeNull();
  expect(screen.queryByText('Delete account')).toBeNull();
 });
+it('opens App updates without discarding an existing profile draft',()=>{
+ const view=render(<SettingsScreen/>);fireEvent.press(screen.getByRole('tab',{name:'Profile'}));fireEvent.changeText(screen.getByLabelText('Profile draft'),'Keep this profile');
+ mockParams={section:'updates',visit:'update-visit'};view.rerender(<SettingsScreen/>);expect(screen.getByRole('tab',{name:'App updates'}).props.accessibilityState.selected).toBe(true);
+ expect(screen.getByText('Updates are available in the installed phone app.')).toBeTruthy();fireEvent.press(screen.getByRole('tab',{name:'Profile'}));expect(screen.getByLabelText('Profile draft').props.value).toBe('Keep this profile');
+});
 it('opens Sources for a fresh Overview request without discarding mounted profile drafts',()=>{
  const view=render(<SettingsScreen/>);fireEvent.press(screen.getByRole('tab',{name:'Profile'}));fireEvent.changeText(screen.getByLabelText('Profile draft'),'Keep this');
  mockParams={section:'sources',visit:'cash-visit'};view.rerender(<SettingsScreen/>);expect(screen.getByRole('tab',{name:'Sources'}).props.accessibilityState.selected).toBe(true);
