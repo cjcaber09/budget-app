@@ -17,6 +17,13 @@ describe('receipt money', () => {
     expect(reconcileReceipt(receipt({ items: [{ name: 'Item', amount: 1 }], total: 1.01 })).matchesTotal).toBe(true);
     expect(reconcileReceipt(receipt({ items: [{ name: 'Item', amount: 1 }], total: 1.02 })).matchesTotal).toBe(false);
   });
+  it('preserves zero-valued scanned items and charges without changing the computed total', () => {
+    const result=reconcileReceipt(receipt({items:[{name:'Paid item',amount:10},{name:'Free item',amount:0,unitPrice:0,quantity:1}],fees:[{label:'No fee',amount:0}],total:10}));
+    expect(result.rows.map(row=>row.amountCents)).toEqual([1000,0,0]);
+    expect(result).toMatchObject({computedTotalCents:1000,totalCents:1000,matchesTotal:true,droppedRowCount:0});
+    expect(parseItemDrafts(result.rows.map(draftItem))).toMatchObject({rows:result.rows,error:null});
+    expect(validateCachedReceipt(result)?.rows).toEqual(result.rows);
+  });
   it('drops bad semantic rows, caps all groups together, and counts each reason', () => {
     const result = reconcileReceipt(receipt({ items: [{ name: ' ', amount: 1 }, { name: 'Bad', amount: -1 }, ...Array.from({ length: 100 }, () => ({ name: 'Good', amount: 1 }))], fees: [{ label: 'Fee', amount: 1 }] }));
     expect(result.rows).toHaveLength(100);

@@ -10,14 +10,16 @@ import { useMoneyCents } from '../domain/money';
 import { MotionPressable } from './MotionPressable';
 import { createThemedStyles, type, useColors } from '../styles/theme';
 
-export function CategoryBudgetReport({ categories, budgets, snapshot, month }: { categories: Category[]; budgets: Budget[]; snapshot: Pick<DashboardSnapshot,'categoryTotals'|'allocatedCents'>;month?:string }) {
+export function CategoryBudgetReport({ categories, budgets, snapshot, month, hideZeroValues=false }: { categories: Category[]; budgets: Budget[]; snapshot: Pick<DashboardSnapshot,'categoryTotals'|'allocatedCents'>;month?:string;hideZeroValues?:boolean }) {
   const styles = useStyles();
   const colors = useColors();
   const money = useMoneyCents();
   const router = useRouter();
+  const visible=hideZeroValues?categories.filter(c=>(snapshot.categoryTotals.find(t=>t.id===c.id)?.spent??0)!==0||Math.round((budgets.find(b=>b.category_id===c.id)?.amount??0)*100)!==0):categories;
   return <View>
     {!categories.length && <View style={styles.empty}><Text style={styles.caption}>Start with a category, then give it a monthly budget.</Text><MotionPressable style={styles.add} onPress={() => router.push({ pathname: '/category/new', params: { visit: createRequestId() } })}><Plus size={16} color={colors.primary}/><Text style={styles.action}>Add Category</Text></MotionPressable></View>}
-    <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={Platform.OS === 'web'} contentContainerStyle={styles.row}>{categories.map(category => {
+    {categories.length>0&&!visible.length&&<Text style={styles.caption}>No nonzero category amounts. Turn off Hide zero values to show all categories.</Text>}
+    <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={Platform.OS === 'web'} contentContainerStyle={styles.row}>{visible.map(category => {
       const budget = Math.round((budgets.find(b => b.category_id === category.id)?.amount ?? 0)*100);
       const spent = snapshot.categoryTotals.find(c => c.id === category.id)?.spent ?? 0;
       const status = computeBudgetStatus(budget, spent);

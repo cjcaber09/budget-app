@@ -7,7 +7,7 @@ import type {MonthlyTotal} from '../hooks/useMonthlyTotals';
 import {createThemedStyles,type,useColors} from '../styles/theme';
 export interface TrendValue extends MonthlyTotal {cents?:number;future?:boolean;end?:string}
 const label=(date:string,pattern:string)=>format(new Date(date+'T12:00:00'),pattern);
-export function MonthlyTrendChart({totals,currentMonth,kind='monthly'}:{totals:TrendValue[];currentMonth?:string;kind?:'monthly'|'daily'|'weekly'}) {
+export function MonthlyTrendChart({totals,currentMonth,kind='monthly',hideZeroValues=false}:{totals:TrendValue[];currentMonth?:string;kind?:'monthly'|'daily'|'weekly';hideZeroValues?:boolean}) {
  const s=useStyles(),colors=useColors(),money=useMoneyCents();const [width,setWidth]=useState(0);
  const maximum=Math.max(...totals.map(t=>t.total),1),minimum=Math.min(...totals.map(t=>t.total),0),height=170,range=maximum-minimum,baseline=158-(-minimum)/range*142;
  const points=totals.map((t,i)=>({x:12+i*Math.max(0,width-24)/Math.max(1,totals.length-1),y:158-(t.total-minimum)/range*142}));
@@ -17,6 +17,7 @@ export function MonthlyTrendChart({totals,currentMonth,kind='monthly'}:{totals:T
  const peak=totals.reduce<TrendValue>((a,b)=>a.total>b.total?a:b,{month:'',total:0,cents:0});
  const amount=(t:TrendValue)=>money(t.cents??Math.round(t.total*100));
  const step=Math.max(1,Math.ceil((totals.length-1)/5));
+ const visible=hideZeroValues?totals.filter(t=>(t.cents??Math.round(t.total*100))!==0):totals;
  return <View style={s.container}>
   {!!totals.length&&<Text style={s.caption}>{label(totals[0].month,pattern)} – {label(kind==='weekly'?totals[totals.length-1].end??totals[totals.length-1].month:totals[totals.length-1].month,pattern)}</Text>}
   {hasSpending?<View testID="spending-trend-plot" onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={s.plot} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -27,9 +28,10 @@ export function MonthlyTrendChart({totals,currentMonth,kind='monthly'}:{totals:T
    </Svg>}
    <View style={s.axis}>{totals.filter((_,i)=>i%step===0||i===totals.length-1).map(t=><Text key={t.month} style={s.axisLabel}>{label(t.month,kind==='monthly'?'MMM':'d')}</Text>)}</View>
   </View>:<Text style={s.empty}>No net expenses in this period.</Text>}
-  <View style={s.values}>{totals.map(t=><View key={t.month} style={s.row} accessible accessibilityLabel={label(t.month,pattern)+(t.end?' to '+label(t.end,'MMM d'):'')+': '+amount(t)+(t.future?', future-dated records':'')}>
+  <View style={s.values}>{visible.map(t=><View key={t.month} style={s.row} accessible accessibilityLabel={label(t.month,pattern)+(t.end?' to '+label(t.end,'MMM d'):'')+': '+amount(t)+(t.future?', future-dated records':'')}>
    <View style={s.month}><Text style={s.label}>{label(t.month,pattern)}{t.end?' – '+label(t.end,'MMM d'):''}</Text>{kind==='monthly'&&t.month===currentMonth&&<Text style={s.caption}>Current month—in progress</Text>}{t.future&&<Text style={s.caption}>Future-dated records</Text>}</View><Text style={s.amount}>{amount(t)}</Text>
   </View>)}</View>
+  {hideZeroValues&&visible.length<totals.length&&<Text style={s.caption}>Zero-value rows are hidden. The chart retains every period.</Text>}
   {minimum<0&&<Text style={s.caption}>Negative amounts mean refunds exceed spending.</Text>}
   <Text style={s.caption}>Net expenses after refunds, including future-dated entries. This is spending history, not a forecast.</Text>
  </View>;

@@ -156,6 +156,10 @@ Fields and option chips use 8px corners; primary buttons, month controls, and ic
 - **Sheet motion:** enter in 240ms and exit in 180ms, with a 32px translation and `cubic-bezier(0.32, 0.72, 0, 1)` easing. Reduced motion removes translation and sheet duration; the scrim retains its opacity timing. Navigator screens cross-fade over 180ms with ease-out cubic easing; Reduce Motion disables the transition. List rows have no entrance animation.
 - **QueryState and reports:** preserve distinct loading, empty, and retryable error copy. Reports retain labeled chart legends and readable category totals; chart widths follow available phone space.
 
+Reports includes an optional **Hide zero values** switch, off by default. The session choice is shared with report details and resets on account changes or app reload. Hide only rows whose relevant monetary amounts are all zero: keep nonzero budget allocations, refunds and comparison rows with activity in either period. Trend amount lists may omit zero rows while plotted periods and dates remain complete. Totals, percentages, exports and saved financial data use the complete snapshot. If filtering hides every row, explain how to show them again.
+
+Receipt item lists always hide completed, valid zero-value rows and count only visible rows. Keep unfinished or review-required rows reachable, along with all nonzero rows regardless of whether they affect the total. Hiding preserves the original rows and edit targets. At the 100-row limit, offer removal of hidden zero rows so another item can be added. The Reports switch does not control receipt item visibility.
+
 ## Do's and Don'ts
 
 Settings uses a horizontally scrollable tab strip with icons, text labels, a shared divider and an underline for selection. Categories & Bills opens by default and contains scan history. Profile, Preferences, Sources and Notifications separate the remaining controls. Logout stays in the fixed Settings header; account deletion belongs to Profile. Switching tabs preserves drafts and loaded history.
