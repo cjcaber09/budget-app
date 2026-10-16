@@ -29,6 +29,49 @@ it('applies a negative adjustment once', () => {
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0].items[1].amountCents).toBe(-200);
 });
+it('hides a free scanned item and blocks an entirely zero-valued transaction',()=>{
+  const free={...item,label:'Free item',amountCents:0,unitPriceCents:0};
+  const save=mount([free],0);
+  expect(screen.getByLabelText('Amount').props.value).toBe('0.00');
+  expect(screen.queryByText('Free item')).toBeNull();
+  expect(screen.getByText('0 rows')).toBeTruthy();
+  expect(screen.getByText('No nonzero items to show. Add an item to continue.')).toBeTruthy();
+  fireEvent.press(screen.getByText('Save'));
+  expect(save).not.toHaveBeenCalled();
+  expect(screen.getByText('Rows must add up to a positive amount within the supported range.')).toBeTruthy();
+});
+it('hides zero items and fees while retaining the correct edit target, stored rows and nonzero adjustments',()=>{
+  const free={...item,label:'Free item',amountCents:0,unitPriceCents:0};
+  const fee:TransactionItemInput={kind:'fee',label:'No fee',amountCents:0,quantity:null,unitPriceCents:null,taxIncluded:false};
+  const adjustment:TransactionItemInput={...fee,kind:'adjustment',label:'Correction',amountCents:-100};
+  const save=mount([free,item,fee,adjustment],9);
+  expect(screen.queryByText('Free item')).toBeNull();expect(screen.queryByText('No fee')).toBeNull();
+  expect(screen.getByText('2 rows')).toBeTruthy();expect(screen.getByText('Correction')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Edit row 2'));
+  expect(screen.getByLabelText('Row 2 label').props.value).toBe('Bread');
+  fireEvent.changeText(screen.getByLabelText('Row 2 amount'),'11');fireEvent.press(screen.getByText('Save item'));
+  expect(screen.getByLabelText('Amount').props.value).toBe('10.00');
+  fireEvent.press(screen.getByText('Save'));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({amount:10,items:[free,{...item,amountCents:1100},fee,adjustment]}));
+});
+it('lets users clear hidden zero rows at the row limit so new items remain possible',()=>{
+  const free={...item,label:'Free item',amountCents:0};
+  mount([...Array.from({length:99},()=>free),item],10);
+  expect(screen.getAllByLabelText(/^Edit row \d+$/)).toHaveLength(1);
+  fireEvent.press(screen.getByLabelText('Remove zero-value rows'));
+  expect(screen.queryByText(/100-row limit/)).toBeNull();
+  fireEvent.press(screen.getByLabelText('Add item'));
+  expect(screen.getByLabelText('Row 2 label')).toBeTruthy();
+});
+it('keeps an unfinished zero row reachable until its validation issue is fixed',()=>{
+  mount([{...item,label:'',amountCents:0},item],10);
+  fireEvent.press(screen.getByLabelText('Edit row 1'));
+  fireEvent.changeText(screen.getByLabelText('Row 1 label'),'Free item');
+  fireEvent.press(screen.getByText('Save item'));
+  expect(screen.queryByLabelText('Edit row 1')).toBeNull();
+  expect(screen.getByLabelText('Edit row 2')).toBeTruthy();
+  expect(screen.getByText('1 row')).toBeTruthy();
+});
 it('preserves and submits rows across income switching', () => {
   const save = mount();
   fireEvent.press(screen.getByText('Income'));

@@ -18,18 +18,23 @@ type Direction='income'|'expense'|null;
 function kindName(kind:TransactionItemKind,direction:Direction) {
  return direction==='income'&&kind==='item'?'Earning':direction==='income'&&kind==='deduction'?'Deduction':direction==='income'&&kind==='tax'?'Tax withheld':KINDS.find(([value])=>value===kind)![1];
 }
+function hiddenZeroRow(row:ItemDraft) {
+ return decimalToCents(row.amount)===0&&!parseItemDrafts([row]).error;
+}
 export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transactionType='expense'}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;onUnfinishedDraft?:(rows:ItemDraft[])=>void;transactionType?:Direction}) {
  const form=useFormStyles();const styles=useStyles();const colors=useColors();
  const [editing,setEditing]=useState<{row:ItemDraft;isNew:boolean;index:number}|null>(null);
  const capped=drafts.length>=100;
+ const visible=drafts.map((row,index)=>({row,index})).filter(({row})=>!hiddenZeroRow(row));
+ const hiddenCount=drafts.length-visible.length;
  const open=(row:ItemDraft,index:number,isNew=false)=>setEditing({row:{...row},index,isNew});
  return <View style={styles.section}>
   <View accessibilityElementsHidden={!!editing} importantForAccessibility={editing?'no-hide-descendants':'auto'}>
-  <View style={styles.titleRow}><Text style={form.title}>{transactionType==='income'?'Income details':'Items'}</Text><Text style={styles.caption}>{drafts.length} {drafts.length===1?'row':'rows'}</Text></View>
-  <Text style={form.subtitle}>{drafts.length?'Tap a row to edit its details. Counted rows determine the total.':'Add receipt rows, or keep a single manual amount.'}</Text>
-  {drafts.length>0&&<View accessibilityRole="list" style={styles.table}>
+  <View style={styles.titleRow}><Text style={form.title}>{transactionType==='income'?'Income details':'Items'}</Text><Text style={styles.caption}>{visible.length} {visible.length===1?'row':'rows'}</Text></View>
+  <Text style={form.subtitle}>{visible.length?'Tap a row to edit its details. Counted rows determine the total.':hiddenCount?'No nonzero items to show. Add an item to continue.':'Add receipt rows, or keep a single manual amount.'}</Text>
+  {visible.length>0&&<View accessibilityRole="list" style={styles.table}>
    <View style={styles.tableHeader}><Text style={[styles.columnLabel,styles.descriptionColumn]}>Item / details</Text><Text style={[styles.columnLabel,styles.quantityColumn]}>Qty</Text><Text style={[styles.columnLabel,styles.amountColumn]}>Amount</Text><View style={styles.chevronColumn}/></View>
-   {drafts.map((row,index)=>{const cents=decimalToCents(row.amount);const amount=cents===null?'Enter amount':formatMoney((row.negative?-cents:cents)/100);const status=row.requiresCountingReview?'Needs review':row.isPaymentSummary?'Payment amount':!row.affectsTotal?'Informational':row.kind==='tax'&&row.taxIncluded?'Included tax':kindName(row.kind,transactionType);
+   {visible.map(({row,index})=>{const cents=decimalToCents(row.amount);const amount=cents===null?'Enter amount':formatMoney((row.negative?-cents:cents)/100);const status=row.requiresCountingReview?'Needs review':row.isPaymentSummary?'Payment amount':!row.affectsTotal?'Informational':row.kind==='tax'&&row.taxIncluded?'Included tax':kindName(row.kind,transactionType);
     return <MotionPressable key={row.id} accessibilityLabel={`Edit row ${index+1}`} accessibilityHint={`${row.label||'Untitled item'}, ${amount}, ${status}`} style={styles.tableRow} onPress={()=>open(row,index)}>
      <View style={styles.descriptionColumn}><Text style={styles.itemLabel}>{row.label||'Untitled item'}</Text><Text style={[styles.caption,row.requiresCountingReview&&{color:colors.warning}]}>{status}</Text></View>
      <Text style={styles.quantityColumn}>{row.kind==='item'?(row.quantity??'—'):'—'}</Text>
@@ -40,6 +45,7 @@ export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transa
   </View>}
   <View style={[form.optionRow,{marginTop:16}]}>{[['item','Item'],['deduction','Discount / adjustment']].map(([kind,label])=><MotionPressable key={kind} disabled={capped} style={styles.addButton} accessibilityLabel={`Add ${label.toLowerCase()}`} onPress={()=>open({...draftItem(),kind:kind as TransactionItemKind},drafts.length,true)}><Plus size={16} color={colors.primary}/><Text style={styles.addText}>{transactionType==='income'?kind==='item'?'Earning':'Deduction / adjustment':label}</Text></MotionPressable>)}</View>
   {capped&&<Text style={styles.caption}>100-row limit reached. Remove a row to add another.</Text>}
+  {capped&&hiddenCount>0&&<MotionPressable style={styles.addButton} accessibilityLabel="Remove zero-value rows" onPress={()=>onChange(drafts.filter(row=>!hiddenZeroRow(row)))}><Trash2 size={16} color={colors.primary}/><Text style={styles.addText}>Remove zero-value rows</Text></MotionPressable>}
   </View>
   {editing&&<ItemEditorSheet key={editing.row.id} row={editing.row} index={editing.index} isNew={editing.isNew} direction={transactionType} onDraft={row=>onUnfinishedDraft?.(editing.isNew?[...drafts,row]:drafts.map(item=>item.id===row.id?row:item))} onClose={()=>{onUnfinishedDraft?.(drafts);setEditing(null);}} onSave={row=>{if(editing.isNew&&drafts.length>=100)return false;onChange(editing.isNew?[...drafts,row]:drafts.map(item=>item.id===row.id?row:item));setEditing(null);return true;}} onDelete={()=>{onChange(drafts.filter(item=>item.id!==editing.row.id));setEditing(null);}}/>}
  </View>;

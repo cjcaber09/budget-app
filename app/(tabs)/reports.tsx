@@ -4,6 +4,7 @@ import {useRouter} from 'expo-router';
 import {useReports} from '../../src/hooks/useReports';
 import {useDashboard} from '../../src/hooks/useDashboard';
 import {useUiStore} from '../../src/stores/useUiStore';
+import {useReportDisplayStore} from '../../src/stores/useReportDisplayStore';
 import {useMoneyCents} from '../../src/domain/money';
 import {createRequestId} from '../../src/domain/ocr';
 import type {Category,Budget} from '../../src/types/database';
@@ -19,9 +20,11 @@ import {QueryState} from '../../src/components/QueryState';
 import {usePageLayout} from '../../src/styles/pageLayout';
 import {useSpendingGuidanceStyles} from '../../src/styles/spendingGuidance';
 import {CsvExport} from '../../src/components/CsvExport';
+import {ReportDisplayOptions} from '../../src/components/ReportDisplayOptions';
 export default function ReportsScreen() {
  const s=useSpendingGuidanceStyles(),page=usePageLayout({safeTop:true}),router=useRouter(),money=useMoneyCents();
  const month=useUiStore(v=>v.selectedMonth),report=useReports(month),current=month===report.today.slice(0,7)+'-01';
+ const hideZeroValues=useReportDisplayStore(v=>v.hideZeroValues),setHideZeroValues=useReportDisplayStore(v=>v.setHideZeroValues);
  const guidance=useDashboard(month,report.supported&&current);
  const data=report.data,totals=data?.totals.data,maxMonth=format(addMonths(parseISO(report.today.slice(0,7)+'-01'),24),'yyyy-MM-01');
  const retry=()=>void report.refetch();
@@ -29,6 +32,7 @@ export default function ReportsScreen() {
  return <ScrollView style={page.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={page.scrollContent}><View style={page.workspace}>
   <ScreenHeading title="Reports" action={<MonthPicker minMonth="0001-12-01" maxMonth={maxMonth}/>}/>
   <UpdateBanner/>
+  <ReportDisplayOptions hideZeroValues={hideZeroValues} onChange={setHideZeroValues}/>
   <CsvExport month={month} kind="analysis"/>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Category budgets</Text>
    <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=>{
@@ -37,11 +41,11 @@ export default function ReportsScreen() {
     const budgets:Budget[]=owned.filter(c=>c.budget!==null).map(c=>({id:c.key,user_id:data!.owner,category_id:c.id!,month,amount:c.budget!/100}));
     const allocated=owned.reduce((n,c)=>n+BigInt(c.budget??0),0n);
     if(allocated>BigInt(Number.MAX_SAFE_INTEGER))return <Text style={s.caption}>Category allocations exceed the supported range.</Text>;
-    return <CategoryBudgetReport categories={categories} budgets={budgets} month={month} snapshot={{allocatedCents:Number(allocated),categoryTotals:owned.map(c=>({id:c.id!,name:c.name,color:c.color,spent:c.spent}))}}/>;
+    return <CategoryBudgetReport categories={categories} budgets={budgets} month={month} hideZeroValues={hideZeroValues} snapshot={{allocatedCents:Number(allocated),categoryTotals:owned.map(c=>({id:c.id!,name:c.name,color:c.color,spent:c.spent}))}}/>;
    }}</ReportData>
   </View>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Spending share</Text><Text style={s.caption}>Net expenses after refunds, including Uncategorized.</Text>
-   <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=><SpendByCategoryChart reportCategories={rows} expenseCents={totals?.expense} onSelect={key=>key==='uncategorized'?router.push({pathname:'/report/[kind]',params:{kind:'cashflow',month,filter:key,visit:createRequestId()}}):router.push({pathname:'/budget/[categoryId]',params:{categoryId:key,month,visit:createRequestId()}})}/>}</ReportData>
+   <ReportData section={data?.categories} loading={report.isPending} error={report.isError} retry={retry}>{rows=><SpendByCategoryChart reportCategories={rows} expenseCents={totals?.expense} hideZeroValues={hideZeroValues} onSelect={key=>key==='uncategorized'?router.push({pathname:'/report/[kind]',params:{kind:'cashflow',month,filter:key,visit:createRequestId()}}):router.push({pathname:'/budget/[categoryId]',params:{categoryId:key,month,visit:createRequestId()}})}/>}</ReportData>
   </View>
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Explore reports</Text>
    <ReportLink title="Cash flow" description="Income, expenses and separate transfers." kind="cashflow" month={month} value={totals?money(totals.net):undefined}/>
@@ -51,7 +55,7 @@ export default function ReportsScreen() {
   </View>
   {current&&<QueryState loading={guidance.isPending} error={guidance.isError} retry={()=>void guidance.refetch()}>{guidance.data&&<DailySpendingPace snapshot={guidance.data}/>}</QueryState>}
   <View style={s.section}><Text accessibilityRole="header" style={s.heading}>Expense trend</Text><Text style={s.caption}>12 months through the selected month.</Text>
-   <ReportData section={data?.monthly} loading={report.isPending} error={report.isError} retry={retry}>{points=><MonthlyTrendChart totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future}))} currentMonth={report.today.slice(0,7)+'-01'}/>}</ReportData>
+   <ReportData section={data?.monthly} loading={report.isPending} error={report.isError} retry={retry}>{points=><MonthlyTrendChart totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future}))} currentMonth={report.today.slice(0,7)+'-01'} hideZeroValues={hideZeroValues}/>}</ReportData>
    <ReportLink title="Spending trends" description="Daily, weekly and monthly." kind="trends" month={month}/>
   </View>
  </View></ScrollView>;

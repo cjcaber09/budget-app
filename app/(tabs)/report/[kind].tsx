@@ -4,12 +4,14 @@ import {format,parseISO} from 'date-fns';
 import {useLocalSearchParams,useRouter,useFocusEffect} from 'expo-router';
 import {useReports,useReportTransfers,useReportTransactions,type ReportTransfer} from '../../../src/hooks/useReports';
 import {useUiStore} from '../../../src/stores/useUiStore';
+import {useReportDisplayStore} from '../../../src/stores/useReportDisplayStore';
 import {usePreferencesStore} from '../../../src/stores/usePreferencesStore';
 import {useMoneyCents} from '../../../src/domain/money';
 import {effectiveDate} from '../../../src/domain/transactionDates';
 import {createRequestId} from '../../../src/domain/ocr';
 import type {Transaction,Category} from '../../../src/types/database';
 import {ScreenHeading} from '../../../src/components/ScreenHeading';
+import {ReportDisplayOptions} from '../../../src/components/ReportDisplayOptions';
 import {MonthlyTrendChart} from '../../../src/components/MonthlyTrendChart';
 import {TransactionListItem} from '../../../src/components/TransactionListItem';
 import {ReportData,ReportGroups,CashFlowTotals,PreviousComparison,UnsupportedReport} from '../../../src/components/ReportWidgets';
@@ -29,6 +31,7 @@ export default function ReportDetailScreen() {
 function ReportDetail({kind,month,filter}:{kind:string;month:string;filter?:string}) {
  const page=usePageLayout({safeTop:true}),s=useSpendingGuidanceStyles(),router=useRouter(),money=useMoneyCents(),colors=useColors();
  const q=useReports(month);
+ const hideZeroValues=useReportDisplayStore(v=>v.hideZeroValues),setHideZeroValues=useReportDisplayStore(v=>v.setHideZeroValues);
  const historyKind=kind==='cashflow'||kind==='income'||kind==='accounts';
  const transactions=useReportTransactions(month,q.supported&&historyKind),transfers=useReportTransfers(month,q.supported&&kind==='cashflow'&&!filter);
  const setMonth=useUiStore(v=>v.setSelectedMonth);
@@ -48,14 +51,15 @@ function ReportDetail({kind,month,filter}:{kind:string;month:string;filter?:stri
  const retry=()=>void q.refetch();
  const header=<View style={{gap:24}}>
   <ScreenHeading title={TITLES[kind]} description={format(parseISO(month),'MMMM yyyy')+' · Recorded entries, including future-dated records.'}/>
+  {kind!=='cashflow'&&!filter&&<ReportDisplayOptions hideZeroValues={hideZeroValues} onChange={setHideZeroValues}/>}
   {filter&&<MotionPressable style={s.editButton} onPress={()=>router.push({pathname:'/report/[kind]',params:{kind,month,visit:createRequestId()}})}><Text style={s.action}>Show all {kind==='income'?'income':kind==='accounts'?'accounts':'entries'}</Text></MotionPressable>}
   {kind==='cashflow'&&<ReportData section={data?.totals} loading={q.isPending} error={q.isError} retry={retry}>{value=><CashFlowTotals totals={value}/>}</ReportData>}
-  {(kind==='income'||kind==='accounts')&&!filter&&<View style={s.section}><Text style={s.heading}>{kind==='income'?'By income source':'By payment method'}</Text><ReportData section={kind==='income'?data?.sources:data?.accounts} loading={q.isPending} error={q.isError} retry={retry}>{groups=><ReportGroups groups={groups} total={kind==='income'?totals?.income:totals?.expense} onSelect={key=>router.push({pathname:'/report/[kind]',params:{kind,month,filter:key,visit:createRequestId()}})}/>}</ReportData></View>}
-  {kind==='comparison'&&<View style={s.section}><Text style={s.heading}>Previous-month comparison</Text><ReportData section={data?.comparison} loading={q.isPending} error={q.isError} retry={retry}>{value=><PreviousComparison comparison={value}/>}</ReportData></View>}
+  {(kind==='income'||kind==='accounts')&&!filter&&<View style={s.section}><Text style={s.heading}>{kind==='income'?'By income source':'By payment method'}</Text><ReportData section={kind==='income'?data?.sources:data?.accounts} loading={q.isPending} error={q.isError} retry={retry}>{groups=><ReportGroups groups={groups} total={kind==='income'?totals?.income:totals?.expense} hideZeroValues={hideZeroValues} onSelect={key=>router.push({pathname:'/report/[kind]',params:{kind,month,filter:key,visit:createRequestId()}})}/>}</ReportData></View>}
+  {kind==='comparison'&&<View style={s.section}><Text style={s.heading}>Previous-month comparison</Text><ReportData section={data?.comparison} loading={q.isPending} error={q.isError} retry={retry}>{value=><PreviousComparison comparison={value} hideZeroValues={hideZeroValues}/>}</ReportData></View>}
   {kind==='trends'&&<View style={s.section}>
    <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{(['daily','weekly','monthly'] as const).map(value=><MotionPressable key={value} style={[s.editButton,value===trend&&{backgroundColor:colors.selected,borderColor:colors.primary}]} accessibilityLabel={'Show '+value+' trend'} accessibilityState={{selected:value===trend}} onPress={()=>setTrend(value)}><Text style={s.action}>{value==='daily'?'Daily':value==='weekly'?'Weekly':'Monthly'}</Text></MotionPressable>)}</View>
    <Text style={s.caption}>{trend==='monthly'?'Twelve months ending in the selected month.':trend==='weekly'?'Monday-based weeks clipped to the selected month.':'Every day in the selected month, including zero activity.'}</Text>
-   <ReportData section={data?.[trend]} loading={q.isPending} error={q.isError} retry={retry}>{points=><MonthlyTrendChart kind={trend} currentMonth={q.today.slice(0,7)+'-01'} totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future,end:p.end}))}/>}</ReportData>
+   <ReportData section={data?.[trend]} loading={q.isPending} error={q.isError} retry={retry}>{points=><MonthlyTrendChart kind={trend} currentMonth={q.today.slice(0,7)+'-01'} totals={points.map(p=>({month:p.day,total:p.amount/100,cents:p.amount,future:p.future,end:p.end}))} hideZeroValues={hideZeroValues}/>}</ReportData>
   </View>}
   {historyKind&&<View><Text style={s.heading}>{filter==='uncategorized'?'Uncategorized expenses':kind==='income'?'Income history':kind==='accounts'?'Expense history':'Transaction history'}</Text>{filter&&filter!=='uncategorized'&&<Text style={s.caption}>{(kind==='income'?data?.sources.data:data?.accounts.data)?.find(g=>g.key===filter)?.name??'Selected group'}</Text>}
    {kind==='cashflow'&&!filter&&<View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:12}}>{(['all','income','expense','refund'] as const).map(value=><MotionPressable key={value} style={[s.editButton,value===type&&{backgroundColor:colors.selected,borderColor:colors.primary}]} accessibilityState={{selected:type===value}} onPress={()=>setType(value)}><Text style={s.action}>{value==='all'?'All':value==='income'?'Income':value==='refund'?'Refunds':'Expenses'}</Text></MotionPressable>)}</View>}
