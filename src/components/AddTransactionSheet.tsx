@@ -5,6 +5,7 @@ import Animated, { useReducedMotion } from 'react-native-reanimated';
 import { Camera, ImageUp, PenLine, ChevronRight, X } from 'lucide-react-native';
 import { createThemedStyles, type, useColors, motion } from '../styles/theme';
 import { MotionPressable } from './MotionPressable';
+import {useConnectivityStore} from '../stores/useConnectivityStore';
 
 interface Props {
   visible: boolean; onClose: () => void; onDismiss?: () => void;
@@ -14,6 +15,7 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
   const styles = useStyles();
   const colors = useColors();
   const reduced = useReducedMotion();
+  const offline=useConnectivityStore(s=>s.online===false);
   const insets = useContext(SafeAreaInsetsContext);
   const [rendered, setRendered] = useState(false);
   const open = visible && (reduced || rendered);
@@ -35,7 +37,8 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
       <Animated.View accessibilityViewIsModal style={[styles.sheet, { opacity: open ? 1 : 0, transform: [{ translateY: reduced || open ? 0 : 32 }], transitionProperty: ['transform', 'opacity'], transitionDuration: reduced ? 0 : open ? motion.enter : motion.exit, transitionTimingFunction: motion.easeSheet }]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, paddingBottom: 24 + (insets?.bottom ?? 0) }}>
           <View style={styles.header}><View style={styles.headerText}><Text accessibilityRole="header" style={styles.title}>Add transaction</Text></View><MotionPressable onPress={onClose} accessibilityLabel="Close add transaction" style={styles.close}><X size={20} color={colors.muted} /></MotionPressable></View>
-          {options.map(({ label, detail, Icon, action }) => <MotionPressable key={label} style={styles.option} onPress={action}><Icon color={colors.primary} size={22} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{detail}</Text></View><ChevronRight size={17} color={colors.subtle} /></MotionPressable>)}
+          {offline&&<Text style={styles.subtitle}>Offline · Use Manual Entry to save a draft. Receipt scanning needs a connection.</Text>}
+          {options.map(({ label, detail, Icon, action }) => <MotionPressable key={label} style={styles.option} disabled={offline&&label!=='Manual Entry'} onPress={action}><Icon color={colors.primary} size={22} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{offline&&label!=='Manual Entry'?'Internet connection required.':detail}</Text></View><ChevronRight size={17} color={colors.subtle} /></MotionPressable>)}
           <Text style={styles.privacy}>Google reads your receipt using Gemini or Cloud Vision. Gemini&apos;s free tier may use photos to improve Google products. Saving keeps a private receipt image. You can remove it before saving.</Text>
           <MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable>
         </ScrollView>

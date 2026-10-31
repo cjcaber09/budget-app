@@ -41,6 +41,8 @@ import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
 import {SettingsTabStrip} from '../../src/components/SettingsTabStrip';
 import {useHelpStore} from '../../src/stores/useHelpStore';
 import {AppUpdatesSettings,UpdateBanner} from '../../src/components/AppUpdates';
+import {SecuritySettings} from '../../src/components/SecuritySettings';
+import {openSetupGuide} from '../../src/stores/useSetupGuideStore';
 
 const SETTINGS_TABS = [
   {id: 'organize', label: 'Categories & Bills', icon: Tags},
@@ -59,6 +61,7 @@ export default function SettingsScreen() {
 
 function SettingsContent() {
   const {section,visit}=useLocalSearchParams<{section?:string;visit?:string}>();
+  const setupOwner=usePreferencesStore(s=>s.profile?.user_id);
   const router = useRouter();
   const styles = useStyles();
   const pageLayout = usePageLayout({ safeTop: true });
@@ -110,6 +113,8 @@ function SettingsContent() {
         {visited.includes('updates')&&<View style={[pageLayout.section,tab!=='updates'&&{display:'none'}]}><AppUpdatesSettings/></View>}
         {(visited.includes('profile') || visited.includes('preferences')) && <View style={tab === 'profile' || tab === 'preferences' ? undefined : {display: 'none'}}>
           <ProfileSettings section={tab === 'preferences' ? 'preferences' : 'profile'}/>
+          {tab==='preferences'&&<View style={pageLayout.section}><SecuritySettings/></View>}
+          {tab==='preferences'&&setupOwner&&<MotionPressable style={form.secondaryButton} onPress={()=>openSetupGuide(setupOwner)}><Text style={form.chipTextSelected}>Open guided setup</Text></MotionPressable>}
           <View style={tab === 'profile' ? undefined : {display: 'none'}}><FinancialResetSettings/><AccountDeletionSettings/></View>
         </View>}
         {visited.includes('sources') && <View style={[styles.column, tab !== 'sources' && {display: 'none'}]}>

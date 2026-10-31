@@ -4,6 +4,7 @@ import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {useUiStore} from '../../src/stores/useUiStore';
 import {ProfileBootstrap} from '../../src/hooks/useProfile';
 import {usePreferencesStore,type Profile} from '../../src/stores/usePreferencesStore';
+import {saveOfflineDraftChoices,clearOfflineDraftChoices} from '../../src/lib/offlineDraftChoicesStorage';
 const owner='00000000-0000-4000-8000-000000000001';
 const profile:Profile={user_id:owner,display_name:'Test',avatar_path:null,appearance:'system',currency:'USD',timezone:'Asia/Manila'};
 let mockOwner:string|undefined=owner;let mockSignal:AbortSignal;
@@ -52,6 +53,17 @@ it('creates a genuinely missing remote profile without overwriting an existing o
  mockRead.mockResolvedValue({data:null,error:null});mount();
  await waitFor(()=>expect(usePreferencesStore.getState().profile?.display_name).toBe('Test'));
  expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({user_id:owner,display_name:'',timezone:expect.any(String)}),{onConflict:'user_id',ignoreDuplicates:true});
+});
+
+it('restores only owner currency/timezone while remote preferences are unavailable',async()=>{
+ usePreferencesStore.getState().setProfile(profile);
+ await saveOfflineDraftChoices({version:1,owner,savedAt:new Date().toISOString(),currency:'PHP',timezone:'Pacific/Auckland',categories:[],methods:[],sources:[]});
+ usePreferencesStore.getState().setProfile(null);
+ mockRead.mockImplementation((signal:AbortSignal)=>new Promise(resolve=>signal.addEventListener('abort',()=>resolve({data:null,error:new Error('Cancelled')}),{once:true})));
+ const view=mount();
+ await waitFor(()=>expect(usePreferencesStore.getState().profile).toMatchObject({user_id:owner,currency:'PHP',timezone:'Pacific/Auckland',appearance:'system',avatar_path:null}));
+ expect(usePreferencesStore.getState().profile?.bill_notifications).toBeUndefined();
+ view.unmount();await clearOfflineDraftChoices(owner);
 });
 
 it.each(['2026-11-01','2026-08-01'])('corrects fallback month boundaries but preserves selected historical month %s',async(selected)=>{

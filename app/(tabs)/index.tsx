@@ -16,8 +16,9 @@ import { ScreenHeading } from '../../src/components/ScreenHeading';
 import { MonthPicker } from '../../src/components/MonthPicker';
 import { MotionPressable } from '../../src/components/MotionPressable';
 import { QueryState } from '../../src/components/QueryState';
+import {SetupPrompt} from '../../src/components/SetupGuide';
 import { usePageLayout } from '../../src/styles/pageLayout';
-import { createThemedStyles, type, useColors } from '../../src/styles/theme';
+import { cardElevation, createThemedStyles, type, useColors } from '../../src/styles/theme';
 import { useDashboard } from '../../src/hooks/useDashboard';
 import { SpendingGuidance } from '../../src/components/SpendingGuidance';
 import { UpcomingBillsBell } from '../../src/components/UpcomingBillsBell';
@@ -62,6 +63,7 @@ export default function OverviewScreen() {
     <View style={pageLayout.workspace}>
       <ScreenHeading title="Overview" action={<UpcomingBillsBell query={dashboard}/>} />
       <UpdateBanner/>
+      <SetupPrompt needsBudget={dashboard.data?.limitCents===null}/>
       <OverviewAccounts scrollGesture={scrollGesture}/>
       <View style={styles.monthPicker}><MonthPicker /></View>
       <QueryState loading={categoriesQuery.isPending || budgetsQuery.isPending} error={categoriesQuery.isError || budgetsQuery.isError} retry={() => { void categoriesQuery.refetch(); void budgetsQuery.refetch(); }}>
@@ -105,7 +107,7 @@ export default function OverviewScreen() {
 const useStyles = createThemedStyles(colors => ({
   alertSummary: {minHeight:48,flexDirection:'row',alignItems:'center',gap:10,padding:12,backgroundColor:colors.warningBg,borderRadius:8},
   monthPicker: { alignItems: 'center' },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surfaceAlt, borderRadius: 16, padding: 24, columnGap: 28, rowGap: 24 },
+  summary: { ...cardElevation(colors), flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surfaceAlt, borderRadius: 16, padding: 24, columnGap: 28, rowGap: 24 },
   summaryCell: { flex: 1, minWidth: 120, gap: 8 },
   compactSummary: { padding: 20, columnGap: 16, rowGap: 20 },
   compactAmount: { fontSize: 24, letterSpacing: -0.5 },

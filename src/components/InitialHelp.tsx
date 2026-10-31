@@ -21,12 +21,12 @@ import {MoneyInput} from './MoneyInput';
 import {decimalToCents,MAX_MONEY_CENTS} from '../../supabase/functions/ocr/shared';
 
 const TITLES=['Welcome to Budget Tracker','Record your money','Plan and review','Set your Cash'];
-export function InitialHelp() {
+export function InitialHelp({autoOpen=true}:{autoOpen?:boolean}={}) {
   const owner=usePreferencesStore(s=>s.profile?.user_id);
   const epoch=useFinancialResetStore(s=>s.epoch);
-  return owner?<HelpContent key={`${owner}:${epoch}`} owner={owner}/>:null;
+  return owner?<HelpContent key={`${owner}:${epoch}`} owner={owner} autoOpen={autoOpen}/>:null;
 }
-function HelpContent({owner}:{owner:string}) {
+function HelpContent({owner,autoOpen}:{owner:string;autoOpen:boolean}) {
   const help=useHelpStore(),query=usePaymentMethods(),profile=useProfile(),save=useInitializeCash();
   const preferences=usePreferencesStore(s=>s.profile);
   const reset=useFinancialResetStore(),path=usePathname();
@@ -50,8 +50,8 @@ function HelpContent({owner}:{owner:string}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[owner]);
   useEffect(()=>{
-    if(path==='/'&&preferenceReady&&unset&&!query.isFetching&&!paused&&!help.dismissed&&!help.visible&&!help.blockers.length)help.open();
-  },[path,preferenceReady,unset,query.isFetching,paused,help]);
+    if(autoOpen&&path==='/'&&preferenceReady&&unset&&!query.isFetching&&!paused&&!help.dismissed&&!help.visible&&!help.blockers.length)help.open();
+  },[autoOpen,path,preferenceReady,unset,query.isFetching,paused,help]);
   const visible=help.visible&&!help.blockers.length&&!paused;
   useEffect(()=>{
     if(help.visible&&!visibleLast.current){setStep(0);setAmount('');setError('');setRefreshNeeded(false);}

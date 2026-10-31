@@ -27,7 +27,9 @@ export interface TransactionFormValues {
 }
 
 interface Props {
-  transferControl?:{selected:boolean;onSelect:()=>void;content:ReactNode;onLeave?:()=>void};
+  draftAction?: {onSave:(fields:TransactionDraftFields)=>void;busy?:boolean};
+  submitDisabled?: boolean;
+  transferControl?:{selected:boolean;onSelect:()=>void;content:ReactNode;onLeave?:()=>void;disabled?:boolean};
   initialDraft?:TransactionDraftFields;
   onDraftChange?:(draft:TransactionDraftFields)=>void;
   attachmentControl?:ReactNode;
@@ -57,7 +59,7 @@ interface Props {
 
 const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
 
-export function TransactionForm({ categories, initialValues, initialDraft,onDraftChange,receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl,attachmentControl,transferControl }: Props) {
+export function TransactionForm({ categories, initialValues, initialDraft,onDraftChange,receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl,attachmentControl,transferControl,draftAction,submitDisabled }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
   const [type, setType] = useState<TransactionType|null>(() => initialValues?.type ?? (receipt?.transactionType === 'income' || receipt?.transactionType === 'expense' ? receipt.transactionType : scanned ? null : 'expense'));
@@ -119,7 +121,7 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
   }
 
   function handleSubmit() {
-    if (submitting) return;
+    if (submitting || submitDisabled) return;
     const manualCents = /^\d+(?:\.\d{0,2})?$/.test(amount) ? decimalToCents(amount) : null;
     const parsedAmount = hasRows ? (totalCents ?? 0) / 100 : (manualCents ?? 0) / 100;
     if (!type || blockedPayment) { setError('Choose a completed transaction type, or enter a transaction manually.'); return; }
@@ -150,7 +152,7 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents={submitting?'none':'auto'}>
       {error && <Text style={styles.error}>{error}</Text>}
       {receipt?.classificationReason && !manualEntry && <Text style={styles.subtitle}>{receipt.classificationReason}</Text>}
       {!type && !transferControl?.selected && <Text style={styles.subtitle}>Choose Income or Expense. The receipt direction is unclear.</Text>}
@@ -169,12 +171,12 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
             </Text>
           </MotionPressable>
         ))}
-        {transferControl&&<MotionPressable disabled={submitting} accessibilityState={{selected:transferControl.selected}} onPress={transferControl.onSelect} style={[styles.chip,transferControl.selected&&styles.chipSelected]}><Text style={transferControl.selected?styles.chipTextSelected:styles.chipText}>Transfer</Text></MotionPressable>}
+        {transferControl&&<MotionPressable disabled={submitting||transferControl.disabled} accessibilityState={{selected:transferControl.selected}} onPress={transferControl.onSelect} style={[styles.chip,transferControl.selected&&styles.chipSelected]}><Text style={transferControl.selected?styles.chipTextSelected:styles.chipText}>Transfer</Text></MotionPressable>}
       </View>
       {transferControl&&(transferControl.selected||transferVisited)&&<View style={transferControl.selected?undefined:{display:'none'}}>{transferControl.content}</View>}
       <View style={transferControl?.selected?{display:'none'}:undefined}>
       <Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
-      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
+      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows&&!submitting} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
       {type === 'expense' && <CategoryPicker compact categories={categories} value={categoryId} onChange={setCategoryId}/>}
       {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,setIncomeSourceId):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
       {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
@@ -211,10 +213,12 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
         value={note}
         onChangeText={setNote}
         accessibilityLabel="Note" placeholder="What was it for?"
+        editable={!submitting}
         multiline
       />
       {attachmentControl}
-      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || !!rowError || !type || blockedPayment}>
+      {draftAction&&<MotionPressable style={styles.secondaryButton} disabled={submitting||draftAction.busy||!type} onPress={()=>{if(type)draftAction.onSave({type,amount,note,categoryId,paymentMethodId,incomeSourceId,transactionDate,drafts});}}><Text style={styles.chipTextSelected}>{draftAction.busy?'Saving draft…':'Save draft'}</Text></MotionPressable>}
+      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || submitDisabled || !!rowError || !type || blockedPayment}>
         <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
       </MotionPressable>
       </View>

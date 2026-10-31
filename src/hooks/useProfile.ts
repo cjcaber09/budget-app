@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import {loadOfflineDraftChoices, offlineChoicesGeneration} from '../lib/offlineDraftChoicesStorage';
 import { AppState } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
@@ -62,10 +63,20 @@ export function ProfileBootstrap() {
   const owner = query.data?.user_id;
   const refetch = query.refetch;
   const stored=usePreferencesStore(s=>s.profile);
+  const [cached, setCached] = useState<Profile | null>(null);
+  useEffect(() => {
+    const cachedOwner=query.owner;
+    if(!cachedOwner)return;
+    let active=true;const generation=offlineChoicesGeneration(cachedOwner);
+    void loadOfflineDraftChoices(cachedOwner).then(choices=>{
+      if(active&&generation===offlineChoicesGeneration(cachedOwner)&&choices)setCached({...defaultProfile(cachedOwner),currency:choices.currency,timezone:choices.timezone});
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[query.owner]);
   useEffect(() => {
     if (!query.owner) return;
     const next = query.data?.user_id === query.owner ? query.data :
-      stored?.user_id === query.owner ? stored : defaultProfile(query.owner);
+      cached?.user_id === query.owner ? cached : stored?.user_id === query.owner ? stored : defaultProfile(query.owner);
     const old = stored;
     if(old!==next)usePreferencesStore.getState().setProfile(next);
     if (!old || old.user_id !== next.user_id)
@@ -84,7 +95,7 @@ export function ProfileBootstrap() {
       void client.invalidateQueries({
         predicate: (q) => q.queryKey[0] !== "profile",
       });
-  }, [query.data,query.owner,stored, client]);
+  }, [query.data,query.owner,stored,cached, client]);
   useEffect(() => {
     if (!owner) return;
     const channel = supabase

@@ -13,6 +13,7 @@ import {createRequestId} from '../domain/ocr';
 import type {ReportSection} from '../domain/reports';
 import {type,useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
+import {LoadingSkeleton} from './LoadingSkeleton';
 import {PaymentMethodDialog} from './PaymentMethodPicker';
 
 const tabs=['Recent','Categories','Methods'] as const;
@@ -27,7 +28,7 @@ function HighlightsWorkspace({month}:Readonly<{month:string}>){
  const categoryRows=query.data?.categories,methodRows=query.data?.methods;
  const link=(label:string,onPress:()=>void)=><MotionPressable onPress={onPress} style={{minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12}}><Text style={{...type.label,color:colors.primary}}>{label}</Text><ChevronRight size={16} color={colors.primary}/></MotionPressable>;
  const empty=(text:string)=><Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{text}</Text>;
- const state=<Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{!query.supported?'Choose a supported month to see highlights.':query.isError?'Could not load highlights.':'Loading highlights…'}</Text>;
+ const state=query.supported&&!query.isError?<LoadingSkeleton label="Loading highlights"/>:<Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{!query.supported?'Choose a supported month to see highlights.':'Could not load highlights.'}</Text>;
  const retry=()=>void query.refetch();
  return <View style={{gap:16}} testID="overview-highlights">
   <View style={{gap:4}}><Text accessibilityRole="header" style={{...type.heading,color:colors.text}}>Monthly highlights</Text><Text style={{...type.label,fontWeight:'400',color:colors.muted}}>{format(parseISO(month),'MMMM yyyy')} · Includes future-dated entries</Text></View>

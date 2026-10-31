@@ -21,12 +21,12 @@ export function usePaymentMethods() {
   const day=localDateKey(new Date(clock),profile?.timezone);
   const query=useQuery({queryKey:['paymentMethods',profile?.user_id,profile?.timezone,day],enabled:!!profile?.user_id,refetchInterval:60000,queryFn:async({signal})=>{
     const result=await supabase.rpc('payment_method_snapshot').abortSignal(signal);if(result.error)throw new Error('Could not load payment methods. Retry to refresh balances.');
-    return result.data as {owner:string;timezone:string;transferFeeVersion?:number;transferEntryVersion?:number;refundVersion?:number;methods:PaymentMethod[];transfers:PaymentTransfer[];corrections:BalanceCorrection[]};
+    return result.data as {owner:string;timezone:string;transferFeeVersion?:number;transferEntryVersion?:number;refundVersion?:number;walletAccountNumberVersion?:number;methods:PaymentMethod[];transfers:PaymentTransfer[];corrections:BalanceCorrection[]};
   }});
   const valid=query.data?.owner===profile?.user_id&&query.data?.timezone===profile?.timezone;
   const refetch=query.refetch;
   useEffect(()=>{const listener=AppState.addEventListener('change',state=>{if(state==='active'&&profile?.user_id){setClock(Date.now());void refetch();}});return()=>listener.remove();},[profile?.user_id,refetch]);
-  return {...query,transferEntrySupported:valid&&query.data?.transferEntryVersion===1,feeSupported:valid&&query.data?.transferFeeVersion===1,refundSupported:valid&&query.data?.refundVersion===1,methods:valid?query.data?.methods:undefined,transfers:valid?query.data?.transfers:undefined,corrections:valid?query.data?.corrections:undefined};
+  return {...query,walletAccountNumberSupported:valid&&query.data?.walletAccountNumberVersion===1,transferEntrySupported:valid&&query.data?.transferEntryVersion===1,feeSupported:valid&&query.data?.transferFeeVersion===1,refundSupported:valid&&query.data?.refundVersion===1,methods:valid?query.data?.methods:undefined,transfers:valid?query.data?.transfers:undefined,corrections:valid?query.data?.corrections:undefined};
 }
 type SaveInput=({operation:'create'|'update'}&PaymentMethodValues)|{operation:'archive'|'restore';id:string;reassignBills?:boolean;replacementMethodId?:string|null};
 export function useSavePaymentMethod() {
@@ -36,7 +36,11 @@ export function useSavePaymentMethod() {
     let payload:Record<string,unknown>={...input};
     if(input.operation==='create'||input.operation==='update'){
       const error=validatePaymentMethod(input);if(error)throw new Error(error);
-      payload={...input,name:input.name.trim(),paymentType:input.paymentType.trim(),openingBalance:centsToDecimal(decimalToCents(input.openingBalance)!),lastFour:input.lastFour||null};
+      if(input.walletAccountNumber?.trim()){
+        const supported=client.getQueriesData<{owner:string;walletAccountNumberVersion?:number}>({queryKey:['paymentMethods',owner]}).some(([,data])=>data?.owner===owner&&data.walletAccountNumberVersion===1);
+        if(!supported)throw Object.assign(new Error('E-wallet account numbers need the latest server update. Your draft is still here.'),{rejected:true});
+      }
+      payload={...input,...(input.walletAccountNumber!==undefined?{walletAccountNumber:input.walletAccountNumber.trim()||null}:{}),name:input.name.trim(),paymentType:input.paymentType.trim(),openingBalance:centsToDecimal(decimalToCents(input.openingBalance)!),lastFour:input.lastFour||null};
     }
     const result=await bounded(signal=>supabase.rpc('save_payment_method',{p_method:payload}).abortSignal(signal));
     if(result.error){

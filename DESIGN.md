@@ -139,7 +139,7 @@ Page padding is 24px; header controls wrap with a 16px gap. Headerless tab scree
 
 ## Elevation & Depth
 
-Use surface tone, spacing, and thin borders to separate information. Page cards and sections have no stacked shadows. The FAB alone uses `0px 6px 18px rgba(16, 38, 25, 0.18)` with native elevation 8. The modal scrim establishes sheet depth.
+Existing card containers use the shared cardElevation shadow: 0px 4px 14px rgba(16,38,25,0.10) in light mode and 0px 5px 16px rgba(0,0,0,0.28) in dark mode. Apply it to page/form cards, report/guidance sections, category tiles, Overview summary and update cards. Inputs, buttons, pills and list rows retain their existing treatment. Do not add extra card wrappers. The account stack keeps its stronger existing shadows; sheets use the modal scrim for depth.
 
 ## Shapes
 
@@ -148,7 +148,8 @@ Fields and option chips use 8px corners; primary buttons, month controls, and ic
 ## Components
 
 - **ScreenHeading and MonthPicker:** title/description precede the month action; controls wrap to fit the phone. Month arrows each have a 48×48px target.
-- **CategoryBudgetRow:** display category identity, a readable status such as “Nearing limit” or “Over budget,” spent/budgeted amounts, and a progress track clamped to 100%. A missing budget offers “Set a budget.”
+- **Spending share:** a responsive SVG doughnut shows the exact net-expense total in its centre and complete tappable category legend below. The graphic is absolute inside a square container to keep native height bounded. Refund and unavailable-total states retain their explanations instead of misleading percentages.
+- **CategoryBudgetReport:** horizontally scrollable category tiles pair a decorative category icon with a naturally wrapping title, without reserved blank title space. Remaining (or Over by) is the primary amount, above a full-content-width square doughnut with a centered usage percentage. Cards use intrinsic height and stretch through flex growth; avoid percentage card heights in the horizontal scroller, and keep the SVG absolutely positioned within its square container. Status appears in a themed text pill. Net spent and Budget sit side by side below a divider, with labels above exact amounts. Missing budgets show a dash for Remaining; navigation and selected-month context stay intact.
 - **TransactionListItem:** show category, optional one-line note, date, signed tabular amount, and edit chevron. Use a tonal icon tile and row separator.
 - **SharedForms:** reuse new/edit forms without outer padding. Inputs are at least 50px high; notes at least 112px. Chips and secondary actions are at least 48px; primary buttons at least 52px. Labels precede fields; validation errors use danger text and tone.
 - **AddTransactionFab and AddTransactionSheet:** preserve camera, upload, manual entry, cancellation, and provider privacy copy. Sheet options are at least 72px high. Keep sheet content scrollable and pad for the bottom safe area. iOS pickers wait for modal dismissal.
@@ -163,6 +164,8 @@ Receipt item lists always hide completed, valid zero-value rows and count only v
 ## Do's and Don'ts
 
 Settings uses a horizontally scrollable tab strip with icons, text labels, a shared divider and an underline for selection. Categories & Bills opens by default and contains scan history. Profile, Preferences, Sources and Notifications separate the remaining controls. Logout stays in the fixed Settings header; account deletion belongs to Profile. Switching tabs preserves drafts and loaded history.
+
+Preferences contains Privacy & security and the guided-setup launcher. Native app lock is optional, uses system authentication with a device-passcode fallback, and covers mounted content with an opaque themed screen while locked. Web explains native availability. Setup is a resumable five-step modal using shared fields and existing financial save/retry behavior; it never blocks the main app or writes money merely by opening. Native notification settings disclose last successful local sync and upcoming schedule coverage, retaining old timestamps when refresh fails.
 
 App updates has its own Settings tab. A compact inline status beneath primary-page headings shows download progress or an update-ready action. The App updates tab uses its own status and controls. Restart is explicit and waits for current work; Later dismisses the ready banner. Update failures stay local to Settings. Respect Reduce Motion and keep banners in flow above the page content.
 

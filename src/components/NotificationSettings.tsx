@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {ReminderFreshness} from './ReminderFreshness';
 import {AppState,Linking,Platform,Switch,Text,View} from 'react-native';
 import * as Notifications from 'expo-notifications';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
@@ -28,6 +29,7 @@ export function NotificationSettings() {
     {([['budget_notifications','Budget alerts'],['bill_notifications','Bill reminders'],['notification_private','Hide details on lock screen']] as const).map(([key,label])=><View key={key} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:16}}><Text style={{...type.body,color:colors.text,flex:1}}>{label}</Text><Switch trackColor={{false:colors.border,true:colors.primary}} thumbColor={colors.surface} accessibilityLabel={label} value={key==='notification_private'?profile[key]!==false:!!profile[key]} disabled={Platform.OS==='web'||busy||update.isPending} onValueChange={v=>void change(key,v)}/></View>)}
     <Text style={{...type.body,color:colors.muted}}>Budget alerts trigger at 80% and 100% after sync. The app sends no alert when you first enable them. Reminders cover up to 48 bills due within 30 days, in your financial timezone. They refresh when you open the app. Delivery may be delayed.</Text>
     {!!error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+    <ReminderFreshness/>
     {Platform.OS!=='web'&&<View>
       {profile.bill_notifications&&<MotionPressable style={styles.secondaryButton} onPress={()=>void client.invalidateQueries({queryKey:['phoneReminders']})}><Text style={styles.chipTextSelected}>Refresh bill reminders</Text></MotionPressable>}
       {!allowed&&<MotionPressable style={styles.secondaryButton} onPress={()=>{void Linking.openSettings().catch(()=>setError('Open your phone settings and allow notifications for Budget Tracker.'));}}><Text style={styles.chipTextSelected}>Open phone settings</Text></MotionPressable>}

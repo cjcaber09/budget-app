@@ -1,7 +1,8 @@
-import {createThemedStyles,type} from './theme';
+import {cardElevation,createThemedStyles,type} from './theme';
 export const useSpendingGuidanceStyles = createThemedStyles((c) => ({
   container: { gap: 20 },
   section: {
+    ...cardElevation(c),
     gap: 12,
     backgroundColor:c.surfaceAlt,
     borderRadius:16,

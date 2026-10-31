@@ -50,7 +50,7 @@ export function TransferMethodCreation({ owner, open, active, onClose, onCreated
   return <View>
     {/* Keeping the form mounted retains its UUID and draft through retries/close. */}
     {open && active && <SheetLayer title="Add payment method" busy={busy} onClose={close}>
-      <View style={{ display: pending ? 'none' : 'flex' }}><PaymentMethodForm submitting={busy} error={error} onCancel={close} onSave={values => void submit({ ...values })} /></View>
+      <View style={{ display: pending ? 'none' : 'flex' }}><PaymentMethodForm walletAccountNumberSupported={query.walletAccountNumberSupported} submitting={busy} error={error} onCancel={close} onSave={values => void submit({ ...values })} /></View>
       {pending && <View style={{ gap: 12 }}>
         <Text style={form.subtitle}>{confirmed ? `${pending.name} is saved.` : `Confirming ${pending.name}. The exact request is kept for retry.`}</Text>
         {!!error && <Text accessibilityRole="alert" style={form.error}>{error}</Text>}

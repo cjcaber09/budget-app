@@ -1,5 +1,7 @@
 import {render,screen,fireEvent} from '@testing-library/react-native';
 import RootLayout from '../../app/_layout';
+jest.mock('../../src/components/AppLockBoundary',()=>({AppLockBoundary:({children}:{children:unknown})=>children}));
+jest.mock('../../src/components/LocalDataMigration',()=>({LocalDataMigration:()=>null}));
 const mockRead=jest.fn(),mockReplace=jest.fn(),mockRefresh=jest.fn();
 let mockSegments:string[]=[],mockSession:{user:{id:string}}|null=null,mockLoading=true,mockError:string|null=null;
 jest.mock('expo-router',()=>({

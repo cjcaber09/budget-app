@@ -2,7 +2,7 @@
   "expo": {
     "name": "Budget Tracker",
     "slug": "budget-management",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "budgetmanagement",
@@ -19,13 +19,14 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.budgetmanagement",
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      ["expo-local-authentication", {"faceIDPermission":"Allow Budget Tracker to use Face ID to unlock your financial information."}],
       "./plugins/withFreshEmbeddedUpdate",
       "expo-router",
       "expo-notifications",
@@ -45,7 +46,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

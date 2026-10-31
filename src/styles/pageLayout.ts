@@ -1,4 +1,4 @@
-import { createThemedStyles } from './theme';
+import { cardElevation, createThemedStyles } from './theme';
 import { useContext } from 'react';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
@@ -6,9 +6,9 @@ import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 const useLayoutStyles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1, alignItems: 'center', padding: 24, paddingBottom: 96, backgroundColor: colors.background },
-  card: { width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+  card: { ...cardElevation(colors), width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
   workspace: { width: '100%', maxWidth: 560, gap: 28 },
-  section: { backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+  section: { ...cardElevation(colors), backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
 }));
 
 export function usePageLayout({ safeTop = false }: { safeTop?: boolean } = {}) {

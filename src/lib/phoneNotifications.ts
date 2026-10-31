@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {alertMessage,budgetAlertLevels,type BudgetAlertInput} from '../domain/budgetNotifications';
 import {formatMoney} from '../domain/money';
+import {saveReminderFreshness} from './reminderFreshness';
 
 if(Platform.OS!=='web')Notifications.setNotificationHandler({handleNotification:()=>Promise.resolve({shouldShowBanner:true,shouldShowList:true,shouldPlaySound:true,shouldSetBadge:false})});
 let work:Promise<unknown>=Promise.resolve();
@@ -24,6 +25,8 @@ export async function cancelPhoneReminders(owner?:string) {
   if(Platform.OS==='web')return;
   const pending=await Notifications.getAllScheduledNotificationsAsync();
   for(const item of pending)if(item.content.data?.kind==='bill'&&(!owner||item.content.data?.owner===owner))await Notifications.cancelScheduledNotificationAsync(item.identifier);
+  const profile=usePreferencesStore.getState().profile;
+  if(owner&&profile?.user_id===owner&&!profile.bill_notifications)await saveReminderFreshness({owner,timezone:profile.timezone,syncedAt:new Date().toISOString(),scheduledAt:[],mode:'disabled'});
 }
 export async function sendBudgetAlerts(owner:string,input:BudgetAlertInput) {
   const profile=usePreferencesStore.getState().profile;
@@ -68,4 +71,6 @@ export async function reconcileBillReminders(owner:string,bills:PhoneBill[]) {
     const fingerprint=JSON.stringify([bill.reminder_at,bill.label,bill.amount,profile.currency,profile.notification_private!==false]);
     await Notifications.scheduleNotificationAsync({identifier,content:{title:'Recurring bill reminder',body:profile.notification_private!==false?'A recurring bill is coming due. Open the app for details.':`${bill.label||'Recurring bill'} · ${formatMoney(Number(bill.amount),profile.currency)} due ${bill.scheduled_date}.`,sound:'default',data:{owner,kind:'bill',ruleId:bill.rule_id,occurrenceId:bill.id,fingerprint}},trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(bill.reminder_at),channelId:'bill-reminders'}});
   }
+  const current=usePreferencesStore.getState().profile;
+  if(current?.user_id===owner&&current.timezone===profile.timezone&&current.bill_notifications===profile.bill_notifications)await saveReminderFreshness({owner,timezone:profile.timezone,syncedAt:new Date().toISOString(),scheduledAt:[...wanted.values()].map(b=>b.reminder_at).sort(),mode:!profile.bill_notifications?'disabled':permitted?'enabled':'permission-denied'});
 }

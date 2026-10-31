@@ -12,6 +12,7 @@ import { useUiStore } from '../../src/stores/useUiStore';
 import { BackButton } from '../../src/components/BackButton';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
 import {InitialHelp} from '../../src/components/InitialHelp';
+import {SetupGuide} from '../../src/components/SetupGuide';
 import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
 import {AppUpdatesProvider} from '../../src/components/AppUpdates';
 
@@ -118,7 +119,8 @@ export default function TabsLayout() {
           inside the Overview screen's own scene) so it can't be clipped
           by that screen's container and reliably paints above the tab bar. */}
       {TAB_PAGES.has(pathname) && <AddTransactionFab />}
-      <InitialHelp />
+      <InitialHelp autoOpen={false}/>
+      <SetupGuide/>
     </View></AppUpdatesProvider>
   );
 }

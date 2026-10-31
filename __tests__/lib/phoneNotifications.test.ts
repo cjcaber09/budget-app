@@ -1,5 +1,6 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Platform} from 'react-native';
+import {useReminderFreshnessStore} from '../../src/stores/useReminderFreshnessStore';
 import * as Notifications from 'expo-notifications';
 import {phonePermission,sendBudgetAlerts,reconcileBillReminders,cancelPhoneReminders,type PhoneBill} from '../../src/lib/phoneNotifications';
 import {usePreferencesStore} from '../../src/stores/usePreferencesStore';
@@ -44,4 +45,13 @@ it('hides financial details by default and avoids scheduling past reminders',asy
 
 it('starts new-month thresholds at zero after the first opt-in baseline',async()=>{
  await sendBudgetAlerts(owner,input);await sendBudgetAlerts(owner,{...input,month:'2026-11-01',currentMonth:'2026-11-01',expenseCents:11000,categories:[{...input.categories[0],spent:8500}]});expect(mockSchedule).toHaveBeenCalledTimes(2);
+});
+it('records phone schedule coverage only after a successful reconcile',async()=>{
+ await reconcileBillReminders(owner,[bill]);const successful=useReminderFreshnessStore.getState().snapshot;
+ expect(successful).toMatchObject({owner,timezone:'UTC',scheduledAt:[bill.reminder_at],mode:'enabled'});
+ mockSchedule.mockRejectedValueOnce(new Error('Phone scheduling failed'));
+ await expect(reconcileBillReminders(owner,[{...bill,id:'another'}])).rejects.toThrow();
+ expect(useReminderFreshnessStore.getState().snapshot).toBe(successful);
+ mockPermission.mockResolvedValue({granted:false});await reconcileBillReminders(owner,[bill]);
+ expect(useReminderFreshnessStore.getState().snapshot).toMatchObject({mode:'permission-denied',scheduledAt:[]});
 });

@@ -31,7 +31,7 @@ test('restart waits for queued draft edits to reach storage',async()=>{
  set.mockImplementationOnce(()=>new Promise<void>(resolve=>{write=resolve;}));
  const first=saveTransactionDraft(draft());let settled=false;
  const finishing=settleTransactionDraftWrites().then(()=>{settled=true;});
- await Promise.resolve();await Promise.resolve();expect(settled).toBe(false);
+ while(!write)await new Promise(resolve=>setTimeout(resolve,0));expect(settled).toBe(false);
  const final=saveTransactionDraft({...draft(),fields:{...draft().fields,note:'Last queued edit'}});
  write();await Promise.all([first,final,finishing]);expect(settled).toBe(true);expect((await loadTransactionDraft(owner))?.fields.note).toBe('Last queued edit');
 });

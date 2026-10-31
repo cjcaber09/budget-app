@@ -28,3 +28,4 @@ it('keeps the dynamic bill-payment route out of the tab bar and preserves Back t
  expect(screen.getByText('Add Transaction')).toBeTruthy();
  expect(navigation.getSearchParams()).not.toHaveProperty('occurrenceId');
 });
+jest.mock('../../src/components/SetupGuide',()=>({SetupGuide:()=>null}));

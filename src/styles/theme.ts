@@ -11,6 +11,11 @@ export const lightColors = {
   danger: '#A33F36', dangerBg: '#F9EAE5', scrim: 'rgba(14, 27, 20, 0.42)',
 };
 export type Colors = Record<keyof typeof lightColors, string>;
+export function cardElevation(colors: Colors) {
+  return {boxShadow: colors.background === lightColors.background
+    ? '0px 4px 14px rgba(16, 38, 25, 0.10)'
+    : '0px 5px 16px rgba(0, 0, 0, 0.28)'};
+}
 export const darkColors: Colors = {
   background: '#141C18', surface: '#1C2721', surfaceAlt: '#243229',
   text: '#F0F3EC', muted: '#AFBDB1', subtle: '#9CAE9F', border: '#35473B',

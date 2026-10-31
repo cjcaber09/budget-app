@@ -1,4 +1,4 @@
-import {fireEvent,render,screen} from '@testing-library/react-native';
+import {fireEvent,render,screen,within} from '@testing-library/react-native';
 import {CategoryBudgetReport} from '../../src/components/CategoryBudgetReport';
 import type {DashboardSnapshot} from '../../src/domain/spendingGuidance';
 const mockPush=jest.fn();
@@ -11,10 +11,11 @@ test('shows all categories including zero/unset and exposes over-budget amount b
  render(<CategoryBudgetReport categories={categories} budgets={budgets} snapshot={snapshot}/>);
  for(const name of names)expect(screen.getByLabelText(`View ${name} budget`)).toBeTruthy();
  expect(screen.getByText('50%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('80%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('100%',{includeHiddenElements:true})).toBeTruthy();expect(screen.getByText('125%',{includeHiddenElements:true})).toBeTruthy();
- expect(screen.getByText('$25.00')).toBeTruthy();expect(screen.getByText('$50.00')).toBeTruthy();expect(screen.getByText('Budget reached')).toBeTruthy();expect(screen.getAllByText('No budget')).toHaveLength(3);
+ expect(within(screen.getByLabelText('View Over budget')).getByText('$25.00')).toBeTruthy();expect(within(screen.getByLabelText('View Under budget')).getAllByText('$50.00')).toHaveLength(2);expect(screen.getByText('Budget reached')).toBeTruthy();expect(screen.getAllByText('No budget')).toHaveLength(3);
  expect(screen.queryByText('Infinity%')).toBeNull();
  expect(screen.getByText('Over by')).toBeTruthy();expect(screen.getAllByText('Remaining')).toHaveLength(6);
- expect(screen.getByText('Net spent $125.00')).toBeTruthy();
+ const over=within(screen.getByLabelText('View Over budget'));
+ expect(over.getByText('Net spent')).toBeTruthy();expect(over.getByText('$125.00')).toBeTruthy();expect(over.getByText('Budget')).toBeTruthy();expect(over.getByText('$100.00')).toBeTruthy();
 });
 test('category doughnuts retain fresh read-only detail navigation on every press',()=>{
  render(<CategoryBudgetReport categories={categories} budgets={budgets} snapshot={snapshot}/>);

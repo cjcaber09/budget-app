@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type ComponentProps} from 'react';
 import {Platform,Text,View} from 'react-native';
+import {LoadingSkeleton} from './LoadingSkeleton';
 import {Gesture,GestureDetector} from 'react-native-gesture-handler';
 import Animated,{cancelAnimation,runOnJS,useAnimatedStyle,useReducedMotion,useSharedValue,withSpring,withTiming,type SharedValue} from 'react-native-reanimated';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -8,7 +9,7 @@ import {usePaymentMethods} from '../hooks/usePaymentMethods';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {useMoneyCents} from '../domain/money';
 import {accountBalance,accountGradient,cashContributor,deckAccounts,nextAccountId,orderedAccounts,survivingAccountId} from '../domain/overviewAccounts';
-import type {PaymentMethod} from '../domain/paymentMethods';
+import {paymentMethodLastDigits,type PaymentMethod} from '../domain/paymentMethods';
 import {type,useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
 import {PaymentMethodDialog} from './PaymentMethodPicker';
@@ -32,7 +33,7 @@ function AccountWorkspace({owner,scrollGesture}:Readonly<{owner?:string;scrollGe
    <Text accessibilityRole="header" style={{...type.label,color:colors.muted}}>Your accounts</Text>
    <Text style={{...type.label,color:colors.muted,fontWeight:'400'}}>Current balances</Text>
   </View>
-  {!query.methods&&!query.isError&&<View accessibilityLabel="Loading accounts" style={{height:280,borderRadius:16,backgroundColor:colors.surfaceAlt}}/>}
+  {!query.methods&&!query.isError&&<LoadingSkeleton label="Loading accounts" variant="account"/>}
   {query.isError&&<MotionPressable accessibilityLabel="Retry account balances" onPress={()=>void query.refetch()} style={{padding:20,borderRadius:16,backgroundColor:colors.surfaceAlt}}><Text style={{...type.body,color:colors.text}}>Balances unavailable. Retry</Text></MotionPressable>}
   {!query.isError&&query.methods&&accounts.length>0&&<PaymentMethodDeck methods={accounts} scrollGesture={scrollGesture} onOpen={m=>setDetails(m.id)}/>}
   {!query.isError&&query.methods&&accounts.length===0&&<Text style={{...type.body,color:colors.muted}}>No active accounts. Add a payment method in Settings.</Text>}
@@ -110,7 +111,7 @@ function AccountCard({method,depth,reserve,drag,reduced,onHeight,onOpen,onStep,d
   return {transform:[{translateY:top-measured*(1-scale)/2+offset},{scale}],opacity:depth===0?1-Math.min(Math.abs(offset)/180,.7):1};
  });
  const Icon=method.method==='bank_account'?Landmark:method.method==='card'?CreditCard:Wallet;
- const front=depth===0;
+ const front=depth===0,digits=paymentMethodLastDigits(method);
  const webProps=Platform.OS==='web'?{tabIndex:front?0 as const:-1 as const,onKeyDown:(event:{key:string;preventDefault:()=>void})=>{
   if(disabled||!front)return;
   if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen();}
@@ -119,7 +120,7 @@ function AccountCard({method,depth,reserve,drag,reduced,onHeight,onOpen,onStep,d
  return <Animated.View {...webProps} pointerEvents={front?'auto':'none'} accessible={front} accessibilityRole={front?'button':undefined}
   onFocus={()=>setKeyboardFocus(Platform.OS==='web'&&typeof document!=='undefined'&&document.activeElement?.matches(':focus-visible')===true)} onBlur={()=>setKeyboardFocus(false)}
   accessibilityElementsHidden={!front} importantForAccessibility={front?'yes':'no-hide-descendants'} aria-hidden={!front}
-  accessibilityLabel={`${method.name}, ${method.payment_type}${method.last_four?', ending '+method.last_four:''}, ${balance.label}${balance.cents===null?'':', '+money(balance.cents)}`}
+  accessibilityLabel={`${method.name}, ${method.payment_type}${digits?', ending '+digits:''}, ${balance.label}${balance.cents===null?'':', '+money(balance.cents)}`}
   accessibilityHint="Open account details. Swipe down for the next account." onAccessibilityTap={front?onOpen:undefined}
   accessibilityActions={front?[{name:'activate'},{name:'increment'},{name:'decrement'}]:[]}
   onAccessibilityAction={event=>{if(disabled||!front)return;const action=event.nativeEvent.actionName;if(action==='activate')onOpen();else onStep(action==='increment'?1:-1);}}
@@ -129,7 +130,7 @@ function AccountCard({method,depth,reserve,drag,reduced,onHeight,onOpen,onStep,d
     <View pointerEvents="none" style={{position:'absolute',bottom:25,right:12,opacity:.08}}><Icon size={136} color="#FFFFFF" strokeWidth={1}/></View>
     <View style={{flexDirection:'row',alignItems:'flex-start',gap:12}}>
      <View style={{flex:1,gap:2}}><Text style={{...type.heading,fontSize:front?22:18,lineHeight:front?28:22,fontWeight:'800',color:'#FFFFFF'}}>{method.name}</Text><Text style={{...type.label,color:'#FFFFFF',fontWeight:'400'}}>{method.payment_type}</Text></View>
-     {method.last_four?<Text style={{...type.number,fontSize:13,color:'#FFFFFF',paddingTop:4}}>•••• {method.last_four}</Text>:<Icon size={23} color="#FFFFFF"/>}
+     {digits?<Text style={{...type.number,fontSize:13,color:'#FFFFFF',paddingTop:4}}>•••• {digits}</Text>:<Icon size={23} color="#FFFFFF"/>}
     </View>
     <View style={{marginTop:26,gap:4}}><Text style={{...type.label,color:'#FFFFFF',fontWeight:'400'}}>{balance.label} · {currency}</Text>
      {balance.cents!==null&&<Text style={{...type.number,fontWeight:'700',fontSize:money(balance.cents).length>17?26:34,lineHeight:44,color:'#FFFFFF',letterSpacing:-.7}}>{money(balance.cents)}</Text>}

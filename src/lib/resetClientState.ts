@@ -6,6 +6,9 @@ import { cancelPhoneReminders, serializeNotifications } from './phoneNotificatio
 import {clearExportFiles} from './exportFiles';
 import {useHelpStore} from '../stores/useHelpStore';
 import {clearTransactionDraft} from './transactionDraftStorage';
+import {clearOfflineDraftChoices} from './offlineDraftChoicesStorage';
+import {clearReminderFreshness} from './reminderFreshness';
+import {clearSetupProgress} from './setupProgress';
 
 // On sign-out, drop everything cached for the previous user so the next one can't briefly see it.
 export function resetClientState(queryClient: QueryClient) {
@@ -13,6 +16,9 @@ export function resetClientState(queryClient: QueryClient) {
   void clearExportFiles().catch(()=>{});
   const owner=usePreferencesStore.getState().profile?.user_id;
   if(owner)void clearTransactionDraft(owner).catch(()=>{});
+  if(owner)void clearOfflineDraftChoices(owner).catch(()=>{});
+  if(owner)void clearReminderFreshness(owner).catch(()=>{});
+  if(owner)void clearSetupProgress(owner).catch(()=>{});
   void serializeNotifications(()=>cancelPhoneReminders(owner)).catch(()=>{});
   queryClient.clear();
   useIncomeSourceDraftStore.getState().clear();
