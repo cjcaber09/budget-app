@@ -12,6 +12,12 @@ const input={month:'2026-10-01',currentMonth:'2026-10-01',limitCents:10000,expen
 const bill:PhoneBill={id:'o',rule_id:'r',reminder_at:'2099-10-08T01:00:00Z',label:'Rent',amount:100,scheduled_date:'2099-10-09'};
 beforeEach(async()=>{jest.clearAllMocks();mockPending.mockResolvedValue([]);mockPermission.mockResolvedValue({granted:true});mockSchedule.mockResolvedValue('id');await AsyncStorage.clear();Object.defineProperty(Platform,'OS',{value:'ios',configurable:true});usePreferencesStore.getState().setProfile({user_id:owner,display_name:'',avatar_path:null,appearance:'system',currency:'USD',timezone:'UTC',budget_notifications:true,bill_notifications:true,notification_private:false});});
 afterEach(()=>{usePreferencesStore.getState().setProfile(null);Object.defineProperty(Platform,'OS',{value:originalOS,configurable:true});});
+it('orders reminder coverage by actual time across different timestamp offsets',async()=>{
+ const earlier={...bill,id:'earlier',reminder_at:'2099-10-08T01:30:00+02:00'};
+ const later={...bill,id:'later',reminder_at:'2099-10-08T00:00:00Z'};
+ await reconcileBillReminders(owner,[later,earlier]);
+ expect(useReminderFreshnessStore.getState().snapshot?.scheduledAt).toEqual([earlier.reminder_at,later.reminder_at]);
+});
 it('baselines existing spending, persists80/100 alerts, and never repeats after refunds/restarts',async()=>{
  await sendBudgetAlerts(owner,input);expect(mockSchedule).not.toHaveBeenCalled();
  await sendBudgetAlerts(owner,{...input,expenseCents:8000,categories:[{...input.categories[0],spent:8000}]});expect(mockSchedule).toHaveBeenCalledTimes(2);

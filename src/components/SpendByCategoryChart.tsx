@@ -8,6 +8,16 @@ import {sumTransactionsForCategory} from '../domain/budgetMath';
 import {createThemedStyles,type,useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
 interface Props {categories?:Category[];transactions?:Transaction[];totals?:{id:string;spent:number}[];reportCategories?:ReportCategory[];expenseCents?:number;hideZeroValues?:boolean;onSelect?:(key:string)=>void}
+function categoryShare(cents:number,value:number,refunded:boolean,report:boolean,expenseCents:number|undefined,total:number) {
+ if(refunded)return null;
+ if(report)return expenseCents===undefined?null:reportShare(cents,expenseCents);
+ return total>0?value/total*100:null;
+}
+function emptyChartMessage(refunded:boolean,expenseCents:number|undefined,hasPositive:boolean) {
+ if(refunded)return 'Refunds exceed spending in some categories. Net amounts are shown below; percentage shares are unavailable.';
+ if(expenseCents===undefined&&hasPositive)return 'Chart percentages are unavailable until totals refresh.';
+ return 'No net expenses in this month.';
+}
 export function SpendByCategoryChart({categories=[],transactions=[],totals,reportCategories,expenseCents,hideZeroValues=false,onSelect}:Props) {
  const s=useStyles(),colors=useColors();
  const moneyDecimal=useMoney(),moneyCents=useMoneyCents();
@@ -16,7 +26,7 @@ export function SpendByCategoryChart({categories=[],transactions=[],totals,repor
  const refunded=data.some(c=>c.value<0);
  const positive=data.filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
  const total=data.reduce((n,c)=>n+c.value,0);
- const percentage=(c:typeof data[number])=>refunded?null:reportCategories?expenseCents===undefined?null:reportShare(c.cents,expenseCents):total>0?c.value/total*100:null;
+ const percentage=(c:typeof data[number])=>categoryShare(c.cents,c.value,refunded,!!reportCategories,expenseCents,total);
  const money=(c:typeof data[number])=>reportCategories?moneyCents(c.cents):moneyDecimal(c.value);
  const visible=hideZeroValues?data.filter(c=>c.cents!==0):data;
  const positiveTotal=positive.reduce((sum,c)=>sum+BigInt(c.cents),0n);
@@ -36,7 +46,7 @@ export function SpendByCategoryChart({categories=[],transactions=[],totals,repor
     </Svg>
     <View style={s.center} pointerEvents="none"><Text style={s.muted}>Net expenses</Text><Text style={s.centerNumber}>{reportCategories?moneyCents(expenseCents!):moneyDecimal(total)}</Text></View>
    </View>
-  </View>:<Text style={s.muted}>{refunded?'Refunds exceed spending in some categories. Net amounts are shown below; percentage shares are unavailable.':expenseCents===undefined&&positive.length?'Chart percentages are unavailable until totals refresh.':'No net expenses in this month.'}</Text>}
+  </View>:<Text style={s.muted}>{emptyChartMessage(refunded,expenseCents,positive.length>0)}</Text>}
   {visible.map(c=>{const p=percentage(c);const body=<><View style={[s.dot,{backgroundColor:c.color}]}/><Text style={s.name}>{c.name}</Text><View style={s.values}><Text style={s.amount}>{money(c)}</Text><Text style={s.percent}>{p===null?'—':p>0&&p<1?'<1%':Math.round(p)+'%'}</Text></View></>;return onSelect?<MotionPressable key={c.key} accessibilityLabel={'View '+c.name+' spending'} style={s.legend} onPress={()=>onSelect(c.key)}>{body}</MotionPressable>:<View key={c.key} style={s.legend}>{body}</View>;})}
   {hideZeroValues&&data.length>0&&!visible.length&&<Text style={s.muted}>Turn off Hide zero values to show all categories.</Text>}
  </View>;

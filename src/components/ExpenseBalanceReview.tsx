@@ -14,6 +14,20 @@ import {useFormStyles} from '../styles/forms';
 import {useColors} from '../styles/theme';
 import type {Transaction} from '../types/database';
 
+async function reviewCategoryBudget(input:BudgetExpense,profile:NonNullable<ReturnType<typeof usePreferencesStore.getState>['profile']>,previous?:Transaction) {
+ if(!input.categoryId||!input.transactionDate)return null;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+ try{
+  const month=input.transactionDate.slice(0,7)+'-01';
+  const result=await supabase.rpc('reporting_snapshot',{p_month:month}).abortSignal(controller.signal);
+  if(result.error)throw result.error;
+  const snapshot=decodeReportSnapshot(result.data,{owner:profile.user_id,month,timezone:profile.timezone,today:localDateKey(new Date(),profile.timezone)});
+  if(!snapshot.categories.data)throw new Error('Budget totals unavailable.');
+  return expenseBudgetWarning(input,snapshot.categories.data,previous,profile.timezone,profile.currency);
+ }catch{return 'The category budget could not be checked. Retry by returning to the expense, or record anyway without a budget check.';}
+ finally{clearTimeout(timer);}
+}
+
 export function useExpenseBalanceReview<T extends BudgetExpense & {paymentMethodId?:string|null;occurrenceId?:string}>(previous?:Transaction) {
  const query=usePaymentMethods(),profile=usePreferencesStore(s=>s.profile);
  const [checking,setChecking]=useState(false);
@@ -33,19 +47,7 @@ export function useExpenseBalanceReview<T extends BudgetExpense & {paymentMethod
    if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
    const methods=!result.isError&&result.data?.owner===owner&&result.data?.timezone===profile?.timezone?result.data?.methods:undefined;
    const funds=input.occurrenceId?null:expenseFundsWarning(input,methods,previous,profile?.timezone);
-   let budget:string|null=null;
-   if(input.categoryId&&input.transactionDate){
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
-    try{
-     const month=input.transactionDate.slice(0,7)+'-01';
-     const result=await supabase.rpc('reporting_snapshot',{p_month:month}).abortSignal(controller.signal);
-     if(result.error)throw result.error;
-     const snapshot=decodeReportSnapshot(result.data,{owner:owner!,month,timezone:profile!.timezone,today:localDateKey(new Date(),profile!.timezone)});
-     if(!snapshot.categories.data)throw new Error('Budget totals unavailable.');
-     budget=expenseBudgetWarning(input,snapshot.categories.data,previous,profile?.timezone,profile?.currency);
-    }catch{budget='The category budget could not be checked. Retry by returning to the expense, or record anyway without a budget check.';}
-    finally{clearTimeout(timer);}
-   }
+   const budget=profile?await reviewCategoryBudget(input,profile,previous):null;
    if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner||usePreferencesStore.getState().profile?.timezone!==profile?.timezone)return;
    const message=[budget,funds].filter(Boolean).join('\n\n');
    if(message)setPending({input,proceed,message,funds:!!funds,owner,timezone:profile?.timezone});else proceed();

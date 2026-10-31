@@ -29,18 +29,22 @@ export function usePaymentMethods() {
   return {...query,walletAccountNumberSupported:valid&&query.data?.walletAccountNumberVersion===1,transferEntrySupported:valid&&query.data?.transferEntryVersion===1,feeSupported:valid&&query.data?.transferFeeVersion===1,refundSupported:valid&&query.data?.refundVersion===1,methods:valid?query.data?.methods:undefined,transfers:valid?query.data?.transfers:undefined,corrections:valid?query.data?.corrections:undefined};
 }
 type SaveInput=({operation:'create'|'update'}&PaymentMethodValues)|{operation:'archive'|'restore';id:string;reassignBills?:boolean;replacementMethodId?:string|null};
+function paymentMethodPayload(input:SaveInput) {
+ if(input.operation!=='create'&&input.operation!=='update')return {...input};
+ const error=validatePaymentMethod(input);
+ if(error)throw new Error(error);
+ return {...input,...(input.walletAccountNumber!==undefined?{walletAccountNumber:input.walletAccountNumber.trim()||null}:{}),name:input.name.trim(),paymentType:input.paymentType.trim(),openingBalance:centsToDecimal(decimalToCents(input.openingBalance)!),lastFour:input.lastFour||null};
+}
 export function useSavePaymentMethod() {
   const client=useQueryClient();
   return useMutation({mutationFn:async(input:SaveInput)=>{
     const owner=usePreferencesStore.getState().profile?.user_id;if(!owner)throw new Error('Sign in to save a payment method.');
-    let payload:Record<string,unknown>={...input};
+    const payload=paymentMethodPayload(input);
     if(input.operation==='create'||input.operation==='update'){
-      const error=validatePaymentMethod(input);if(error)throw new Error(error);
       if(input.walletAccountNumber?.trim()){
         const supported=client.getQueriesData<{owner:string;walletAccountNumberVersion?:number}>({queryKey:['paymentMethods',owner]}).some(([,data])=>data?.owner===owner&&data.walletAccountNumberVersion===1);
         if(!supported)throw Object.assign(new Error('E-wallet account numbers need the latest server update. Your draft is still here.'),{rejected:true});
       }
-      payload={...input,...(input.walletAccountNumber!==undefined?{walletAccountNumber:input.walletAccountNumber.trim()||null}:{}),name:input.name.trim(),paymentType:input.paymentType.trim(),openingBalance:centsToDecimal(decimalToCents(input.openingBalance)!),lastFour:input.lastFour||null};
     }
     const result=await bounded(signal=>supabase.rpc('save_payment_method',{p_method:payload}).abortSignal(signal));
     if(result.error){
@@ -60,6 +64,7 @@ export function useCorrectMethodBalance() {
     const owner=usePreferencesStore.getState().profile?.user_id;if(!owner)throw new Error('Sign in again.');
     const amount=/^-?\d+(?:\.\d{0,2})?$/.test(input.targetBalance)?decimalToCents(input.targetBalance):null;if(amount===null||Math.abs(amount)>MAX_MONEY_CENTS)throw new Error('Enter a valid target balance with up to two decimal places.');
     const result=await bounded(signal=>supabase.rpc('correct_method_balance',{p_correction:{...input,targetBalance:centsToDecimal(amount)}}).abortSignal(signal));
-    if(result.error)throw new Error(result.error.code==='40001'?'Balance changed. Refresh balances and retry; your correction is still here.':'Could not correct this balance. Check the fields and retry.');return owner;
+    if(result.error){throw new Error(result.error.code==='40001'?'Balance changed. Refresh balances and retry; your correction is still here.':'Could not correct this balance. Check the fields and retry.');}
+    return owner;
   },onSuccess:owner=>{if(usePreferencesStore.getState().profile?.user_id===owner){invalidateReports(client);void client.invalidateQueries({queryKey:['paymentMethods']});}}});
 }

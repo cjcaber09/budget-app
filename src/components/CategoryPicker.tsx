@@ -14,9 +14,9 @@ export function CategoryPicker({categories,value,onChange,compact=false}:Readonl
   const colors=useColors();const [open,setOpen]=useState(false),[search,setSearch]=useState('');
   const selected=categories.find(category=>category.id===value);
   const choices=categories.filter(category=>category.name.toLowerCase().includes(search.trim().toLowerCase()));
-  if(compact)return <>
+  if(compact){ return <>
     <Text style={styles.label}>Category</Text>
-    <MotionPressable accessibilityLabel="Choose category" style={[styles.secondaryButton,{marginTop:0,minHeight:50,borderRadius:8,flexDirection:'row',alignItems:'center',gap:12}]} onPress={event=>{Keyboard.dismiss();if(Platform.OS==='web')(event.currentTarget as unknown as HTMLElement).focus();setSearch('');setOpen(true);}}>
+    <MotionPressable accessibilityLabel="Choose category" style={[styles.secondaryButton,{marginTop:0,minHeight:50,borderRadius:8,flexDirection:'row',alignItems:'center',gap:12}]} onPress={event=>{Keyboard.dismiss();if(Platform.OS==='web'){ (event.currentTarget as unknown as HTMLElement).focus(); }setSearch('');setOpen(true);}}>
       <Text style={[styles.chipText,{flex:1}]}>{selected?.name??'Choose category'}</Text><ChevronRight size={18} color={colors.primary}/>
     </MotionPressable>
     {open&&<ActionSheet title="Choose category" visible onClose={()=>{Keyboard.dismiss();setOpen(false);}}>
@@ -27,7 +27,7 @@ export function CategoryPicker({categories,value,onChange,compact=false}:Readonl
       </MotionPressable>)}
       {!choices.length&&<Text style={styles.subtitle}>No matching categories.</Text>}
     </ActionSheet>}
-  </>;
+  </>; }
   return <>
     <Text style={styles.label}>Category</Text>
     <View style={styles.optionRow}>{categories.map(category=><MotionPressable

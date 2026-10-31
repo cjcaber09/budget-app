@@ -58,16 +58,16 @@ export default function NewTransactionScreen() {
   const pendingImage = useScanStore((state) => state.pendingImage);
   const scanImage = pendingImage && pendingImage.requestId === visit ? pendingImage : null;
 
-  if(occurrenceId)return <BillPaymentForm key={visit??occurrenceId} occurrenceId={occurrenceId}/>;
+  if(occurrenceId){ return <BillPaymentForm key={visit??occurrenceId} occurrenceId={occurrenceId}/>; }
 
-  if(!owner)return null;
+  if(!owner){ return null; }
   return <NewVisitEntry key={`${owner}:${visit??'direct'}`} owner={owner} scanImage={scanImage} repeatId={repeatId}/>;
 }
 function NewVisitEntry({owner,scanImage,repeatId}:{owner:string;scanImage:PendingScanImage|null;repeatId?:string}) {
   const [scan]=useState(scanImage);
   const cached=useOfflineDraftChoices(owner);
-  if(!cached.loaded)return <LoadingSkeleton label="Loading draft choices"/>;
-  if(scan)return <TransactionDraftRecovery owner={owner}>{draft=><NewTransactionContent scanImage={draft?null:scan} restored={draft}/>}</TransactionDraftRecovery>;
+  if(!cached.loaded){ return <LoadingSkeleton label="Loading draft choices"/>; }
+  if(scan){ return <TransactionDraftRecovery owner={owner}>{draft=><NewTransactionContent scanImage={draft?null:scan} restored={draft}/>}</TransactionDraftRecovery>; }
   return <TransactionDraftRecovery owner={owner}>{draft=>repeatId&&!draft?<RepeatEntry repeatId={repeatId}/>:<NewTransactionContent scanImage={null} restored={draft} cachedChoices={cached.choices}/>}</TransactionDraftRecovery>;
 }
 
@@ -77,7 +77,7 @@ function RepeatEntry({repeatId}:{repeatId:string}) {
  const [copy,setCopy]=useState<ReturnType<typeof repeatTransactionValues>|null>(null);
  let message='';
  if(!copy&&parent.isSuccess&&items.isSuccess&&categories.isSuccess&&methods.isSuccess&&methods.methods&&sources.isSuccess&&!parent.isFetching&&!items.isFetching&&!categories.isFetching&&!methods.isFetching&&!sources.isFetching&&owner){try{setCopy(repeatTransactionValues(parent.data,items.data,categories.data,methods.methods,sources.data,localDateKey(new Date()),owner));}catch(issue){message=issue instanceof Error?issue.message:'Could not repeat this entry.';}}
- if(copy)return <NewTransactionContent scanImage={null} repeated={copy}/>;
+ if(copy){ return <NewTransactionContent scanImage={null} repeated={copy}/>; }
  return <View style={layout.screen}><View style={layout.card}>{message?<Text style={form.error}>{message}</Text>:<QueryState error={!isUuid(repeatId)||parent.isError||items.isError||categories.isError||methods.isError||sources.isError} loading={isUuid(repeatId)&&!parent.isError&&!items.isError&&!categories.isError&&!methods.isError&&!sources.isError} retry={()=>{void parent.refetch();void items.refetch();void categories.refetch();void methods.refetch();void sources.refetch();}}/>}</View></View>;
 }
 
@@ -113,19 +113,19 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
   const [reviewing,setReviewing]=useState(false);
   useUpdateBlocker(draftBusy||draftStatus==='saving'||reviewing||!!draftError||!!pendingInput&&!saved||transferLocked);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  const [scanContext,setScanContext] = useState(() => { if(entryRestored)return {startedAt:entryRestored.startedAt,day:entryRestored.day,timezone:entryRestored.timezone}; const now=new Date();const timezone=(online===false?cachedChoices?.timezone:undefined)??activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
+  const [scanContext,setScanContext] = useState(() => { if(entryRestored){ return {startedAt:entryRestored.startedAt,day:entryRestored.day,timezone:entryRestored.timezone}; } const now=new Date();const timezone=(online===false?cachedChoices?.timezone:undefined)??activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
   const occurredAt=scanContext.startedAt;
   const funds=useExpenseBalanceReview<AddTransactionInput>();
   const methodChange=useRef<((id:string|null)=>void)|null>(null);
   const proof=useProofDraft();
   const prepareScan=proof.prepareScan;
-  const finishSave=()=>{setSaved(true);void (async()=>{try{if(owner&&!initialScanImage)await clearTransactionDraft(owner,transactionId);if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;const ok=await proof.upload(transactionId);if(ok&&alive.current)router.back();}catch{if(alive.current)setDraftError('Transaction saved. Could not clear the local draft. Retry cleanup.');}})();};
+  const finishSave=()=>{setSaved(true);void (async()=>{try{if(owner&&!initialScanImage){ await clearTransactionDraft(owner,transactionId); }if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }const ok=await proof.upload(transactionId);if(ok&&alive.current){ router.back(); }}catch{if(alive.current){ setDraftError('Transaction saved. Could not clear the local draft. Retry cleanup.'); }}})();};
   function makeDraft(fields:TransactionDraftFields,pending?:AddTransactionInput):TransactionDraft {
     const current=usePreferencesStore.getState().profile!;
     return {version:1,owner:owner!,id:transactionId,updatedAt:new Date().toISOString(),startedAt:scanContext.startedAt,day:scanContext.day,timezone:draftRef.current?.timezone??current.timezone,currency:draftRef.current?.currency??current.currency,fields,...(pending?{pending}:{})};
   }
   function keepDraft(fields:TransactionDraftFields){
-    if(transferSelected||initialScanImage||pendingInput||saved||!owner||running.current||submitting)return;
+    if(transferSelected||initialScanImage||pendingInput||saved||!owner||running.current||submitting){ return; }
     const draft=makeDraft(fields);if(!draftRef.current){setDraftCurrency(draft.currency);setScanContext(context=>({...context,timezone:draft.timezone}));}draftRef.current=draft;
     setDraftStatus('saving');
     void saveTransactionDraft(draft,draftGeneration).then(()=>{if(alive.current&&draftRef.current===draft){setDraftError('');setDraftStatus('saved');}}).catch(()=>{if(alive.current&&draftRef.current===draft){setDraftStatus('idle');setDraftError('Could not save this draft on your device. Keep this screen open and retry.');}});
@@ -137,49 +137,49 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
     const expires=new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Review timed out. Your draft is still here; reconnect and retry.')),15000);});
     try{
       const session=await Promise.race([supabase.auth.getUser(),expires]);
-      if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
-      if(session.error||session.data.user?.id!==owner)throw new Error('Sign in again before submitting. Your draft is still on this device.');
+      if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }
+      if(session.error||session.data.user?.id!==owner){ throw new Error('Sign in again before submitting. Your draft is still on this device.'); }
       const [cats,payments,income,preferences]=await Promise.race([Promise.all([categoryQuery.refetch(),methods.refetch(),sources.refetch(),supabase.from('profiles').select('user_id,currency,timezone').eq('user_id',owner!).single()]),expires]);
-      if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
-      if(useConnectivityStore.getState().online!==true||cats.isError||payments.isError||income.isError||preferences.error||preferences.data?.user_id!==owner||payments.data?.owner!==owner||!cats.data||!payments.data?.methods||!income.data)throw new Error('Could not refresh your choices. Your draft is still here; reconnect and retry.');
-      if(preferences.data.currency!==draftCurrency)throw new Error(`Your currency changed from ${draftCurrency}. Keep this draft and review your currency in Settings before submitting.`);
+      if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }
+      if(useConnectivityStore.getState().online!==true||cats.isError||payments.isError||income.isError||preferences.error||preferences.data?.user_id!==owner||payments.data?.owner!==owner||!cats.data||!payments.data?.methods||!income.data){ throw new Error('Could not refresh your choices. Your draft is still here; reconnect and retry.'); }
+      if(preferences.data.currency!==draftCurrency){ throw new Error(`Your currency changed from ${draftCurrency}. Keep this draft and review your currency in Settings before submitting.`); }
       const message=manualDraftSelectionError(input,owner!,cats.data,payments.data.methods,income.data);
-      if(message)throw new Error(message);
+      if(message){ throw new Error(message); }
       await funds.review(input,()=>void dispatch(input));
-    }catch(error){if(alive.current)setReviewError(error instanceof Error?error.message:'Could not review your draft. Retry when connected.');}
-    finally{if(timeout)clearTimeout(timeout);if(alive.current)setReviewing(false);}
+    }catch(error){if(alive.current){ setReviewError(error instanceof Error?error.message:'Could not review your draft. Retry when connected.'); }}
+    finally{if(timeout){ clearTimeout(timeout); }if(alive.current){ setReviewing(false); }}
   }
   async function dispatch(input:AddTransactionInput){
-    if(running.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
+    if(running.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }
     if(useConnectivityStore.getState().online!==true){setDraftError('Connect to the internet before submitting. Your draft stays on this device.');return;}
     running.current=true;setDraftBusy(true);setDraftError('');
     try {
       if(!initialScanImage&&owner){
         const fields:TransactionDraftFields={type:input.type,amount:String(input.amount),note:input.note??'',categoryId:input.categoryId??'',paymentMethodId:input.paymentMethodId??null,incomeSourceId:input.incomeSourceId??null,transactionDate:input.transactionDate!,drafts:(input.items??[]).map(draftItem)};
         const draft=makeDraft(fields,input);await saveTransactionDraft(draft,draftGeneration);draftRef.current=draft;
-        if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
+        if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }
         setPendingInput(input);
       }
       setPendingInput(input);
       addTransaction(input,{onSuccess:finishSave});
-    }catch{if(alive.current)setDraftError('Could not preserve the save request. Retry; nothing was sent.');}
-    finally{running.current=false;if(alive.current)setDraftBusy(false);}
+    }catch{if(alive.current){ setDraftError('Could not preserve the save request. Retry; nothing was sent.'); }}
+    finally{running.current=false;if(alive.current){ setDraftBusy(false); }}
   }
   async function checkSaved(){
     if(useConnectivityStore.getState().online!==true){setDraftError('Connect to the internet to check whether it saved.');return;}
-    if(!owner||running.current)return;running.current=true;setDraftBusy(true);
-    try{const result=await supabase.from('transactions').select('id,user_id').eq('id',transactionId).eq('user_id',owner).maybeSingle();if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;if(result.error)throw result.error;
+    if(!owner||running.current){ return; }running.current=true;setDraftBusy(true);
+    try{const result=await supabase.from('transactions').select('id,user_id').eq('id',transactionId).eq('user_id',owner).maybeSingle();if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }if(result.error){ throw result.error; }
       if(result.data){await clearTransactionDraft(owner,transactionId);router.replace({pathname:'/transaction/[id]',params:{id:transactionId,visit:createRequestId()}});}
       else if(draftRef.current){const draft={...draftRef.current,pending:undefined};await saveTransactionDraft(draft,draftGeneration);draftRef.current=draft;setPendingInput(null);setDraftError('No saved transaction found. Review this draft before retrying.');}
-    }catch{if(alive.current)setDraftError('Could not confirm whether it saved. Retry the same request or check again.');}
-    finally{running.current=false;if(alive.current)setDraftBusy(false);}
+    }catch{if(alive.current){ setDraftError('Could not confirm whether it saved. Retry the same request or check again.'); }}
+    finally{running.current=false;if(alive.current){ setDraftBusy(false); }}
   }
   useFocusEffect(useCallback(() => {
     focusedRef.current = true;
     return () => {
       focusedRef.current = false;
       // StrictMode immediately repeats setup; a real blur remains unfocused.
-      void Promise.resolve().then(() => { if (!focusedRef.current) acceptScanRef.current = false; });
+      void Promise.resolve().then(() => { if (!focusedRef.current) { acceptScanRef.current = false; } });
     };
   }, []));
 
@@ -193,7 +193,7 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
   const scanStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!scanImage || scanStartedRef.current) return;
+    if (!scanImage || scanStartedRef.current) { return; }
     scanStartedRef.current = true;
     void prepareScan(scanImage.uri);
     useScanStore.getState().clearPendingImage();
@@ -202,19 +202,19 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
       { base64: scanImage.base64, mimeType: scanImage.mimeType, requestId: scanImage.requestId },
       {
         onSuccess: (result) => {
-          if (!acceptScanRef.current || !focusedRef.current) return;
+          if (!acceptScanRef.current || !focusedRef.current) { return; }
           if (result.truncated) {
             showToast(`That text was long — kept the first ${MAX_OCR_TEXT_CHARS.toLocaleString('en-US')} characters.`);
           } else if (!result.text.trim()) {
             showToast('No text found in that image.');
           }
           setScanResult(result);
-          if(result.receipt?.transfer?.kind==='withdrawal'&&result.receipt.paymentStatus==='completed')setTransferSelected(true);
+          if(result.receipt?.transfer?.kind==='withdrawal'&&result.receipt.paymentStatus==='completed'){ setTransferSelected(true); }
           setPrefillNote(result.receipt ? result.receipt.merchant : result.text.trim() ? result.text : null);
           setIsScanning(false);
         },
         // The error toast comes from the global MutationCache handler.
-        onError: () => { if (acceptScanRef.current && focusedRef.current) setIsScanning(false); },
+        onError: () => { if (acceptScanRef.current && focusedRef.current) { setIsScanning(false); } },
       }
     );
   }, [scanImage, runOcr, prepareScan]);
@@ -226,6 +226,38 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
       </View>
     );
   }
+
+  function renderDraftStatus(){return <>{!initialScanImage&&!transferSelected&&!saved&&<View style={{gap:8,marginBottom:16}}>
+            <Text accessibilityLiveRegion="polite" style={form.subtitle}>{online===false?'Offline · Save a draft now and submit when connected.':online===null?'Checking connection… You can save a draft on this device.':'Online · Review and submit when ready.'}</Text>
+            {online===false&&<Text style={form.subtitle}>{cachedChoices?`Using choices saved ${new Date(cachedChoices.savedAt).toLocaleDateString()}.`:'No saved choices yet. Enter your details now and choose a category or account when online.'} Drafts do not change balances or budgets.</Text>}
+            {!pendingInput&&<Text accessibilityLiveRegion="polite" style={form.subtitle}>{draftStatus==='saved'?'Saved on this device · Not submitted':draftStatus==='saving'?'Saving draft on this device…':`Draft currency: ${draftCurrency}`}</Text>}
+          </View>}</>;}
+
+  function renderSaveRecovery(){return <>{!!repeated&&<Text style={form.subtitle}>New copy for today. Review before saving. Attachments, payment references and bill links are not copied.</Text>}
+          {repeated?.warnings.map(warning=><Text key={warning} style={form.subtitle}>{warning}</Text>)}
+          {!!restored&&<Text style={form.subtitle}>Recovered draft · {restored.currency} · {restored.fields.transactionDate}. Review your date and selections before saving.</Text>}
+          {pendingInput&&!saved&&<View><Text style={form.subtitle}>Save request retained: {pendingInput.type} · {pendingInput.transactionDate} · {pendingInput.amount} {restored?.currency??profile?.currency}. Retry this exact request to avoid recording it twice.</Text>{saveError&&<Text accessibilityRole="alert" style={form.error}>{saveIssue.message}</Text>}<MotionPressable disabled={submitting||draftBusy} style={form.button} onPress={()=>void dispatch(pendingInput)}><Text style={form.buttonText}>{submitting||draftBusy?'Saving…':'Retry same save'}</Text></MotionPressable><MotionPressable disabled={submitting||draftBusy} style={form.secondaryButton} onPress={()=>void checkSaved()}><Text style={form.chipTextSelected}>Check whether it saved</Text></MotionPressable></View>}</>;}
+
+  function initialTransferFields(){return scanResult?.receipt?.transfer?{destinationId:scanResult.receipt.transfer.kind==='withdrawal'?methods.methods?.find(m=>m.method==='cash')?.id??'':'',amount:scanResult.receipt.transfer.receivedCents?centsToDecimal(scanResult.receipt.transfer.receivedCents):'',fee:scanResult.receipt.transfer.feeCents!=null?centsToDecimal(scanResult.receipt.transfer.feeCents):'',feeMode:'added' as const,date:scanResult.receipt.receiptDate??scanContext.day,reviewRequired:scanResult.receipt.transfer.requiresReview||scanResult.receipt.paymentStatus!=='completed'}:undefined;}
+
+  function renderEntryForm(categories:NonNullable<typeof categoryQuery.data>){return <><TransactionForm transferControl={{disabled:online!==true,selected:transferSelected,onSelect:()=>setTransferSelected(true),onLeave:()=>setTransferSelected(false),content:online!==true?<Text style={form.subtitle}>Transfers need an internet connection. Your existing transfer draft is retained.</Text>:<TransferEntryForm defaultCash={scanResult?.receipt?.transfer?.kind==='withdrawal'} entryContext={{...scanContext,currency:entryRestored?.currency??profile?.currency??'USD'}} id={transactionId} methods={methods.methods??[]} active={transferSelected} persist restored={restoredTransfer} proof={proof} onUncertainChange={setTransferLocked} onClose={()=>{if(focusedRef.current){ router.back(); }}} initialFields={initialTransferFields()}/>}} incomeSourceControl={(value,onChange)=>online===false?<DraftChoiceField label="Income source" value={value} onChange={onChange} emptyLabel="Unspecified" choices={cachedChoices?.sources??sources.data??[]}/>:<IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=>{methodChange.current=onChange;return online===false?<DraftChoiceField label="Payment method" value={value} onChange={onChange} emptyLabel="Cash" choices={(cachedChoices?.methods??methods.methods??[]).filter(m=>m.method!=='cash').map(m=>({...m,name:paymentMethodLabel(m)}))}/>:<PaymentMethodPicker value={value} onChange={onChange}/>;}}
+            attachmentControl={<>{online===false?<Text style={form.subtitle}>Attachments need a connection. Reattach proof files after restarting.</Text>:<ProofPicker draft={proof} disabled={submitting||draftBusy}/>}{!initialScanImage&&<Text style={form.subtitle}>Draft recovery saves text and items on this device. Reattach proof files after restarting.</Text>}</>}
+            categories={categories}
+            receipt={scanResult?.receipt}
+            receiptText={scanResult?.text}
+            scanned={!!scanResult}
+            onDiscard={() => router.back()}
+            scanDate={scanContext.day}
+            initialDraft={restored?.fields} onDraftChange={initialScanImage?undefined:keepDraft}
+            initialValues={restored?.fields??repeated?.values??{paymentMethodId:null,note: prefillNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : '' }}
+            draftAction={!initialScanImage&&!pendingInput&&!saved?{onSave:keepDraft,busy:draftStatus==='saving'}:undefined}
+            submitDisabled={online!==true||reviewing}
+            submitting={submitting||draftBusy||funds.checking||proof.busy||transferLocked||reviewing} submitLabel="Add Transaction"
+            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId, incomeSourceId }) => {
+              const input={id:transactionId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
+              if(initialScanImage){ void funds.review(input,()=>void dispatch(input)); }else { void reviewAndSubmit(input); }
+            }}
+          /></>;}
 
   return (
     <ScrollView style={pageLayout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={pageLayout.scrollContent}>
@@ -242,40 +274,17 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
           </View>
         ) : (
           <>
-          {!initialScanImage&&!transferSelected&&!saved&&<View style={{gap:8,marginBottom:16}}>
-            <Text accessibilityLiveRegion="polite" style={form.subtitle}>{online===false?'Offline · Save a draft now and submit when connected.':online===null?'Checking connection… You can save a draft on this device.':'Online · Review and submit when ready.'}</Text>
-            {online===false&&<Text style={form.subtitle}>{cachedChoices?`Using choices saved ${new Date(cachedChoices.savedAt).toLocaleDateString()}.`:'No saved choices yet. Enter your details now and choose a category or account when online.'} Drafts do not change balances or budgets.</Text>}
-            {!pendingInput&&<Text accessibilityLiveRegion="polite" style={form.subtitle}>{draftStatus==='saved'?'Saved on this device · Not submitted':draftStatus==='saving'?'Saving draft on this device…':`Draft currency: ${draftCurrency}`}</Text>}
-          </View>}
+          {renderDraftStatus()}
           <funds.Controls busy={submitting||draftBusy}/>
           {!!draftError&&<Text accessibilityRole="alert" style={form.error}>{draftError}</Text>}
           {!!reviewError&&<Text accessibilityRole="alert" style={form.error}>{reviewError}</Text>}
-          {draftError&&!pendingInput&&!saved&&<MotionPressable style={form.secondaryButton} onPress={()=>{if(draftRef.current)keepDraft(draftRef.current.fields);}}><Text style={form.chipTextSelected}>Retry saving draft</Text></MotionPressable>}
+          {draftError&&!pendingInput&&!saved&&<MotionPressable style={form.secondaryButton} onPress={()=>{if(draftRef.current){ keepDraft(draftRef.current.fields); }}}><Text style={form.chipTextSelected}>Retry saving draft</Text></MotionPressable>}
           {saved&&draftError&&<MotionPressable style={form.button} onPress={finishSave}><Text style={form.buttonText}>Retry cleanup</Text></MotionPressable>}
-          {!!repeated&&<Text style={form.subtitle}>New copy for today. Review before saving. Attachments, payment references and bill links are not copied.</Text>}
-          {repeated?.warnings.map(warning=><Text key={warning} style={form.subtitle}>{warning}</Text>)}
-          {!!restored&&<Text style={form.subtitle}>Recovered draft · {restored.currency} · {restored.fields.transactionDate}. Review your date and selections before saving.</Text>}
-          {pendingInput&&!saved&&<View><Text style={form.subtitle}>Save request retained: {pendingInput.type} · {pendingInput.transactionDate} · {pendingInput.amount} {restored?.currency??profile?.currency}. Retry this exact request to avoid recording it twice.</Text>{saveError&&<Text accessibilityRole="alert" style={form.error}>{saveIssue.message}</Text>}<MotionPressable disabled={submitting||draftBusy} style={form.button} onPress={()=>void dispatch(pendingInput)}><Text style={form.buttonText}>{submitting||draftBusy?'Saving…':'Retry same save'}</Text></MotionPressable><MotionPressable disabled={submitting||draftBusy} style={form.secondaryButton} onPress={()=>void checkSaved()}><Text style={form.chipTextSelected}>Check whether it saved</Text></MotionPressable></View>}
+          {renderSaveRecovery()}
           <ExpenseReviewMethodDialog review={funds} onSelect={id=>methodChange.current?.(id)}/>
           <View style={funds.pending||pendingInput||saved?{display:'none'}:undefined}>
-          <TransactionForm transferControl={{disabled:online!==true,selected:transferSelected,onSelect:()=>setTransferSelected(true),onLeave:()=>setTransferSelected(false),content:online!==true?<Text style={form.subtitle}>Transfers need an internet connection. Your existing transfer draft is retained.</Text>:<TransferEntryForm defaultCash={scanResult?.receipt?.transfer?.kind==='withdrawal'} entryContext={{...scanContext,currency:entryRestored?.currency??profile?.currency??'USD'}} id={transactionId} methods={methods.methods??[]} active={transferSelected} persist restored={restoredTransfer} proof={proof} onUncertainChange={setTransferLocked} onClose={()=>{if(focusedRef.current)router.back();}} initialFields={scanResult?.receipt?.transfer?{destinationId:scanResult.receipt.transfer.kind==='withdrawal'?methods.methods?.find(m=>m.method==='cash')?.id??'':'',amount:scanResult.receipt.transfer.receivedCents?centsToDecimal(scanResult.receipt.transfer.receivedCents):'',fee:scanResult.receipt.transfer.feeCents!=null?centsToDecimal(scanResult.receipt.transfer.feeCents):'',feeMode:'added',date:scanResult.receipt.receiptDate??scanContext.day,reviewRequired:scanResult.receipt.transfer.requiresReview||scanResult.receipt.paymentStatus!=='completed'}:undefined}/>}} incomeSourceControl={(value,onChange)=>online===false?<DraftChoiceField label="Income source" value={value} onChange={onChange} emptyLabel="Unspecified" choices={cachedChoices?.sources??sources.data??[]}/>:<IncomeSourcePicker value={value} onChange={onChange}/>} paymentMethodControl={(value,onChange)=>{methodChange.current=onChange;return online===false?<DraftChoiceField label="Payment method" value={value} onChange={onChange} emptyLabel="Cash" choices={(cachedChoices?.methods??methods.methods??[]).filter(m=>m.method!=='cash').map(m=>({...m,name:paymentMethodLabel(m)}))}/>:<PaymentMethodPicker value={value} onChange={onChange}/>;}}
-            attachmentControl={<>{online===false?<Text style={form.subtitle}>Attachments need a connection. Reattach proof files after restarting.</Text>:<ProofPicker draft={proof} disabled={submitting||draftBusy}/>}{!initialScanImage&&<Text style={form.subtitle}>Draft recovery saves text and items on this device. Reattach proof files after restarting.</Text>}</>}
-            categories={categories}
-            receipt={scanResult?.receipt}
-            receiptText={scanResult?.text}
-            scanned={!!scanResult}
-            onDiscard={() => router.back()}
-            scanDate={scanContext.day}
-            initialDraft={restored?.fields} onDraftChange={initialScanImage?undefined:keepDraft}
-            initialValues={restored?.fields??repeated?.values??{paymentMethodId:null,note: prefillNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : '' }}
-            draftAction={!initialScanImage&&!pendingInput&&!saved?{onSave:keepDraft,busy:draftStatus==='saving'}:undefined}
-            submitDisabled={online!==true||reviewing}
-            submitting={submitting||draftBusy||funds.checking||proof.busy||transferLocked||reviewing} submitLabel="Add Transaction"
-            onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId, incomeSourceId }) => {
-              const input={id:transactionId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
-              if(initialScanImage)void funds.review(input,()=>void dispatch(input));else void reviewAndSubmit(input);
-            }}
-          />
+          {renderEntryForm(categories)}
+
           </View>
           </>
         )}

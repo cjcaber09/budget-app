@@ -14,36 +14,36 @@ import {loadReminderFreshness} from '../lib/reminderFreshness';
 import {useReminderFreshnessStore} from '../stores/useReminderFreshnessStore';
 export function usePhoneNotifications() {
   const profile=usePreferencesStore(s=>s.profile);const router=useRouter();
-  useEffect(()=>{if(Platform.OS==='web'||!profile?.user_id)return;void loadReminderFreshness(profile.user_id).catch(()=>{});},[profile?.user_id]);
+  useEffect(()=>{if(Platform.OS==='web'||!profile?.user_id){ return; }void loadReminderFreshness(profile.user_id).catch(()=>{});},[profile?.user_id]);
   const snapshot=useQuery({queryKey:['phoneReminders',profile?.user_id,profile?.timezone,profile?.bill_notifications],enabled:Platform.OS!=='web'&&!!profile?.bill_notifications,refetchInterval:60000,queryFn:async()=>{
-    const r=await supabase.rpc('phone_notification_snapshot');if(r.error)throw r.error;
+    const r=await supabase.rpc('phone_notification_snapshot');if(r.error){ throw r.error; }
     return r.data as {owner:string;timezone:string;bills:PhoneBill[]};
   }});
   useEffect(()=>{
-    if(Platform.OS==='web')return;
-    if(!profile?.user_id||profile.bill_notifications===undefined)return;
+    if(Platform.OS==='web'){ return; }
+    if(!profile?.user_id||profile.bill_notifications===undefined){ return; }
     if(!profile.bill_notifications){void serializeNotifications(()=>cancelPhoneReminders(profile.user_id)).catch(()=>{});return;}
     if(snapshot.isFetching||snapshot.isError){useReminderFreshnessStore.setState({owner:profile.user_id,syncing:snapshot.isFetching,error:snapshot.isError?'Could not refresh reminders. The previous schedule may be out of date.':''});return;}
-    if(snapshot.data?.owner!==profile.user_id||snapshot.data.timezone!==profile.timezone)return;
+    if(snapshot.data?.owner!==profile.user_id||snapshot.data.timezone!==profile.timezone){ return; }
     useReminderFreshnessStore.setState({owner:profile.user_id,syncing:true,error:''});
-    void serializeNotifications(()=>reconcileBillReminders(profile.user_id,snapshot.data!.bills)).catch(()=>{if(usePreferencesStore.getState().profile?.user_id!==profile.user_id)return;useReminderFreshnessStore.setState({owner:profile.user_id,syncing:false,error:'Could not update the phone schedule. Refresh reminders to retry.'});useToastStore.getState().showToast('Could not schedule bill reminders. Open phone notifications in Settings and refresh reminders.');});
+    void serializeNotifications(()=>reconcileBillReminders(profile.user_id,snapshot.data!.bills)).catch(()=>{if(usePreferencesStore.getState().profile?.user_id!==profile.user_id){ return; }useReminderFreshnessStore.setState({owner:profile.user_id,syncing:false,error:'Could not update the phone schedule. Refresh reminders to retry.'});useToastStore.getState().showToast('Could not schedule bill reminders. Open phone notifications in Settings and refresh reminders.');});
   },[profile,snapshot.data,snapshot.dataUpdatedAt,snapshot.isFetching,snapshot.isError]);
   const refetch=snapshot.refetch;
-  useEffect(()=>{if(Platform.OS==='web')return;const listener=AppState.addEventListener('change',s=>{if(s==='active'&&profile?.bill_notifications)void refetch();});return()=>listener.remove();},[profile?.bill_notifications,refetch]);
+  useEffect(()=>{if(Platform.OS==='web'){ return; }const listener=AppState.addEventListener('change',s=>{if(s==='active'&&profile?.bill_notifications){ void refetch(); }});return()=>listener.remove();},[profile?.bill_notifications,refetch]);
   useEffect(()=>{
-    if(Platform.OS==='web')return;
+    if(Platform.OS==='web'){ return; }
     const open=(response:Notifications.NotificationResponse)=>{
       const data=response.notification.request.content.data;const owner=usePreferencesStore.getState().profile?.user_id;
-      if(!owner)return;
+      if(!owner){ return; }
       if(!data||data.owner!==owner){void Notifications.clearLastNotificationResponseAsync().catch(()=>{});return;}
-      if(typeof data.month==='string'&&/^\d{4}-(0[1-9]|1[0-2])-01$/.test(data.month))useUiStore.getState().setSelectedMonth(data.month);
-      if(data.kind==='bill'&&isUuid(data.ruleId))router.push({pathname:'/recurring/[id]',params:{id:data.ruleId as string,visit:createRequestId()}});
-      else if(data.kind==='category'&&isUuid(data.categoryId))router.push({pathname:'/budget/[categoryId]',params:{categoryId:data.categoryId as string,visit:createRequestId()}});
-      else if(data.kind==='monthly')router.push('/');
+      if(typeof data.month==='string'&&/^\d{4}-(0[1-9]|1[0-2])-01$/.test(data.month)){ useUiStore.getState().setSelectedMonth(data.month); }
+      if(data.kind==='bill'&&isUuid(data.ruleId)){ router.push({pathname:'/recurring/[id]',params:{id:data.ruleId as string,visit:createRequestId()}}); }
+      else if(data.kind==='category'&&isUuid(data.categoryId)){ router.push({pathname:'/budget/[categoryId]',params:{categoryId:data.categoryId as string,visit:createRequestId()}}); }
+      else if(data.kind==='monthly'){ router.push('/'); }
       void Notifications.clearLastNotificationResponseAsync().catch(()=>{});
     };
     const listener=Notifications.addNotificationResponseReceivedListener(open);
-    const last=Notifications.getLastNotificationResponse();if(last&&profile?.user_id)open(last);
+    const last=Notifications.getLastNotificationResponse();if(last&&profile?.user_id){ open(last); }
     return()=>listener.remove();
   },[profile?.user_id,router]);
 }

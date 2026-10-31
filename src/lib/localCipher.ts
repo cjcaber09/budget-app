@@ -8,9 +8,9 @@ const options={keychainAccessible:SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY};
 let keyWork:Promise<unknown>=Promise.resolve();
 async function keyTask(create:boolean):Promise<AESEncryptionKey>{
   const stored=await SecureStore.getItemAsync(keyName,options);
-  if(stored){if(await AsyncStorage.getItem(marker)!=='1')await AsyncStorage.setItem(marker,'1');return AESEncryptionKey.import(stored,'base64');}
-  if(!create)throw new Error('Local encryption key is unavailable.');
-  if(await AsyncStorage.getItem(marker)==='1')throw new Error('Local encryption key is unavailable.');
+  if(stored){if(await AsyncStorage.getItem(marker)!=='1'){ await AsyncStorage.setItem(marker,'1'); }return AESEncryptionKey.import(stored,'base64');}
+  if(!create){ throw new Error('Local encryption key is unavailable.'); }
+  if(await AsyncStorage.getItem(marker)==='1'){ throw new Error('Local encryption key is unavailable.'); }
   const generated=await AESEncryptionKey.generate(AESKeySize.AES256);
   await SecureStore.setItemAsync(keyName,await generated.encoded('base64'),options);
   await AsyncStorage.setItem(marker,'1');
