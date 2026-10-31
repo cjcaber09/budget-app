@@ -19,7 +19,7 @@ export function TransactionDateField({ value, onChange, hint, label='Date', acce
       type:'date','aria-label':accessibilityLabel,value,min:'0001-01-01',max:'9999-12-31',
       onChange:(event:React.ChangeEvent<HTMLInputElement>)=>{if(isCalendarDate(event.currentTarget.value))onChange(event.currentTarget.value);},
       onClick:(event:React.MouseEvent<HTMLInputElement>)=>{try{event.currentTarget.showPicker?.();}catch{/* Browser provides its built-in picker affordance. */}},
-      style:{width:'100%',boxSizing:'border-box',minHeight:50,padding:'12px 14px',borderRadius:8,border:'1px solid '+colors.border,background:colors.surface,color:colors.text,font:'inherit',colorScheme:colors.surface.toLowerCase()==='#ffffff'?'light':'dark'},
+      style:{width:'100%',boxSizing:'border-box',minHeight:50,padding:'12px 14px',borderRadius:8,border:'1px solid '+colors.controlBorder,background:colors.inputBackground,color:colors.text,font:'inherit',colorScheme:colors.surface.toLowerCase()==='#ffffff'?'light':'dark'},
     })
       : <MotionPressable style={[styles.chip,{minHeight:50,paddingHorizontal:14}]} accessibilityLabel={`Change ${accessibilityLabel.toLowerCase()}`} onPress={() => setOpen(!open)}><Text style={{color:colors.text}}>{value}</Text></MotionPressable>}
     {hint && <Text style={[styles.subtitle,{marginTop:8}]}>{hint}</Text>}

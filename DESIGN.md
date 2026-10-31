@@ -106,17 +106,20 @@ Use `src/styles/theme.ts` role names directly. `useColors()` selects the light o
 
 | Role | Light | Dark |
 | --- | --- | --- |
-| background | #F5F6F2 | #141C18 |
-| surface | #FFFFFF | #1C2721 |
-| surfaceAlt | #EDF0E9 | #243229 |
-| text | #202B26 | #F0F3EC |
-| muted | #626D65 | #AFBDB1 |
-| subtle | #69736A | #9CAE9F |
-| border | #DDE3DA | #35473B |
-| primary | #193C32 | #BDDAC4 |
-| primaryHover | #285244 | #D6E9D9 |
-| onPrimary | #FFFFFF | #163022 |
-| selected | #DFE9DD | #334D3C |
+| background | #F5F6F2 | #101413 |
+| surface | #FFFFFF | #1C2421 |
+| surfaceAlt | #EDF0E9 | #29352F |
+| inputBackground | #FFFFFF | #101413 |
+| controlBackground | #FFFFFF | #26372E |
+| controlBorder | #DDE3DA | #81988B |
+| text | #202B26 | #F5F8F6 |
+| muted | #626D65 | #C1CEC6 |
+| subtle | #69736A | #A8B9AE |
+| border | #DDE3DA | #3D4D44 |
+| primary | #193C32 | #6BE89A |
+| primaryHover | #285244 | #91F5B9 |
+| onPrimary | #FFFFFF | #092316 |
+| selected | #DFE9DD | #244B34 |
 | success | #326449 | #A9D2B1 |
 | successBg | #E6EFE7 | #253F2E |
 | warning | #84591B | #E8C58C |
@@ -126,6 +129,8 @@ Use `src/styles/theme.ts` role names directly. `useColors()` selects the light o
 | scrim | rgba(14, 27, 20, 0.42) | rgba(0, 0, 0, 0.65) |
 
 `primaryHover` exists in the theme; it does not imply a required mobile hover state.
+
+Dark mode uses the approved charcoal + vivid green direction. Primary actions use the bright accent with dark labels/icons; secondary controls use `controlBackground` and visible `controlBorder`, while inputs use the inset `inputBackground`. Decorative separators retain `border` so they do not compete with controls. Existing light palette values, financial status colors, account-card gradients and category colors remain unchanged. Keyboard-visible web button focus has a 2px accent outline with 3px offset. Normal dark text/placeholder pairs meet 4.5:1; control boundaries and focus meet 3:1, including existing pressed-opacity feedback. Disabled controls retain their separate disabled semantics.
 
 ## Typography
 

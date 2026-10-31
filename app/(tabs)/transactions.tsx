@@ -70,7 +70,7 @@ export default function TransactionsScreen() {
 const useStyles = createThemedStyles(colors => ({
   content: { alignItems: 'stretch', alignSelf: 'center', width: '100%', maxWidth: 560 },
   header: { gap: 28 }, toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 },
-  search: { flex: 1, minWidth: 220, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  search: { flex: 1, minWidth: 220, backgroundColor: colors.inputBackground, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchInput: { ...type.body, color: colors.text, paddingVertical: 12, paddingRight: 14, minHeight: 48, flex: 1 },
   filters: { flexWrap:'wrap', flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceAlt, padding: 4, borderRadius: 10 },
   filter: { paddingHorizontal: 12, minHeight: 48, justifyContent: 'center', borderRadius: 7 }, activeFilter: { backgroundColor: colors.surface },
@@ -79,5 +79,5 @@ const useStyles = createThemedStyles(colors => ({
   heading: { ...type.heading, color: colors.text }, caption: { ...type.label, color: colors.muted, fontWeight: '400' },
   item: { width: '100%' }, empty: { minHeight: 250 },
   add: { flexDirection: 'row', gap: 8, alignItems: 'center', minHeight: 48, paddingHorizontal: 16 },
-  footer:{gap:12,paddingVertical:20},loadMore:{minHeight:48,alignItems:'center',justifyContent:'center',padding:12,borderWidth:1,borderColor:colors.border,borderRadius:10,backgroundColor:colors.surface},
+  footer:{gap:12,paddingVertical:20},loadMore:{minHeight:48,alignItems:'center',justifyContent:'center',padding:12,borderWidth:1,borderColor:colors.controlBorder,borderRadius:10,backgroundColor:colors.controlBackground},
 }));

@@ -31,7 +31,7 @@ export function MonthPicker({value,onChange,minMonth,maxMonth}:{value?:string;on
   </View>;
 }
 const useStyles = createThemedStyles(colors => ({
-  container: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.surface },
+  container: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 10, backgroundColor: colors.controlBackground },
   arrow: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   label: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   text: { ...type.label, color: colors.text, minWidth: 110, textAlign: 'center' },
