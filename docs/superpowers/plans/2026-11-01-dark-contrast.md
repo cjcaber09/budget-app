@@ -18,3 +18,5 @@ The initial review fixture used Expo's hydrated URL to select budget data; corre
 | ![Previous dark mode](../../screenshots/dark-contrast-before.png) | ![Updated dark mode](../../screenshots/dark-contrast-after.png) |
 
 PR update only. No database migration, native dependency, new APK or OTA publication is included.
+
+Subsequent delivery: the user explicitly requested OTA publication. Published the audited export to Android preview runtime1.0.2, source `0138019`, group `f0ab30f0-fa69-4a6c-abd0-f502b844e713`, update `01a19368-bcb1-74f8-b2bc-668cc21c9340` at `2026-10-31T19:21:17.233Z`. Live manifest launch bundle/all29 asset hashes match. Direct launch download returned403 here, so phone delivery remains unverified. Runtime1.0.1 unchanged; no new APK or database deployment.
