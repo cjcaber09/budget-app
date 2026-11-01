@@ -2,7 +2,7 @@
   "expo": {
     "name": "Budget Tracker",
     "slug": "budget-management",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "budgetmanagement",
@@ -19,14 +19,19 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.budgetmanagement",
-      "versionCode": 6
+      "versionCode": 7
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-local-authentication", {"faceIDPermission":"Allow Budget Tracker to use Face ID to unlock your financial information."}],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Budget Tracker to use Face ID to unlock your financial information."
+        }
+      ],
       "./plugins/withFreshEmbeddedUpdate",
       "expo-router",
       "expo-notifications",
@@ -35,7 +40,7 @@
         {
           "cameraPermission": "Allow Budget Tracker to use the camera to scan receipts.",
           "photosPermission": "Allow Budget Tracker to read photos you choose so it can scan receipts.",
-          "microphonePermission": false
+          "microphonePermission": "Allow Budget Tracker to record a short voice entry for your review."
         }
       ],
       [
@@ -47,7 +52,16 @@
         }
       ],
       "expo-sharing",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Budget Tracker to record a short voice entry for your review.",
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "./plugins/withVoiceMicrophone"
     ],
     "experiments": {
       "typedRoutes": true,

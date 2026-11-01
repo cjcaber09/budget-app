@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../../src/hooks/useDateFormatter';
 import {activityKey} from '../../src/domain/activityPages';
 import type {TransactionFilter} from '../../src/domain/csv';
 import {useMoney} from '../../src/domain/money';
@@ -22,6 +23,7 @@ import { createRequestId } from '../../src/domain/ocr';
 import {CsvExport} from '../../src/components/CsvExport';
 
 export default function TransactionsScreen() {
+ const dateLabel=useDateFormatter();
   const router = useRouter();
   const money=useMoney();
   const styles = useStyles();
@@ -64,7 +66,7 @@ export default function TransactionsScreen() {
       {transactionsQuery.hasNextPage&&<MotionPressable accessibilityLabel="Load more transactions" disabled={transactionsQuery.isFetching} onPress={()=>void transactionsQuery.fetchNextPage()} style={styles.loadMore}><Text style={styles.activeFilterText}>{transactionsQuery.isFetchingNextPage?'Loading…':transactionsQuery.isFetchNextPageError?'Retry load more':'Load more'}</Text></MotionPressable>}
       {transactionsQuery.isRefetchError&&transactions.length>0&&<MotionPressable style={styles.loadMore} onPress={()=>void transactionsQuery.refetch()}><Text style={styles.activeFilterText}>Could not refresh. Retry</Text></MotionPressable>}
     </View>}
-    renderItem={({ item }) => item.type==='transfer'?<MotionPressable accessibilityLabel={`Transfer from ${item.source_label} to ${item.destination_label}, ${money(Number(item.amount))} received`} style={[styles.item,{paddingVertical:18,gap:6}]} onPress={()=>router.push({pathname:'/transfer/[id]',params:{id:item.id,visit:createRequestId()}})}><Text style={styles.heading}>{item.source_label} → {item.destination_label}</Text><Text style={styles.caption}>{money(Number(item.amount))} received · {item.financial_date}{Number(item.fee_amount)>0?` · ${money(Number(item.fee_amount))} fee`:''}</Text>{item.note&&<Text style={styles.caption}>{item.note}</Text>}</MotionPressable>:<View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
+    renderItem={({ item }) => item.type==='transfer'?<MotionPressable accessibilityLabel={`Transfer from ${item.source_label} to ${item.destination_label}, ${money(Number(item.amount))} received`} style={[styles.item,{paddingVertical:18,gap:6}]} onPress={()=>router.push({pathname:'/transfer/[id]',params:{id:item.id,visit:createRequestId()}})}><Text style={styles.heading}>{item.source_label} → {item.destination_label}</Text><Text style={styles.caption}>{money(Number(item.amount))} received · {dateLabel(item.financial_date!)}{Number(item.fee_amount)>0?` · ${money(Number(item.fee_amount))} fee`:''}</Text>{item.note&&<Text style={styles.caption}>{item.note}</Text>}</MotionPressable>:<View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
   /></View>;
 }
 const useStyles = createThemedStyles(colors => ({

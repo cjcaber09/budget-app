@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { AddTransactionSheet } from '../../src/components/AddTransactionSheet';
+import {Platform} from 'react-native';
 
 function renderSheet() {
   const handlers = {
@@ -7,22 +8,27 @@ function renderSheet() {
     onTakePhoto: jest.fn(),
     onUploadImage: jest.fn(),
     onManualEntry: jest.fn(),
+    onVoiceEntry:jest.fn(),
   };
   render(<AddTransactionSheet visible {...handlers} />);
   return handlers;
 }
 
 describe('AddTransactionSheet', () => {
-  it('offers three options that fire their own handlers', () => {
+  it('offers the four grid choices and dispatches their own handlers', () => {
+    Object.defineProperty(Platform,'OS',{value:'android',configurable:true});
     const handlers = renderSheet();
 
-    fireEvent.press(screen.getByText('Take Photo'));
-    fireEvent.press(screen.getByText('Upload Image'));
-    fireEvent.press(screen.getByText('Manual Entry'));
+    fireEvent.press(screen.getByLabelText('Take Photo'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Manual Entry'));
+    fireEvent.press(screen.getByLabelText('Voice Entry'));
 
     expect(handlers.onTakePhoto).toHaveBeenCalledTimes(1);
     expect(handlers.onUploadImage).toHaveBeenCalledTimes(1);
     expect(handlers.onManualEntry).toHaveBeenCalledTimes(1);
+    expect(handlers.onVoiceEntry).toHaveBeenCalledTimes(1);
+    for(const label of ['Manual','Scan','Upload','Voice'])expect(screen.getByText(label)).toBeTruthy();
   });
 
   it('tells users where their image goes', () => {

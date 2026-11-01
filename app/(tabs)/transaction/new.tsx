@@ -1,4 +1,8 @@
+import {voicePurchaseDraft} from '../../../src/domain/voicePurchases';
+import {useDateTimeFormatter} from '../../../src/hooks/useDateFormatter';
 import {TransferEntryForm} from '../../../src/components/TransferEntryForm';
+import {useVoiceEntryStore,type PendingVoiceEntry} from '../../../src/stores/useVoiceEntryStore';
+import {voiceContextActive} from '../../../src/lib/voiceEntry';
 import {useConnectivityStore} from '../../../src/stores/useConnectivityStore';
 import {useOfflineDraftChoices} from '../../../src/hooks/useOfflineDraftChoices';
 import {DraftChoiceField} from '../../../src/components/DraftChoiceField';
@@ -56,19 +60,23 @@ export default function NewTransactionScreen() {
   const { visit,occurrenceId,repeatId } = useLocalSearchParams<{ visit?: string;occurrenceId?:string;repeatId?:string }>();
   const owner=usePreferencesStore(state=>state.profile?.user_id);
   const pendingImage = useScanStore((state) => state.pendingImage);
+  const pendingVoice=useVoiceEntryStore(state=>state.pending);
+  const voice=pendingVoice&&pendingVoice.context.visit===visit&&voiceContextActive(pendingVoice.context)?pendingVoice:null;
   const scanImage = pendingImage && pendingImage.requestId === visit ? pendingImage : null;
 
   if(occurrenceId){ return <BillPaymentForm key={visit??occurrenceId} occurrenceId={occurrenceId}/>; }
 
   if(!owner){ return null; }
-  return <NewVisitEntry key={`${owner}:${visit??'direct'}`} owner={owner} scanImage={scanImage} repeatId={repeatId}/>;
+  return <NewVisitEntry key={`${owner}:${visit??'direct'}`} owner={owner} scanImage={scanImage} repeatId={repeatId} voice={voice}/>;
 }
-function NewVisitEntry({owner,scanImage,repeatId}:{owner:string;scanImage:PendingScanImage|null;repeatId?:string}) {
+function NewVisitEntry({owner,scanImage,repeatId,voice:initialVoice}:{owner:string;scanImage:PendingScanImage|null;repeatId?:string;voice:PendingVoiceEntry|null}) {
   const [scan]=useState(scanImage);
+  const [voice]=useState(initialVoice);
+  useEffect(()=>{if(initialVoice)useVoiceEntryStore.getState().set(null);},[initialVoice]);
   const cached=useOfflineDraftChoices(owner);
   if(!cached.loaded){ return <LoadingSkeleton label="Loading draft choices"/>; }
   if(scan){ return <TransactionDraftRecovery owner={owner}>{draft=><NewTransactionContent scanImage={draft?null:scan} restored={draft}/>}</TransactionDraftRecovery>; }
-  return <TransactionDraftRecovery owner={owner}>{draft=>repeatId&&!draft?<RepeatEntry repeatId={repeatId}/>:<NewTransactionContent scanImage={null} restored={draft} cachedChoices={cached.choices}/>}</TransactionDraftRecovery>;
+  return <TransactionDraftRecovery owner={owner}>{draft=>repeatId&&!draft?<RepeatEntry repeatId={repeatId}/>:<NewTransactionContent scanImage={null} restored={draft} cachedChoices={cached.choices} voice={!draft&&voice&&voiceContextActive(voice.context)?voice:null}/>}</TransactionDraftRecovery>;
 }
 
 function RepeatEntry({repeatId}:{repeatId:string}) {
@@ -81,7 +89,9 @@ function RepeatEntry({repeatId}:{repeatId:string}) {
  return <View style={layout.screen}><View style={layout.card}>{message?<Text style={form.error}>{message}</Text>:<QueryState error={!isUuid(repeatId)||parent.isError||items.isError||categories.isError||methods.isError||sources.isError} loading={isUuid(repeatId)&&!parent.isError&&!items.isError&&!categories.isError&&!methods.isError&&!sources.isError} retry={()=>{void parent.refetch();void items.refetch();void categories.refetch();void methods.refetch();void sources.refetch();}}/>}</View></View>;
 }
 
-function NewTransactionContent({ scanImage: initialScanImage,restored:entryRestored,repeated,cachedChoices }: { scanImage: PendingScanImage | null;restored?:EntryDraft|null;repeated?:{values:Partial<TransactionFormValues>;warnings:string[]};cachedChoices?:OfflineDraftChoices|null }) {
+function NewTransactionContent({ scanImage: initialScanImage,restored:entryRestored,repeated,cachedChoices,voice }: { scanImage: PendingScanImage | null;restored?:EntryDraft|null;repeated?:{values:Partial<TransactionFormValues>;warnings:string[]};cachedChoices?:OfflineDraftChoices|null;voice?:PendingVoiceEntry|null }) {
+  const dateTime=useDateTimeFormatter();
+  const [voiceFields]=useState(()=>voice?voicePurchaseDraft(voice.proposal):null);
   const restored=entryRestored?.version===1?entryRestored:null;
   const restoredTransfer=entryRestored?.version===2?entryRestored:undefined;
   const [transferSelected,setTransferSelected]=useState(!!restoredTransfer);
@@ -99,7 +109,7 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
   const acceptScanRef = useRef(true);
   const focusedRef = useRef(true);
   const { mutate: runOcr } = useOcrScan(() => acceptScanRef.current && focusedRef.current);
-  const [transactionId] = useState(()=>entryRestored?.id??createRequestId());
+  const [transactionId] = useState(()=>entryRestored?.id??voice?.context.visit??createRequestId());
   const profile=usePreferencesStore(state=>state.profile);
   const form=useFormStyles();
   const owner=profile?.user_id;
@@ -113,7 +123,7 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
   const [reviewing,setReviewing]=useState(false);
   useUpdateBlocker(draftBusy||draftStatus==='saving'||reviewing||!!draftError||!!pendingInput&&!saved||transferLocked);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  const [scanContext,setScanContext] = useState(() => { if(entryRestored){ return {startedAt:entryRestored.startedAt,day:entryRestored.day,timezone:entryRestored.timezone}; } const now=new Date();const timezone=(online===false?cachedChoices?.timezone:undefined)??activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
+  const [scanContext,setScanContext] = useState(() => { if(voice){return {startedAt:voice.context.startedAt,day:voice.context.day,timezone:voice.context.timezone};} if(entryRestored){ return {startedAt:entryRestored.startedAt,day:entryRestored.day,timezone:entryRestored.timezone}; } const now=new Date();const timezone=(online===false?cachedChoices?.timezone:undefined)??activeTimezone();return {startedAt:now.toISOString(),day:localDateKey(now,timezone),timezone}; });
   const occurredAt=scanContext.startedAt;
   const funds=useExpenseBalanceReview<AddTransactionInput>();
   const methodChange=useRef<((id:string|null)=>void)|null>(null);
@@ -155,7 +165,7 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
     running.current=true;setDraftBusy(true);setDraftError('');
     try {
       if(!initialScanImage&&owner){
-        const fields:TransactionDraftFields={type:input.type,amount:String(input.amount),note:input.note??'',categoryId:input.categoryId??'',paymentMethodId:input.paymentMethodId??null,incomeSourceId:input.incomeSourceId??null,transactionDate:input.transactionDate!,drafts:(input.items??[]).map(draftItem)};
+        const fields:TransactionDraftFields={...((draftRef.current?.fields.voicePurchase??voiceFields?.voicePurchase)?{voicePurchase:{noteMode:'manual'}}:{}),type:input.type,amount:String(input.amount),note:input.note??'',categoryId:input.categoryId??'',paymentMethodId:input.paymentMethodId??null,incomeSourceId:input.incomeSourceId??null,transactionDate:input.transactionDate!,drafts:(input.items??[]).map(draftItem)};
         const draft=makeDraft(fields,input);await saveTransactionDraft(draft,draftGeneration);draftRef.current=draft;
         if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner){ return; }
         setPendingInput(input);
@@ -229,11 +239,11 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
 
   function renderDraftStatus(){return <>{!initialScanImage&&!transferSelected&&!saved&&<View style={{gap:8,marginBottom:16}}>
             <Text accessibilityLiveRegion="polite" style={form.subtitle}>{online===false?'Offline · Save a draft now and submit when connected.':online===null?'Checking connection… You can save a draft on this device.':'Online · Review and submit when ready.'}</Text>
-            {online===false&&<Text style={form.subtitle}>{cachedChoices?`Using choices saved ${new Date(cachedChoices.savedAt).toLocaleDateString()}.`:'No saved choices yet. Enter your details now and choose a category or account when online.'} Drafts do not change balances or budgets.</Text>}
+            {online===false&&<Text style={form.subtitle}>{cachedChoices?`Using choices saved ${dateTime(cachedChoices.savedAt)}.`:'No saved choices yet. Enter your details now and choose a category or account when online.'} Drafts do not change balances or budgets.</Text>}
             {!pendingInput&&<Text accessibilityLiveRegion="polite" style={form.subtitle}>{draftStatus==='saved'?'Saved on this device · Not submitted':draftStatus==='saving'?'Saving draft on this device…':`Draft currency: ${draftCurrency}`}</Text>}
           </View>}</>;}
 
-  function renderSaveRecovery(){return <>{!!repeated&&<Text style={form.subtitle}>New copy for today. Review before saving. Attachments, payment references and bill links are not copied.</Text>}
+  function renderSaveRecovery(){return <>{voice&&<View style={{gap:8}}><Text style={form.subtitle}>Voice entry ? Review all proposed details before saving.</Text>{voice.proposal.unresolved.map((warning,index)=><Text key={index} style={form.subtitle}>{warning}</Text>)}</View>}{!!repeated&&<Text style={form.subtitle}>New copy for today. Review before saving. Attachments, payment references and bill links are not copied.</Text>}
           {repeated?.warnings.map(warning=><Text key={warning} style={form.subtitle}>{warning}</Text>)}
           {!!restored&&<Text style={form.subtitle}>Recovered draft · {restored.currency} · {restored.fields.transactionDate}. Review your date and selections before saving.</Text>}
           {pendingInput&&!saved&&<View><Text style={form.subtitle}>Save request retained: {pendingInput.type} · {pendingInput.transactionDate} · {pendingInput.amount} {restored?.currency??profile?.currency}. Retry this exact request to avoid recording it twice.</Text>{saveError&&<Text accessibilityRole="alert" style={form.error}>{saveIssue.message}</Text>}<MotionPressable disabled={submitting||draftBusy} style={form.button} onPress={()=>void dispatch(pendingInput)}><Text style={form.buttonText}>{submitting||draftBusy?'Saving…':'Retry same save'}</Text></MotionPressable><MotionPressable disabled={submitting||draftBusy} style={form.secondaryButton} onPress={()=>void checkSaved()}><Text style={form.chipTextSelected}>Check whether it saved</Text></MotionPressable></View>}</>;}
@@ -248,11 +258,12 @@ function NewTransactionContent({ scanImage: initialScanImage,restored:entryResto
             scanned={!!scanResult}
             onDiscard={() => router.back()}
             scanDate={scanContext.day}
-            initialDraft={restored?.fields} onDraftChange={initialScanImage?undefined:keepDraft}
-            initialValues={restored?.fields??repeated?.values??{paymentMethodId:null,note: prefillNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : '' }}
+            summaryCurrency={draftCurrency} initialDraft={restored?.fields??voiceFields??undefined} onDraftChange={initialScanImage?undefined:keepDraft}
+            unresolvedType={!!voice&&!voice.proposal.type} persistInitial={!!voice} requirePaymentChoice={voice?.proposal.reviewFields?.includes('paymentMethod')} requireSourceChoice={voice?.proposal.reviewFields?.includes('incomeSource')}
+            initialValues={restored?.fields??voiceFields??repeated?.values??(voice?{type:voice.proposal.type??undefined,amount:voice.proposal.amount,categoryId:voice.proposal.categoryId??'',paymentMethodId:voice.proposal.paymentMethodId,incomeSourceId:voice.proposal.incomeSourceId,note:voice.proposal.note,transactionDate:voice.proposal.date,items:[]}:undefined)??{paymentMethodId:null,note: prefillNote ?? '', items: scanResult?.receipt?.rows ?? [], amount: scanResult?.receipt?.totalCents ? centsToDecimal(scanResult.receipt.totalCents) : '' }}
             draftAction={!initialScanImage&&!pendingInput&&!saved?{onSave:keepDraft,busy:draftStatus==='saving'}:undefined}
             submitDisabled={online!==true||reviewing}
-            submitting={submitting||draftBusy||funds.checking||proof.busy||transferLocked||reviewing} submitLabel="Add Transaction"
+            submitting={submitting||draftBusy||funds.checking||proof.busy||transferLocked||reviewing||!!pendingInput} submitLabel="Add Transaction"
             onSubmit={({ type, categoryId, amount, note, items, transactionDate, paymentDetails, paymentMethodId, incomeSourceId }) => {
               const input={id:transactionId,type,categoryId,amount,note,items,transactionDate,paymentDetails,paymentMethodId,incomeSourceId,occurredAt:transactionDate===scanContext.day?occurredAt:occurrenceForDate(transactionDate,occurredAt,scanContext.timezone)};
               if(initialScanImage){ void funds.review(input,()=>void dispatch(input)); }else { void reviewAndSubmit(input); }

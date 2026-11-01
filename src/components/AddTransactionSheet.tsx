@@ -1,17 +1,18 @@
 import { useContext, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
-import { Camera, ImageUp, PenLine, ChevronRight, X } from 'lucide-react-native';
-import { createThemedStyles, type, useColors, motion } from '../styles/theme';
+import { Camera, ImageUp, PenLine, Mic, X } from 'lucide-react-native';
+import { cardElevation,createThemedStyles, type, useColors, motion } from '../styles/theme';
 import { MotionPressable } from './MotionPressable';
 import {useConnectivityStore} from '../stores/useConnectivityStore';
 
 interface Props {
   visible: boolean; onClose: () => void; onDismiss?: () => void;
   onTakePhoto: () => void; onUploadImage: () => void; onManualEntry: () => void;
+  onVoiceEntry?:()=>void;
 }
-export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, onUploadImage, onManualEntry }: Props) {
+export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, onUploadImage, onManualEntry,onVoiceEntry }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const reduced = useReducedMotion();
@@ -26,9 +27,10 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
     return () => clearTimeout(timer);
   }, [visible, reduced]);
   const options = [
-    { label: 'Take Photo', detail: 'Read the text from a receipt.', Icon: Camera, action: onTakePhoto },
-    { label: 'Upload Image', detail: 'Choose a receipt from your library.', Icon: ImageUp, action: onUploadImage },
-    { label: 'Manual Entry', detail: 'Add the details yourself.', Icon: PenLine, action: onManualEntry },
+    {label:'Manual',accessibilityLabel:'Manual Entry',detail:'Enter the details yourself.',Icon:PenLine,action:onManualEntry,disabled:false},
+    {label:'Scan',accessibilityLabel:'Take Photo',detail:'Photograph a receipt.',Icon:Camera,action:onTakePhoto,disabled:offline},
+    {label:'Upload',accessibilityLabel:'Upload Image',detail:'Choose a receipt image.',Icon:ImageUp,action:onUploadImage,disabled:offline},
+    {label:'Voice',accessibilityLabel:'Voice Entry',detail:Platform.OS==='android'?'Speak an entry.':'Available in the Android app.',Icon:Mic,action:onVoiceEntry,disabled:offline||Platform.OS!=='android'||!onVoiceEntry},
   ];
   return <Modal visible={visible || rendered} onShow={() => setRendered(true)} transparent animationType="none" onRequestClose={onClose} onDismiss={onDismiss}>
     <View style={styles.modal}>
@@ -38,7 +40,7 @@ export function AddTransactionSheet({ visible, onClose, onDismiss, onTakePhoto, 
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, paddingBottom: 24 + (insets?.bottom ?? 0) }}>
           <View style={styles.header}><View style={styles.headerText}><Text accessibilityRole="header" style={styles.title}>Add transaction</Text></View><MotionPressable onPress={onClose} accessibilityLabel="Close add transaction" style={styles.close}><X size={20} color={colors.muted} /></MotionPressable></View>
           {offline&&<Text style={styles.subtitle}>Offline · Use Manual Entry to save a draft. Receipt scanning needs a connection.</Text>}
-          {options.map(({ label, detail, Icon, action }) => <MotionPressable key={label} style={styles.option} disabled={offline&&label!=='Manual Entry'} onPress={action}><Icon color={colors.primary} size={22} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{offline&&label!=='Manual Entry'?'Internet connection required.':detail}</Text></View><ChevronRight size={17} color={colors.subtle} /></MotionPressable>)}
+          <View style={styles.grid}>{options.map(({ label,accessibilityLabel, detail, Icon, action,disabled }) => <MotionPressable key={label} accessibilityLabel={accessibilityLabel} style={styles.option} disabled={disabled} onPress={action}><Icon color={colors.primary} size={26} strokeWidth={1.7} /><View style={styles.optionCopy}><Text style={styles.optionText}>{label}</Text><Text style={styles.optionDetail}>{offline&&label!=='Manual'?'Internet connection required.':detail}</Text></View></MotionPressable>)}</View>
           <Text style={styles.privacy}>Google reads your receipt using Gemini or Cloud Vision. Gemini&apos;s free tier may use photos to improve Google products. Saving keeps a private receipt image. You can remove it before saving.</Text>
           <MotionPressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancel</Text></MotionPressable>
         </ScrollView>
@@ -51,7 +53,8 @@ const useStyles = createThemedStyles(colors => ({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: { width: '100%', maxWidth: 520, maxHeight: '90%', backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
   header: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 24 }, headerText: { flex: 1 }, title: { ...type.heading, color: colors.text }, subtitle: { ...type.body, color: colors.muted, marginTop: 4 }, close: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 18, minHeight: 72, borderBottomWidth: 1, borderBottomColor: colors.border }, optionCopy: { flex: 1, gap: 4 }, optionText: { ...type.body, fontWeight: '600', color: colors.text }, optionDetail: { ...type.label, fontWeight: '400', color: colors.muted },
+  grid:{flexDirection:'row',flexWrap:'wrap',gap:12},
+  option: { ...cardElevation(colors),backgroundColor:colors.surfaceAlt,borderRadius:12,width:'47%',flexGrow:1,flexBasis:'45%',alignItems: 'flex-start', gap: 12, padding:16, minHeight: 130 }, optionCopy: { gap: 4 }, optionText: { ...type.body, fontWeight: '600', color: colors.text }, optionDetail: { ...type.label, fontWeight: '400', color: colors.muted },
   privacy: { ...type.label, fontWeight: '400', fontSize: 12, color: colors.muted, marginTop: 24 },
   cancelButton: { marginTop: 16, paddingVertical: 14, minHeight: 48, alignItems: 'center', backgroundColor: colors.surfaceAlt, borderRadius: 8 }, cancelText: { ...type.label, color: colors.text },
 }));

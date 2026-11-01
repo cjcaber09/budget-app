@@ -11,7 +11,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useColors, useThemeMode } from '../src/styles/theme';
 import { ProfileBootstrap } from '../src/hooks/useProfile';
 import { usePreferencesStore } from '../src/stores/usePreferencesStore';
-import { View,Text,ActivityIndicator } from 'react-native';
+import { View,Text,ActivityIndicator,Platform } from 'react-native';
+import {cleanupVoiceFiles} from '../src/lib/voiceEntry';
 import { MotionPressable } from '../src/components/MotionPressable';
 import {clearExportFiles} from '../src/lib/exportFiles';
 import {AccountDeletionBoundary} from '../src/components/AccountDeletion';
@@ -67,6 +68,7 @@ export default function RootLayout() {
   const colors = useColors();
   const dark = useThemeMode() === 'dark';
   useEffect(() => {
+    if(Platform.OS==='android')void cleanupVoiceFiles().catch(()=>{});
     void clearExportFiles().catch(()=>{});
     const { data: listener } = supabase.auth.onAuthStateChange((event,session) => {
       const owner=usePreferencesStore.getState().profile?.user_id;

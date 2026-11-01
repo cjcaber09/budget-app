@@ -69,7 +69,7 @@ export function ProfileBootstrap() {
     if(!cachedOwner)return;
     let active=true;const generation=offlineChoicesGeneration(cachedOwner);
     void loadOfflineDraftChoices(cachedOwner).then(choices=>{
-      if(active&&generation===offlineChoicesGeneration(cachedOwner)&&choices)setCached({...defaultProfile(cachedOwner),currency:choices.currency,timezone:choices.timezone});
+      if(active&&generation===offlineChoicesGeneration(cachedOwner)&&choices)setCached({...defaultProfile(cachedOwner),currency:choices.currency,timezone:choices.timezone,date_format:choices.dateFormat});
     }).catch(()=>{});
     return()=>{active=false;};
   },[query.owner]);

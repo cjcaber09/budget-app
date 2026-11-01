@@ -11,8 +11,12 @@ import {clearTransactionDraft} from './transactionDraftStorage';
 import {clearOfflineDraftChoices} from './offlineDraftChoicesStorage';
 import {clearReminderFreshness} from './reminderFreshness';
 import {clearSetupProgress} from './setupProgress';
+import {invalidateNativeHandoffs} from './nativeHandoff';
+import {useVoiceEntryStore} from '../stores/useVoiceEntryStore';
 export async function resetFinancialClientState(client:QueryClient,owner:string):Promise<void> {
  if(usePreferencesStore.getState().profile?.user_id!==owner)throw new Error('owner_changed');
+ invalidateNativeHandoffs();
+ useVoiceEntryStore.getState().set(null);
  await client.cancelQueries();
  await clearTransactionDraft(owner);
  await clearOfflineDraftChoices(owner);

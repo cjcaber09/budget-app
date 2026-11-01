@@ -16,3 +16,9 @@ test('pending request identity and exact financial values survive',()=>{
  expect(decodeTransactionDraft(JSON.stringify(value),owner).pending).toEqual(value.pending);
  expect(()=>decodeTransactionDraft(JSON.stringify({...value,pending:{...value.pending,id:owner}}),owner)).toThrow();
 });
+test('unresolved voice choices survive encrypted-draft decoding and block a pending submission',()=>{
+ const value=draft();value.fields.reviewRequired={paymentMethod:true,incomeSource:true};
+ expect(decodeTransactionDraft(JSON.stringify(value),owner).fields.reviewRequired).toEqual(value.fields.reviewRequired);
+ value.fields={...value.fields,amount:'12.50',drafts:[]};value.pending={id,type:'income',amount:12.5,note:'Unfinished',categoryId:null,occurredAt:value.startedAt,transactionDate:value.day,paymentMethodId:null,incomeSourceId:null,paymentDetails:null,items:[]};
+ expect(()=>decodeTransactionDraft(JSON.stringify(value),owner)).toThrow(/review/);
+});

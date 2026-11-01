@@ -18,7 +18,7 @@ function CaptureChoices({owner}: {owner: string}) {
     // Only use a server-loaded profile and fully successful owner-checked reads.
     const verified = client.getQueryData<Profile>(['profile', owner]);
     if (!verified || verified !== profile || !categories.isSuccess || categories.isFetching || !methods.isSuccess || methods.isFetching || !methods.methods || !sources.isSuccess || sources.isFetching) return;
-    void saveOfflineDraftChoices({version:1,owner,savedAt:new Date().toISOString(),currency:verified.currency,timezone:verified.timezone,categories:categories.data,methods:methods.methods,sources:sources.data}, generation).catch(() => {/* The form reports local storage failures; online operation remains available. */});
+    void saveOfflineDraftChoices({version:1,owner,savedAt:new Date().toISOString(),currency:verified.currency,timezone:verified.timezone,dateFormat:verified.date_format,categories:categories.data,methods:methods.methods,sources:sources.data}, generation).catch(() => {/* The form reports local storage failures; online operation remains available. */});
   }, [owner,profile,client,categories.data,categories.isSuccess,categories.isFetching,methods.methods,methods.isSuccess,methods.isFetching,sources.data,sources.isSuccess,sources.isFetching,generation]);
   return null;
 }

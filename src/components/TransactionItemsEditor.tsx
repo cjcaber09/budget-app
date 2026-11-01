@@ -21,11 +21,11 @@ function kindName(kind:TransactionItemKind,direction:Direction) {
 function hiddenZeroRow(row:ItemDraft) {
  return decimalToCents(row.amount)===0&&!parseItemDrafts([row]).error;
 }
-export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transactionType='expense'}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;onUnfinishedDraft?:(rows:ItemDraft[])=>void;transactionType?:Direction}) {
+export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transactionType='expense',showZeroItems=false}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;onUnfinishedDraft?:(rows:ItemDraft[])=>void;transactionType?:Direction;showZeroItems?:boolean}) {
  const form=useFormStyles();const styles=useStyles();const colors=useColors();
  const [editing,setEditing]=useState<{row:ItemDraft;isNew:boolean;index:number}|null>(null);
  const capped=drafts.length>=100;
- const visible=drafts.map((row,index)=>({row,index})).filter(({row})=>!hiddenZeroRow(row));
+ const visible=drafts.map((row,index)=>({row,index})).filter(({row})=>showZeroItems||!hiddenZeroRow(row));
  const hiddenCount=drafts.length-visible.length;
  const open=(row:ItemDraft,index:number,isNew=false)=>setEditing({row:{...row},index,isNew});
  return <View style={styles.section}>

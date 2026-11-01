@@ -31,6 +31,7 @@ export function AppLockBoundary({children}:{children:ReactNode}){
   </View>;
   return <View style={{flex:1}}>
     {(mounted||!hidden)&&<View style={{flex:1}} accessibilityElementsHidden={hidden} importantForAccessibility={hidden?'no-hide-descendants':'auto'} pointerEvents={hidden?'none':'auto'}>{children}</View>}
-    {!mounted&&hidden?cover:<Modal visible={hidden} animationType="none" presentationStyle="fullScreen" onRequestClose={()=>{}}>{cover}</Modal>}
+    {state.obscured&&hidden&&<View pointerEvents="auto" style={{position:'absolute',inset:0,backgroundColor:colors.background}} accessibilityViewIsModal />}
+    {!mounted&&hidden&&!state.obscured?cover:<Modal visible={hidden&&!state.obscured} animationType="none" presentationStyle="fullScreen" onRequestClose={()=>{}}>{cover}</Modal>}
   </View>;
 }

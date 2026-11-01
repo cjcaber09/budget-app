@@ -1,0 +1,14 @@
+import {spawnSync} from 'node:child_process';
+import {createRequire} from 'node:module';
+import {loadLinkedProject} from './lib/supabase-project.mjs';
+const project=loadLinkedProject(),cli=createRequire(import.meta.url).resolve('supabase/dist/supabase.js');
+const commands=process.argv.includes('--apply')?[
+ ['db','push','--yes'],
+ ['functions','deploy','voice-entry','--use-api','--no-verify-jwt','--project-ref',project.ref],
+ ['secrets','set','VOICE_ENABLED=true','--project-ref',project.ref],
+ ['migration','list'],
+]:[['db','push','--dry-run']];
+for(const args of commands){
+ const result=spawnSync(process.execPath,[cli,...args],{env:{...process.env,SUPABASE_ACCESS_TOKEN:project.accessToken},stdio:'inherit',windowsHide:true});
+ if(result.error||result.status!==0)throw new Error('Voice deployment failed.');
+}

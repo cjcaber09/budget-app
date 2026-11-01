@@ -1,6 +1,8 @@
 # Android test updates
 
-Local offline-draft work targets app/runtime **1.0.2**, Android versionCode **6**, because NetInfo adds native code. The Android preview OTA is published for this runtime; a compatible 1.0.2 APK is now available locally at `dist/apk/BudgetTracker-1.0.2-session-fix.apk` and must be installed. Existing 1.0.1 installations retain their compatible update.
+Current Android app/runtime is **1.0.3**, versionCode **7**. Install `dist/apk/BudgetTracker-1.0.3-voice.apk` over the existing app with the original signing identity. This APK adds native audio recording and microphone permission; runtime 1.0.2 cannot receive those native additions through OTA. Once 1.0.3 is installed, subsequent compatible JavaScript updates use the existing Android `preview` channel without rebuilding the APK.
+
+The latest source adds itemized voice purchases, a Manual/Scan/Upload/Voice grid, fixed center + and liquid active-tab navigation, transparent navigation cutout and centered + shadow, four account date formats, permission-gated notification controls and five-second toasts. See the [release record](superpowers/plans/2026-11-01-voice-navigation-release.md) for verification and delivery details.
 
 Runtime 1.0.2 also includes native biometric authentication, SecureStore/AES encryption and screen protection. Android release Kotlin compilation passes; a compatible Android APK has now been built locally; no IPA has been built. Physical-phone biometric/passcode/keychain checks remain required. Existing signing compatibility was verified against both retained APKs after restoring generated native files; production signing is unchanged.
 

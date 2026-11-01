@@ -1,13 +1,23 @@
-import { Modal, Platform } from 'react-native';
+import { Modal, Platform,AppState } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { AddTransactionFab } from '../../src/components/AddTransactionFab';
 import { prepareScanImage } from '../../src/lib/prepareScanImage';
+import {usePreferencesStore,defaultProfile} from '../../src/stores/usePreferencesStore';
+import {useAppLockStore} from '../../src/stores/useAppLockStore';
+import {invalidateNativeHandoffs} from '../../src/lib/nativeHandoff';
 import { useScanStore } from '../../src/stores/useScanStore';
 import { useToastStore } from '../../src/stores/useToastStore';
 import { MAX_IMAGE_BYTES, isUuid } from '../../supabase/functions/ocr/shared';
 
 const mockPush = jest.fn();
+// Recovery has its own guard tests; do not race its startup storage read against
+// this component suite's immediate picker taps.
+jest.mock('../../src/lib/nativeHandoff',()=>({
+  ...jest.requireActual('../../src/lib/nativeHandoff'),
+  recoverNativeHandoff:jest.fn(async()=>null),
+}));
+jest.mock('../../src/lib/encryptedStorage',()=>({encryptedStorage:{setItem:jest.fn(async()=>{}),removeItem:jest.fn(async()=>{}),getItem:jest.fn(async()=>null)}}));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -44,7 +54,11 @@ function toastMessage() {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  jest.clearAllMocks();
+  invalidateNativeHandoffs();
+  usePreferencesStore.getState().setProfile(defaultProfile('00000000-0000-4000-8000-000000000001'));
+  useAppLockStore.setState({loaded:true,enabled:false,locked:false,obscured:false});
+  Object.defineProperty(AppState,'currentState',{value:'active',writable:true,configurable:true});
   useScanStore.setState({ pendingImage: null });
   useToastStore.setState({ message: null });
   requestCameraPermission.mockResolvedValue({ granted: true } as ImagePicker.PermissionResponse);
@@ -63,7 +77,7 @@ describe('AddTransactionFab', () => {
   it('Manual Entry pushes the new-transaction screen with a fresh visit id', () => {
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Manual Entry'));
+    fireEvent.press(screen.getByLabelText('Manual Entry'));
 
     expect(mockPush).toHaveBeenCalledTimes(1);
     const arg = mockPush.mock.calls[0][0];
@@ -75,7 +89,7 @@ describe('AddTransactionFab', () => {
   it('a successful scan stores the image with a requestId equal to the pushed visit id', async () => {
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     const pending = useScanStore.getState().pendingImage;
@@ -92,7 +106,7 @@ describe('AddTransactionFab', () => {
     requestCameraPermission.mockResolvedValue({ granted: false } as ImagePicker.PermissionResponse);
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Take Photo'));
+    fireEvent.press(screen.getByLabelText('Take Photo'));
 
     await waitFor(() => expect(toastMessage()).toBe('Camera access is needed to scan a receipt.'));
     expect(launchCamera).not.toHaveBeenCalled();
@@ -102,7 +116,7 @@ describe('AddTransactionFab', () => {
   it('Take Photo launches the camera when permission is granted', async () => {
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Take Photo'));
+    fireEvent.press(screen.getByLabelText('Take Photo'));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     expect(launchCamera).toHaveBeenCalledTimes(1);
@@ -113,7 +127,7 @@ describe('AddTransactionFab', () => {
     launchLibrary.mockResolvedValue({ canceled: true, assets: null } as ImagePicker.ImagePickerResult);
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
 
     await waitFor(() => expect(launchLibrary).toHaveBeenCalledTimes(1));
     await act(async () => {});
@@ -126,7 +140,7 @@ describe('AddTransactionFab', () => {
     prepare.mockRejectedValue(new Error('boom'));
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
 
     await waitFor(() => expect(toastMessage()).toBe("Couldn't read that image."));
     expect(mockPush).not.toHaveBeenCalled();
@@ -137,7 +151,7 @@ describe('AddTransactionFab', () => {
     prepare.mockResolvedValue({ ...PREPARED, base64: 'A'.repeat(Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 4) });
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
 
     await waitFor(() => expect(toastMessage()).toBe('That image is too large to scan.'));
     expect(mockPush).not.toHaveBeenCalled();
@@ -148,7 +162,7 @@ describe('AddTransactionFab', () => {
     launchLibrary.mockRejectedValue(new Error('picker failed'));
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Upload Image'));
+    fireEvent.press(screen.getByLabelText('Upload Image'));
 
     await waitFor(() => expect(toastMessage()).toBe("Couldn't open the camera or photo library."));
     expect(mockPush).not.toHaveBeenCalled();
@@ -158,7 +172,7 @@ describe('AddTransactionFab', () => {
     requestCameraPermission.mockRejectedValue(new Error('permission failed'));
     renderFab();
     openSheet();
-    fireEvent.press(screen.getByText('Take Photo'));
+    fireEvent.press(screen.getByLabelText('Take Photo'));
 
     await waitFor(() => expect(toastMessage()).toBe("Couldn't open the camera or photo library."));
     expect(launchCamera).not.toHaveBeenCalled();
@@ -174,7 +188,7 @@ describe('AddTransactionFab', () => {
       renderFab();
       openSheet();
       const onDismiss = screen.UNSAFE_getByType(Modal).props.onDismiss as () => void;
-      fireEvent.press(screen.getByText('Upload Image'));
+      fireEvent.press(screen.getByLabelText('Upload Image'));
 
       await act(async () => {});
       expect(launchLibrary).not.toHaveBeenCalled();
@@ -191,7 +205,7 @@ describe('AddTransactionFab', () => {
       renderFab();
       openSheet();
       const onDismiss = screen.UNSAFE_getByType(Modal).props.onDismiss as () => void;
-      fireEvent.press(screen.getByText('Upload Image'));
+      fireEvent.press(screen.getByLabelText('Upload Image'));
 
       await act(async () => {
         jest.advanceTimersByTime(799);
@@ -214,14 +228,14 @@ describe('AddTransactionFab', () => {
       renderFab();
       openSheet();
       const onDismiss = screen.UNSAFE_getByType(Modal).props.onDismiss as () => void;
-      fireEvent.press(screen.getByText('Upload Image'));
+      fireEvent.press(screen.getByLabelText('Upload Image'));
 
       // Second tap (camera) 500 ms later, before the first one's fallback fires.
       await act(async () => {
         jest.advanceTimersByTime(500);
       });
       openSheet();
-      fireEvent.press(screen.getByText('Take Photo'));
+      fireEvent.press(screen.getByLabelText('Take Photo'));
 
       // 300 ms later is the first tap's original 800 ms deadline: nothing may run.
       await act(async () => {

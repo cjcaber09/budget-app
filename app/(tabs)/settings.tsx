@@ -1,8 +1,9 @@
+import {useDateTimeFormatter} from '../../src/hooks/useDateFormatter';
 import { formatMoney } from "../../src/domain/money";
 import { useEffect,useState, useRef } from "react";
 import { ScrollView, View, Text, Linking } from "react-native";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { format } from "date-fns";
+
 import {
   FileText,
   Trash,
@@ -60,6 +61,7 @@ export default function SettingsScreen() {
 }
 
 function SettingsContent() {
+ const dateTime=useDateTimeFormatter();
   const {section,visit}=useLocalSearchParams<{section?:string;visit?:string}>();
   const setupOwner=usePreferencesStore(s=>s.profile?.user_id);
   const router = useRouter();
@@ -268,7 +270,7 @@ function SettingsContent() {
                       <FileText color={colors.primary} size={19} />
                       <View style={styles.rowInfo}>
                         <Text style={styles.rowText}>
-                          {format(new Date(scan.created_at), "MMM d, h:mm a")}
+                          {dateTime(scan.created_at)}
                         </Text>
                         <Text style={styles.ruleDetail}>
                           {scan.char_count === null
