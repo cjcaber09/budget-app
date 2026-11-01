@@ -26,3 +26,10 @@ Current previews:
 
 ![Dark centered shadow](../../screenshots/centered-plus-shadow-dark.png)
 ![Light centered shadow](../../screenshots/centered-plus-shadow-light.png)
+
+
+## Final validation and OTA
+
+725 tests across 129 suites passed. TypeScript, full Expo lint, Deno type-check and staged private-value/whitespace audits passed. Production Android/iOS Hermes and static web exports passed; the 98-file export excludes private environment values.
+
+Android preview runtime 1.0.3, published 2026-11-01T09:40:05.824Z; source 04b0052c29f950e599be99f8c8311a7bf9608bd3. Group 0dfcad5f-91ff-4498-98b0-cd1838938183; update 01a1967b-0040-76a5-bd85-a59953d1b6eb. The live manifest matches the launch bundle and all 29 asset hashes. Direct launch download returned HTTP 403; physical-phone delivery remains unverified. Existing 1.0.3 installs need no new APK.
