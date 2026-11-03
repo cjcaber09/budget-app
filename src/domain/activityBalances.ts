@@ -24,7 +24,7 @@ function exactCents(value: unknown): number {
 export function decodeActivityBalances(value: unknown, context: {owner: string; timezone: string; today: string}, requested: BalanceActivity[]): ActivityBalance[] {
   const data = value as Record<string, unknown> | null;
   const fail = (): never => {throw new Error('Account balance history could not be read. Retry.');};
-  if (!data || data.owner !== context.owner || data.timezone !== context.timezone || data.today !== context.today || data.reconciled !== true || !Array.isArray(data.rows)) return fail();
+  if (data?.owner !== context.owner || data.timezone !== context.timezone || data.today !== context.today || data.reconciled !== true || !Array.isArray(data.rows)) return fail();
   const expected = new Set(requested.map(balanceActivityKey));
   if (data.rows.length !== expected.size || data.rows.length > 100) return fail();
   const seen = new Set<string>();

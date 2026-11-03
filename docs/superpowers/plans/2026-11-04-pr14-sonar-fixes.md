@@ -32,6 +32,8 @@ literal findings. Reliability D failed the quality gate.
 
 - 108 focused Jest tests across 16 suites passed, including canonical cache
   identity reuse, serial batching and stopping after the first failed batch.
+- The final optional-chain cleanup also passed 17 domain/hook tests, including
+  missing-envelope/row recovery, plus TypeScript and targeted ESLint.
 - TypeScript and full Expo lint passed.
 - Local SonarJS checks reproduce no remaining reported complexity/guard/nested
   conditional/readonly findings in the changed code and introduce no new

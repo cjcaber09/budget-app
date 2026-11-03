@@ -6,6 +6,12 @@ const fixture=()=>({...context,reconciled:true,rows:[{kind:'transaction',id,acco
 test('decodes an exact Cash 50 deduction without using rendered transaction amounts',()=>{
  expect(decodeActivityBalances(fixture(),context,requested)[0].accounts[0]).toMatchObject({beforeCents:10000,changeCents:-5000,afterCents:5000});
 });
+
+test('rejects missing envelopes and missing requested rows with the recoverable history error',()=>{
+ for(const value of [null,undefined,{...fixture(),rows:[null]}]){
+  expect(()=>decodeActivityBalances(value,context,requested)).toThrow('Account balance history could not be read. Retry.');
+ }
+});
 test.each(['owner','timezone','today','reconciled'])('rejects incorrect %s context',key=>{
  expect(()=>decodeActivityBalances({...fixture(),[key]:key==='reconciled'?false:'foreign'},context,requested)).toThrow();
 });
