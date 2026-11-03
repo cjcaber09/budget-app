@@ -1,3 +1,5 @@
+import {useFinancialResetStore} from '../../src/stores/useFinancialResetStore';
+import {useAccountDeletionStore} from '../../src/stores/useAccountDeletionStore';
 import { Modal, Platform,AppState } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -55,6 +57,8 @@ function toastMessage() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useFinancialResetStore.setState({pending:null,starting:false});
+  useAccountDeletionStore.setState({pending:null,starting:false});
   invalidateNativeHandoffs();
   usePreferencesStore.getState().setProfile(defaultProfile('00000000-0000-4000-8000-000000000001'));
   useAppLockStore.setState({loaded:true,enabled:false,locked:false,obscured:false});
@@ -251,4 +255,31 @@ describe('AddTransactionFab', () => {
       expect(launchLibrary).not.toHaveBeenCalled();
     });
   });
+});
+
+test('hides the add button and an open entry sheet during account cleanup',()=>{
+ renderFab();openSheet();expect(screen.getByLabelText('Manual Entry')).toBeTruthy();
+ act(()=>useFinancialResetStore.setState({starting:true}));
+ expect(screen.queryByLabelText('Add transaction')).toBeNull();expect(screen.queryByLabelText('Manual Entry')).toBeNull();
+ act(()=>useFinancialResetStore.setState({starting:false}));
+ expect(screen.getByLabelText('Add transaction')).toBeTruthy();expect(screen.queryByLabelText('Manual Entry')).toBeNull();
+ act(()=>useAccountDeletionStore.setState({pending:{owner:usePreferencesStore.getState().profile!.user_id,requestId:'request',accepted:true}}));
+ expect(screen.queryByLabelText('Add transaction')).toBeNull();
+});
+test('ignores a camera result returned during clearing',async()=>{
+ let finish:(value:ImagePicker.ImagePickerResult)=>void=()=>{};launchCamera.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ renderFab();openSheet();fireEvent.press(screen.getByLabelText('Take Photo'));await waitFor(()=>expect(launchCamera).toHaveBeenCalledTimes(1));
+ act(()=>useFinancialResetStore.setState({starting:true}));
+ await act(async()=>finish(PICKED as unknown as ImagePicker.ImagePickerResult));
+ expect(mockPush).not.toHaveBeenCalled();expect(useScanStore.getState().pendingImage).toBeNull();
+});
+test('a different owners pending cleanup does not hide this accounts add button',()=>{
+ useFinancialResetStore.setState({pending:{owner:'other-owner',requestId:'request',accepted:true}});renderFab();expect(screen.getByLabelText('Add transaction')).toBeTruthy();
+});
+
+test('unmounting cancels a deferred iOS picker even if its dismissal arrives later',async()=>{
+ jest.replaceProperty(Platform,'OS','ios');const view=render(<AddTransactionFab/>);openSheet();
+ const dismiss=screen.UNSAFE_getByType(Modal).props.onDismiss as ()=>void;
+ fireEvent.press(screen.getByLabelText('Upload Image'));view.unmount();await act(async()=>dismiss());
+ expect(launchLibrary).not.toHaveBeenCalled();expect(mockPush).not.toHaveBeenCalled();
 });

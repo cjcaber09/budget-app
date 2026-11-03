@@ -8,7 +8,9 @@ import {useFormStyles} from '../styles/forms';
 import {useColors,type} from '../styles/theme';
 import {KeyboardSheet} from './KeyboardSheet';
 import {MotionPressable} from './MotionPressable';
+import {FormActions} from './FormActions';
 import {QueryState} from './QueryState';
+import {incomeSourceActionLabel} from '../domain/formActionLabels';
 
 function SourceForm({source,onSaved,onCancel}:{source?:IncomeSource;onSaved:(s:IncomeSource)=>void;onCancel:()=>void}) {
  const form=useFormStyles(),owner=usePreferencesStore(s=>s.profile?.user_id)??'';
@@ -22,13 +24,12 @@ function SourceForm({source,onSaved,onCancel}:{source?:IncomeSource;onSaved:(s:I
   <TextInput accessibilityLabel="Income source name" placeholder="Salary" style={form.input} value={local.name} maxLength={80} editable={!save.isPending&&!local.pending} onChangeText={name=>draft({...local,name})}/>
   {local.pending&&save.isError&&<Text style={form.subtitle}>Retry this name to confirm whether it saved. You can rename the source afterward.</Text>}
   {save.isError&&<Text accessibilityRole="alert" style={form.error}>{save.error.message}</Text>}
-  <MotionPressable style={form.button} disabled={save.isPending||!local.name.trim()} onPress={()=>{
+  <FormActions secondary={{label:'Close',onPress:onCancel}} primary={{label:incomeSourceActionLabel(save.isPending,!!local.pending,!!source),disabled:save.isPending||!local.name.trim(),onPress:()=>{
    const input:SaveIncomeSource=local.pending??{id:local.id,operation:source?'rename':'create',name:local.name.trim()};
    if(!source)draft({...local,pending:input});
    save.mutate(input,{onSuccess:s=>{if(!source)useIncomeSourceDraftStore.getState().clear(owner);if(alive.current&&s.user_id===usePreferencesStore.getState().profile?.user_id)onSaved(s);}});
-  }}><Text style={form.buttonText}>{save.isPending?'Saving…':local.pending?'Retry save':source?'Save name':'Create source'}</Text></MotionPressable>
+  }}}/>
   {source&&<MotionPressable style={form.secondaryButton} disabled={save.isPending} onPress={()=>save.mutate({id:source.id,operation:source.archived?'restore':'archive'},{onSuccess:s=>{if(alive.current&&s.user_id===usePreferencesStore.getState().profile?.user_id)onSaved(s);}})}><Text style={form.chipTextSelected}>{source.archived?'Restore source':'Archive source'}</Text></MotionPressable>}
-  <MotionPressable style={form.secondaryButton} onPress={onCancel}><Text style={form.chipTextSelected}>Close</Text></MotionPressable>
  </View>;
 }
 function SourceModal({children,onClose}:{children:ReactNode;onClose:()=>void}) {

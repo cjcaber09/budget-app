@@ -16,6 +16,7 @@ import {useBudgets,useSetBudget} from '../../../src/hooks/useBudgets';
 import {useDashboard} from '../../../src/hooks/useDashboard';
 import {useUiStore} from '../../../src/stores/useUiStore';
 import {MotionPressable} from '../../../src/components/MotionPressable';
+import {FormActions} from '../../../src/components/FormActions';
 import {QueryState} from '../../../src/components/QueryState';
 import {useFormStyles} from '../../../src/styles/forms';
 import {useColors} from '../../../src/styles/theme';
@@ -71,7 +72,7 @@ function BudgetForm({categoryId,month,name,current,allocated,allowance,blocked,f
  {(error||save.error)&&<Text accessibilityRole="alert" style={form.error}>{error||save.error?.message}</Text>}
  {failed&&<View><Text accessibilityRole="alert" style={form.error}>Could not refresh allocations. Your draft is still here.</Text><MotionPressable style={form.secondaryButton} onPress={retry}><Text style={form.chipTextSelected}>Retry allocations</Text></MotionPressable></View>}
  <Text style={form.label}>Category budget</Text><MoneyInput accessibilityLabel="Budget amount" placeholderTextColor={colors.subtle} style={form.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} editable={!save.isPending}/>
- <MotionPressable style={form.button} onPress={submit} disabled={blocked||save.isPending}><Text style={form.buttonText}>{save.isPending?'Saving...':'Save Budget'}</Text></MotionPressable>
- <MotionPressable style={form.secondaryButton} disabled={save.isPending} onPress={()=>setEditing(false)}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
+ <FormActions secondary={{label:'Cancel',disabled:save.isPending,onPress:()=>setEditing(false)}}
+  primary={{label:save.isPending?'Saving...':'Save Budget',onPress:submit,disabled:blocked||save.isPending}}/>
  </>;
 }

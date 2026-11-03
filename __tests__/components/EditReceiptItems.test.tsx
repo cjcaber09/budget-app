@@ -102,3 +102,4 @@ jest.mock('../../src/components/ExpenseBalanceReview',()=>({
  useExpenseBalanceReview:()=>({review:(_input:unknown,proceed:()=>void)=>proceed(),checking:false,pending:null,Controls:()=>null}),
  ExpenseReviewMethodDialog:()=>null,
 }));
+jest.mock('../../src/hooks/useActivityBalances',()=>({useActivityBalances:()=>({data:new Map(),isError:false,isFetching:false})}));

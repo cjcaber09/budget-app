@@ -1,3 +1,4 @@
+import {useFinancialResetStore} from '../../src/stores/useFinancialResetStore';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SetupGuide} from '../../src/components/SetupGuide';
@@ -14,6 +15,7 @@ jest.mock('../../src/hooks/useDashboard',()=>({useDashboard:()=>({data:mockDashb
 jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>({data:[],isSuccess:true})}));
 jest.mock('../../src/hooks/useBudgets',()=>({useBudgets:()=>({data:[],isSuccess:true,refetch:jest.fn()}),useSetBudget:()=>({mutateAsync:mockCategorySave})}));
 beforeEach(async()=>{
+ useFinancialResetStore.setState({pending:null,starting:false});
  await AsyncStorage.clear();jest.clearAllMocks();usePreferencesStore.getState().setProfile({...defaultProfile(owner),timezone:'UTC'});
  useSetupGuideStore.setState({owner,visible:false,loaded:true,step:0,completed:false});
  mockCash={id:'cash',user_id:owner,method:'cash',archived:false,opening_balance:'100.00'};
@@ -44,4 +46,9 @@ test('continue later preserves the step and unsaved input in the running session
  await mount();fireEvent.press(screen.getByText('Continue'));await screen.findByText('Starting balances');fireEvent.press(screen.getByText('Continue'));await screen.findByText('Monthly budget');
  fireEvent.changeText(screen.getByLabelText('Setup monthly budget'),'123.45');fireEvent.press(screen.getByText('Continue later'));
  await act(async()=>{openSetupGuide(owner);});await waitFor(()=>expect(screen.getByLabelText('Setup monthly budget').props.value).toBe('123.45'));expect(mockLimitSave).not.toHaveBeenCalled();
+});
+
+test('closes setup when record cleanup begins without making a financial change',async()=>{
+ await mount();act(()=>useFinancialResetStore.setState({pending:{owner,requestId:'reset',accepted:true}}));
+ expect(screen.queryByText('Currency & timezone')).toBeNull();expect(useSetupGuideStore.getState().visible).toBe(false);expect(mockCashSave).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import {PasswordInput} from './PasswordInput';
 import { useState } from "react";
 import { View, Text, TextInput, Image } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -464,8 +465,8 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
             ].map(([label, value, set]) => (
               <View key={label as string}>
                 <Text style={form.label}>{label as string}</Text>
-                <TextInput
-                  secureTextEntry
+                <PasswordInput
+                  editable={!busy}
                   accessibilityLabel={label as string}
                   autoCapitalize="none"
                   style={form.input}

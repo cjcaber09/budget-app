@@ -21,6 +21,7 @@ import {MoneyInput} from './MoneyInput';
 import {TransactionDateField} from './TransactionDateField';
 import {paymentMethodLabel} from '../domain/paymentMethods';
 import {RefundDestination} from './RefundDestination';
+import {ActivityBalanceDetails} from './ActivityBalanceDetails';
 
 export function RefundsPanel({transaction}:{transaction:Transaction}) {
  const readableDate=useDateFormatter();
@@ -74,6 +75,7 @@ function RefundForm({transaction,initial,refunded,purchase,expenseCreatedAt,onBu
    <Text style={form.subtitle}>Purchase: {money(purchase)} · Refunded: {money(refunded)}</Text>
    <Text style={form.subtitle}>Remaining refundable: {money(purchase-refunded)}</Text>
   </View>
+  {initial&&<ActivityBalanceDetails entry={{kind:'refund',id:initial.id}}/>}
   <Text style={form.subtitle}>Record money you have already received back. Maximum: {money(maximum)}.</Text>
   <Text style={form.label}>Refund amount</Text><MoneyInput accessibilityLabel="Refund amount" value={amount} onChangeText={value=>{setAmount(value);setError('');}} style={form.input} editable={!save.isPending}/>
   <TransactionDateField label="Received date" accessibilityLabel="Refund received date" value={date} onChange={setDate}/>

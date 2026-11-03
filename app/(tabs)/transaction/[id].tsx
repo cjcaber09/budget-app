@@ -1,4 +1,6 @@
 import {useDateFormatter} from '../../../src/hooks/useDateFormatter';
+import {ActivityBalanceDetails} from '../../../src/components/ActivityBalanceDetails';
+import {transactionBalanceActivity} from '../../../src/domain/activityBalances';
 import {PaymentMethodPicker,TransferDialog} from '../../../src/components/PaymentMethodPicker';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from '../../../src/components/TransactionAttachments';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
@@ -43,6 +45,7 @@ function LoadTransaction({ id }: { id: string }) {
   }
   return <ScrollView style={layout.screen} keyboardShouldPersistTaps="handled" contentContainerStyle={layout.scrollContent}>
     <View style={layout.card}>
+      {parent.data?.transfer_id&&<ActivityBalanceDetails entry={transactionBalanceActivity(parent.data)}/>}
       {parent.data?.transfer_id ? <TransferFeeDetails transaction={parent.data}/> : snapshot ? <Editor {...snapshot} /> : <QueryState error={!isUuid(id) || parent.isError || items.isError || categories.isError}
         loading={isUuid(id) && !parent.isError && !items.isError && !categories.isError}
         retry={() => { void parent.refetch(); void items.refetch(); void categories.refetch(); }}>
@@ -77,6 +80,7 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
   const saving = update.isPending || remove.isPending || billCommand.isPending || funds.checking || proof.busy;
   if(proof.savedId)return <AttachmentRetry draft={proof} onDone={()=>router.back()}/>;
   return <>
+    <ActivityBalanceDetails entry={transactionBalanceActivity(snapshot.transaction)}/>
     {snapshot.transaction.occurrence_id&&<Text style={styles.subtitle}>Linked to a scheduled bill. Changing this expense to income skips that occurrence.</Text>}
     <funds.Controls busy={saving}/>
     <ExpenseReviewMethodDialog review={funds} onSelect={id=>methodChange.current?.(id)}/>

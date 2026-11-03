@@ -1,3 +1,4 @@
+import {useAccountOperation} from '../hooks/useAccountOperation';
 import {useEffect,useRef,useState} from 'react';
 import {Keyboard,Modal,ScrollView,Text,TextInput,View} from 'react-native';
 import {useFocusedFieldScroll} from '../hooks/useFocusedFieldScroll';
@@ -21,6 +22,8 @@ import {useHelpBlocker} from '../stores/useHelpStore';
 import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
 import {KeyboardViewport} from './KeyboardViewport';
 import {MotionPressable} from './MotionPressable';
+import {FormActions} from './FormActions';
+import {setupActionLabel} from '../domain/formActionLabels';
 import {MoneyInput} from './MoneyInput';
 import {CategoryPicker} from './CategoryPicker';
 import {QueryState} from './QueryState';
@@ -31,13 +34,16 @@ export function SetupPrompt({needsBudget=false}:{needsBudget?:boolean}){
  if(!profile||state.owner!==profile.user_id||!state.loaded||state.completed||!needsBudget&&!needsCash){ return null; }
  return <View style={{gap:8}}><Text style={form.label}>Set up your budget</Text><Text style={form.subtitle}>Choose your settings, starting balances and monthly plan.</Text><MotionPressable style={form.secondaryButton} onPress={()=>openSetupGuide(profile.user_id)}><Text style={form.chipTextSelected}>Continue setup</Text></MotionPressable></View>;
 }
+
 export function SetupGuide(){
  const owner=usePreferencesStore(s=>s.profile?.user_id),state=useSetupGuideStore();
+ const paused=useAccountOperation();
+ useEffect(()=>{if(paused)useSetupGuideStore.setState({visible:false});},[paused]);
  const [mountedOwner,setMountedOwner]=useState<string|null>(null);
  if(state.visible&&owner&&mountedOwner!==owner){ setMountedOwner(owner); }
  useEffect(()=>{if(!owner){ return; }void loadSetupProgress(owner).catch(()=>{if(usePreferencesStore.getState().profile?.user_id===owner){ useSetupGuideStore.setState({owner,loaded:true,step:0,completed:false}); }});},[owner]);
  useHelpBlocker('setup-guide',state.visible);
- if(!owner||state.owner!==owner||mountedOwner!==owner){ return null; }
+ if(paused||!owner||state.owner!==owner||mountedOwner!==owner){ return null; }
  return <GuideContent key={owner} owner={owner}/>;
 }
 const titles=['Currency & timezone','Starting balances','Monthly budget','Category allocations','Your first transaction'];
@@ -105,8 +111,9 @@ function GuideContent({owner}:{owner:string}){
   {state.step===3&&<QueryState loading={categories.isPending||budgets.isPending||dashboard.isPending} error={categories.isError||budgets.isError||dashboard.isError} retry={()=>{void categories.refetch();void budgets.refetch();void dashboard.refetch();}}><Text style={form.subtitle}>Divide your monthly budget between categories. You can adjust allocations later in Reports.</Text><CategoryPicker compact categories={(categories.data??[]).filter(c=>c.user_id===owner)} value={categoryId} onChange={id=>{setCategoryId(id);setCategoryAmount('');}}/><Text style={form.label}>Category budget · {profile.currency}</Text><MoneyInput accessibilityLabel="Setup category budget" editable={!busy&&!refresh} value={categoryAmount} onChangeText={setCategoryAmount} style={form.input} keyboardType="decimal-pad"/><MotionPressable disabled={busy||!!refresh} style={form.secondaryButton} onPress={()=>void run(async()=>{if(!categoryId){ throw new Error('Choose a category.'); }const cents=amount(categoryAmount);await categorySave.mutateAsync({categoryId,month,amount:cents/100});if(await refreshAfterSave('category')&&current()){ setCategoryAmount(''); }})}><Text style={form.chipTextSelected}>Save category allocation</Text></MotionPressable><Text style={form.subtitle}>Allocated: {money(dashboard.data?.allocatedCents??0)}. Category budgets are optional; the monthly cap still applies.</Text></QueryState>}
   {state.step===4&&<><Text style={form.subtitle}>Add income or an expense and review it before saving. Receipt scanning and proof files are optional. You can also save a manual draft offline.</Text><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>{close();router.push({pathname:'/transaction/new',params:{visit:createRequestId()}});}}><Text style={form.chipTextSelected}>Add my first transaction</Text></MotionPressable></>}
   {!!error&&<Text accessibilityRole="alert" style={form.error}>{error}</Text>}
-  <MotionPressable disabled={busy} style={form.button} onPress={()=>void next()}><Text style={form.buttonText}>{busy?'Saving…':refresh?'Refresh saved values':state.step===4?'Finish setup':state.step===0&&confirmCurrency?'Confirm currency & continue':'Continue'}</Text></MotionPressable>
-  {state.step>0&&<MotionPressable disabled={busy||!!refresh} style={form.secondaryButton} onPress={()=>void move(state.step-1)}><Text style={form.chipTextSelected}>Previous step</Text></MotionPressable>}
+  <FormActions
+   secondary={state.step>0?{label:'Previous step',disabled:busy||!!refresh,onPress:()=>void move(state.step-1)}:undefined}
+   primary={{label:setupActionLabel(busy,!!refresh,state.step,confirmCurrency),disabled:busy,onPress:()=>void next()}}/>
   <MotionPressable disabled={busy} style={form.secondaryButton} onPress={close}><Text style={form.chipTextSelected}>Continue later</Text></MotionPressable>
  </ScrollView></View></KeyboardViewport></Modal>;
 }

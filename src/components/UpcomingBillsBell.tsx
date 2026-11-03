@@ -9,14 +9,17 @@ import {QueryState} from './QueryState';
 import {type,useColors} from '../styles/theme';
 import type {useDashboard} from '../hooks/useDashboard';
 import {useHelpBlocker} from '../stores/useHelpStore';
+import {useAccountOperation} from '../hooks/useAccountOperation';
 
 export function UpcomingBillsBell({query}:Readonly<{query:Pick<ReturnType<typeof useDashboard>,'data'|'isPending'|'isError'|'refetch'>}>) {
  const colors=useColors();const insets=useContext(SafeAreaInsetsContext);const reduced=useReducedMotion();const [open,setOpen]=useState(false);
+ const paused=useAccountOperation();
+ if(paused&&open)setOpen(false);
  useHelpBlocker('upcoming-bills',open);
  const pending=query.data?.bills.filter(b=>b.state==='outstanding'||b.state==='replacement').length??0;
  const close=()=>setOpen(false);
  return <>
-  <MotionPressable accessibilityLabel="Upcoming bills" accessibilityHint={pending?'There are upcoming bills.':'Open the upcoming bills list.'} onPress={()=>setOpen(true)} style={{width:48,minHeight:48,alignItems:'center',justifyContent:'center'}}>
+  <MotionPressable disabled={paused} accessibilityLabel="Upcoming bills" accessibilityHint={pending?'There are upcoming bills.':'Open the upcoming bills list.'} onPress={()=>setOpen(true)} style={{width:48,minHeight:48,alignItems:'center',justifyContent:'center'}}>
    <Bell size={24} strokeWidth={1.7} color={colors.text}/>
    {pending>0&&<View testID="upcoming-bills-dot" accessible={false} style={{position:'absolute',right:8,bottom:8,width:8,height:8,borderRadius:4,backgroundColor:colors.danger}}/>}
   </MotionPressable>

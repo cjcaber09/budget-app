@@ -11,8 +11,8 @@ verification. Application code in `app/` and `src/`, Edge Functions, migrations
 and the recovery-email template remain scanned.
 
 ```properties
-sonar.exclusions=scripts/**,__tests__/**,test-utils/**,**/*.test.*,**/*.spec.*,jest.setup.js
-sonar.test.exclusions=__tests__/**,test-utils/**,**/*.test.*,**/*.spec.*
+sonar.exclusions=scripts/**,__tests__/**,supabase/tests/**,test-utils/**,**/*.test.*,**/*.spec.*,jest.setup.js
+sonar.test.exclusions=__tests__/**,supabase/tests/**,test-utils/**,**/*.test.*,**/*.spec.*
 ```
 
 Automatic analysis reads the configuration from the default branch. These
@@ -21,6 +21,11 @@ to a PR before merging, set **Source File Exclusions** and **Test File Exclusion
 under **Administration → General Settings → Analysis Scope → Files**, then rerun
 analysis. Use the same patterns shown above; do not exclude `supabase/functions`
 or application code.
+
+`supabase/tests/**` contains SQL regression fixtures, including repeated UUIDs
+and expected labels. Keep those fixtures in the test exclusions rather than
+weakening their assertions to satisfy production-code literal rules. This does
+not exclude `supabase/migrations/**` or change the required SQL verification.
 
 ## Versioned migration duplication
 
@@ -38,6 +43,11 @@ sonar.cpd.exclusions=supabase/migrations/0018_phone_notifications.sql,supabase/m
 This does not exclude their security or correctness analysis. App code and other
 migrations remain subject to duplication checks; scripts and tests use the
 separate analysis exclusions above.
+
+Migration 0040 has repeated SQL literals reported by `plsql:S1192`. It is already
+deployed, so leave its history intact. These maintainability findings remain
+visible for review; do not exclude its security/correctness analysis or rewrite
+the deployed migration solely to reduce this count.
 
 For the exclusion to apply before this configuration reaches the default branch,
 a project administrator can set the same two paths under **Administration →

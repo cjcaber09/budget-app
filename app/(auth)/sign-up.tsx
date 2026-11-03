@@ -1,3 +1,4 @@
+import {PasswordInput} from '../../src/components/PasswordInput';
 import { useState } from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { Link } from 'expo-router';
@@ -37,7 +38,7 @@ export default function SignUpScreen() {
     <Text accessibilityRole="header" style={[styles.title, { fontSize: 26, lineHeight: 34 }]}>Create account</Text>
     {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Email" style={styles.input} placeholder="you@example.com" placeholderTextColor={colors.subtle} autoCapitalize="none" autoComplete="email" keyboardType="email-address" value={email} onChangeText={setEmail} />
-    <Text style={styles.label}>Password</Text><TextInput accessibilityLabel="Password" style={styles.input} placeholder="Choose a password" placeholderTextColor={colors.subtle} secureTextEntry autoComplete="new-password" value={password} onChangeText={setPassword} onSubmitEditing={() => void handleSignUp()} />
+    <Text style={styles.label}>Password</Text><PasswordInput editable={!submitting} accessibilityLabel="Password" style={styles.input} placeholder="Choose a password" placeholderTextColor={colors.subtle} autoComplete="new-password" value={password} onChangeText={setPassword} onSubmitEditing={() => void handleSignUp()} />
     <MotionPressable style={styles.button} onPress={() => void handleSignUp()} disabled={submitting}><Text style={styles.buttonText}>{submitting ? 'Creating account…' : 'Sign Up'}</Text></MotionPressable>
     <Link href="/sign-in" style={linkStyle}>Sign in</Link>
   </View></AuthFrame>;

@@ -1,4 +1,5 @@
 import {TransferEntryForm as TransferForm} from '../../src/components/TransferEntryForm';
+jest.mock('../../src/hooks/useActivityBalances',()=>({useActivityBalances:()=>({data:new Map(),isError:false,isFetching:false})}));
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 jest.mock('../../src/hooks/useReports',()=>({useReportTransactions:()=>({data:[],isPending:false,isError:false}),useReportTransfers:()=>({data:[],isPending:false,isError:false})}));
 jest.mock('../../src/hooks/useCategories',()=>({useCategories:()=>({data:[],isPending:false,isError:false})}));

@@ -1,4 +1,4 @@
-import {render,screen,waitFor} from '@testing-library/react-native';
+import {act,render,screen,waitFor} from '@testing-library/react-native';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {FinancialResetBoundary} from '../../src/components/FinancialReset';
 import {usePreferencesStore,defaultProfile} from '../../src/stores/usePreferencesStore';
@@ -15,7 +15,7 @@ jest.mock('../../src/lib/supabase',()=>({supabase:{rpc:async()=>({data:null,erro
 jest.mock('expo-router',()=>({useRouter:()=>mockRouter}));
 let client:QueryClient;
 beforeEach(()=>{jest.clearAllMocks();client=new QueryClient({defaultOptions:{queries:{gcTime:Infinity}}});usePreferencesStore.setState({profile:defaultProfile(owner)});useFinancialResetStore.setState({pending:{owner,requestId,accepted:true},handled:{},hydrated:true,starting:false,epoch:0});useToastStore.getState().dismissToast();});
-afterEach(()=>client.clear());
+afterEach(()=>{client.clear();jest.useRealTimers();});
 function mount(){return render(<QueryClientProvider client={client}><FinancialResetBoundary/></QueryClientProvider>);}
 it('leaves activity paused and reports unconfirmed status instead of clearing caches on request failure',async()=>{
  mockRequest.mockRejectedValue(new Error('Offline'));mount();await screen.findByText('Could not confirm the reset. Check your connection and retry.');expect(mockClear).not.toHaveBeenCalled();expect(useFinancialResetStore.getState().pending?.requestId).toBe(requestId);
@@ -25,4 +25,18 @@ it('distinguishes confirmed server completion from failed device refresh',async(
 });
 it('marks completion once and refreshes navigation without discarding saved preferences',async()=>{
  mockRequest.mockResolvedValue('completed');mockClear.mockResolvedValue(undefined);mount();await waitFor(()=>expect(useFinancialResetStore.getState().epoch).toBe(1));expect(mockReplace).toHaveBeenCalledWith('/');expect(usePreferencesStore.getState().profile?.user_id).toBe(owner);expect(useFinancialResetStore.getState().handled[owner]).toBe(requestId);
+});
+
+it('accepts a slow completed response after more than one former polling interval',async()=>{
+ jest.useFakeTimers();let finish:(value:string)=>void=()=>{};
+ mockRequest.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));mockClear.mockResolvedValue(undefined);
+ mount();await act(async()=>jest.advanceTimersByTime(35000));expect(mockRequest).toHaveBeenCalledTimes(1);
+ expect(screen.getByRole('progressbar').props.accessibilityValue).not.toHaveProperty('now');
+ await act(async()=>finish('completed'));expect(useFinancialResetStore.getState().epoch).toBe(1);
+});
+it('shows device refresh separately and ignores a completion after an account change',async()=>{
+ let finish:()=>void=()=>{};mockRequest.mockResolvedValue('completed');mockClear.mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));
+ mount();await screen.findByRole('progressbar',{name:'Refreshing this device'});
+ act(()=>usePreferencesStore.getState().setProfile(defaultProfile('00000000-0000-4000-8000-000000000099')));
+ await act(async()=>finish());expect(mockReplace).not.toHaveBeenCalled();expect(useFinancialResetStore.getState().pending).not.toBeNull();
 });

@@ -1,8 +1,9 @@
+import {useAccountOperation} from '../hooks/useAccountOperation';
 import {KeyboardViewport} from './KeyboardViewport';
 import {useFocusedFieldScroll} from '../hooks/useFocusedFieldScroll';
 import { MoneyInput } from './MoneyInput';
 import { useContext,useEffect,useRef,useState } from 'react';
-import { View,Text,TextInput,Switch,Modal,ScrollView } from 'react-native';
+import { View,Text,TextInput,Modal,ScrollView } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Plus,ChevronRight,X,Trash2 } from 'lucide-react-native';
@@ -12,6 +13,9 @@ import { createThemedStyles,type,useColors } from '../styles/theme';
 import { draftItem,parseItemDrafts,type ItemDraft } from '../domain/itemDrafts';
 import { centsToDecimal,decimalToCents,MAX_MONEY_CENTS,type TransactionItemKind } from '../../supabase/functions/ocr/shared';
 import { formatMoney } from '../domain/money';
+
+import {CheckboxField} from './CheckboxField';
+import {itemCountingStatus} from '../domain/formActionLabels';
 
 const KINDS:[TransactionItemKind,string][]=[['item','Item'],['deduction','Discount'],['tax','Tax'],['fee','Fee'],['adjustment','Adjustment']];
 type Direction='income'|'expense'|null;
@@ -23,8 +27,10 @@ function hiddenZeroRow(row:ItemDraft) {
 }
 export function TransactionItemsEditor({drafts,onChange,onUnfinishedDraft,transactionType='expense',showZeroItems=false}:{drafts:ItemDraft[];onChange:(rows:ItemDraft[])=>void;onUnfinishedDraft?:(rows:ItemDraft[])=>void;transactionType?:Direction;showZeroItems?:boolean}) {
  const form=useFormStyles();const styles=useStyles();const colors=useColors();
+ const paused=useAccountOperation();
  const [editing,setEditing]=useState<{row:ItemDraft;isNew:boolean;index:number}|null>(null);
  const capped=drafts.length>=100;
+ if(paused&&editing)setEditing(null);
  const visible=drafts.map((row,index)=>({row,index})).filter(({row})=>showZeroItems||!hiddenZeroRow(row));
  const hiddenCount=drafts.length-visible.length;
  const open=(row:ItemDraft,index:number,isNew=false)=>setEditing({row:{...row},index,isNew});
@@ -84,9 +90,9 @@ function ItemEditorSheet({row,index,isNew,direction,onClose,onSave,onDelete,onDr
       patch({kind,taxIncluded:false,negative:false,isPaymentSummary:kind==='item'&&draft.isPaymentSummary,feeParty:kind==='fee'?party:null,requiresCountingReview:kind==='fee'&&party==='unknown',quantity:kind==='item'?draft.quantity:null,unitPriceCents:kind==='item'?draft.unitPriceCents:null});if(kind!=='item')setPrice('');
      }}><Text style={draft.kind===kind?form.chipTextSelected:form.chipText}>{kindName(kind,direction)}</Text></MotionPressable>)}</View>
      {draft.kind==='item'&&<><Text style={form.label}>Quantity (optional)</Text><TextInput style={form.input} placeholderTextColor={colors.subtle} accessibilityLabel={`${prefix} quantity`} keyboardType="decimal-pad" value={draft.quantity??''} placeholder="1" onChangeText={quantity=>patch({quantity:quantity.trim()||null})}/><Text style={form.label}>Unit price (optional)</Text><MoneyInput style={form.input} placeholderTextColor={colors.subtle} accessibilityLabel={`${prefix} unit price`} keyboardType="decimal-pad" value={price} placeholder="0.00" onChangeText={value=>{setPrice(value);setError('');}}/><Text style={[styles.caption,{marginTop:8}]}>Only the line amount counts toward the total.</Text></>}
-     {draft.kind==='tax'&&<View style={styles.toggle}><Text style={styles.toggleText}>Already included in the amount</Text><Switch accessibilityLabel={`${prefix} tax included`} value={draft.taxIncluded} onValueChange={taxIncluded=>patch({taxIncluded})} trackColor={{true:colors.primary}}/></View>}
+     {draft.kind==='tax'&&<CheckboxField label="Already included in the amount" accessibilityLabel={`${prefix} tax included`} checked={draft.taxIncluded} onChange={taxIncluded=>patch({taxIncluded})}/>}
      {draft.kind==='fee'&&<><Text style={form.label}>Fee charged to</Text><View style={form.optionRow}>{(['sender','recipient','unknown'] as const).map(feeParty=><MotionPressable key={feeParty} style={[form.chip,draft.feeParty===feeParty&&form.chipSelected]} accessibilityState={{selected:draft.feeParty===feeParty}} onPress={()=>patch({feeParty,requiresCountingReview:feeParty==='unknown',affectsTotal:feeParty==='unknown'||feeParty!==(direction==='income'?'recipient':'sender')?false:draft.affectsTotal})}><Text style={draft.feeParty===feeParty?form.chipTextSelected:form.chipText}>{feeParty==='unknown'?'Unclear':feeParty[0].toUpperCase()+feeParty.slice(1)}</Text></MotionPressable>)}</View></>}
-     {!draft.isPaymentSummary&&!(draft.kind==='tax'&&draft.taxIncluded)&&<><Text style={form.label}>Impact on total</Text><Text style={styles.caption}>{draft.requiresCountingReview?'Choose whether this row affects the total.':draft.affectsTotal?'Counted in total':'Informational — excluded from total'}</Text><View style={[form.optionRow,{marginTop:8}]}>{[true,false].map(affectsTotal=><MotionPressable key={String(affectsTotal)} accessibilityLabel={`${prefix}: ${affectsTotal?'Include in total':'Informational'}`} accessibilityState={{selected:!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal}} style={[form.chip,!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal&&form.chipSelected]} onPress={()=>patch({affectsTotal,requiresCountingReview:false})}><Text style={!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal?form.chipTextSelected:form.chipText}>{affectsTotal?'Include in total':'Informational'}</Text></MotionPressable>)}</View></>}
+     {!draft.isPaymentSummary&&!(draft.kind==='tax'&&draft.taxIncluded)&&<><Text style={form.label}>Impact on total</Text><Text style={styles.caption}>{itemCountingStatus(!!draft.requiresCountingReview,draft.affectsTotal)}</Text><View style={[form.optionRow,{marginTop:8}]}>{draft.requiresCountingReview?[true,false].map(affectsTotal=><MotionPressable key={String(affectsTotal)} accessibilityLabel={`${prefix}: ${affectsTotal?'Include in total':'Informational'}`} accessibilityState={{selected:!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal}} style={[form.chip,!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal&&form.chipSelected]} onPress={()=>patch({affectsTotal,requiresCountingReview:false})}><Text style={!draft.requiresCountingReview&&draft.affectsTotal===affectsTotal?form.chipTextSelected:form.chipText}>{affectsTotal?'Include in total':'Informational'}</Text></MotionPressable>):<CheckboxField label="Include in total" accessibilityLabel={`${prefix}: Include in total`} checked={draft.affectsTotal} onChange={affectsTotal=>patch({affectsTotal})}/>}</View></>}
      {draft.isPaymentSummary&&<Text style={[styles.caption,{marginTop:16}]}>This payment amount is counted once in the total.</Text>}
      {draft.kind==='adjustment'&&<View style={[form.optionRow,{marginTop:16}]}>{[false,true].map(negative=><MotionPressable key={String(negative)} accessibilityLabel={`${prefix}: ${negative?'Subtract':'Add'}`} accessibilityState={{selected:draft.negative===negative}} style={[form.chip,draft.negative===negative&&form.chipSelected]} onPress={()=>patch({negative})}><Text style={draft.negative===negative?form.chipTextSelected:form.chipText}>{negative?'Subtract':'Add'}</Text></MotionPressable>)}</View>}
      {!!error&&<Text accessibilityRole="alert" style={[form.error,{marginTop:16}]}>{error}</Text>}

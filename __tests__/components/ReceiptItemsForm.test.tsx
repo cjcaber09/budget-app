@@ -110,7 +110,7 @@ it('keeps included VAT excluded from the amount when the selected Tax kind is ta
   fireEvent.press(screen.getByLabelText('Row 2: Tax'));
   fireEvent.press(screen.getByLabelText('Row 2: Tax'));
   expect(screen.getByLabelText('Amount').props.value).toBe('10.00');
-  expect(screen.getByLabelText('Row 2 tax included').props.value).toBe(true);
+  expect(screen.getByLabelText('Row 2 tax included').props.accessibilityState.checked).toBe(true);
   fireEvent.press(screen.getByText('Save item'));
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0].items[1]).toEqual(tax);

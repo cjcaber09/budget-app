@@ -4,6 +4,7 @@ import { formatMoney } from '../domain/money';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import type {TransactionDraftFields} from '../domain/transactionDraft';
 import { MotionPressable } from './MotionPressable';
+import {FormActions} from './FormActions';
 import { useFormStyles } from '../styles/forms';
 import { useColors } from '../styles/theme';
 import { View, Text, TextInput } from 'react-native';
@@ -14,6 +15,7 @@ import { TransactionItemsEditor } from './TransactionItemsEditor';
 import { TransactionDateField } from './TransactionDateField';
 import { localDateKey } from '../domain/transactionDates';
 import {voicePurchaseSummary} from '../domain/voicePurchases';
+import {ChevronDown,ChevronUp} from 'lucide-react-native';
 
 export interface TransactionFormValues {
   incomeSourceId:string|null;
@@ -91,6 +93,7 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
   const [transactionDate,setTransactionDate] = useState(initialValues?.transactionDate ?? receipt?.receiptDate ?? scanDate ?? localDateKey(new Date()));
   const [dateEdited,setDateEdited] = useState(false);
   const [paymentDetails,setPaymentDetails] = useState<PaymentDetails|null>(initialValues?.paymentDetails ?? receipt?.paymentDetails ?? null);
+  const [senderDetailsOpen,setSenderDetailsOpen] = useState(false);
   const [paymentMethodId,setPaymentMethodId]=useState<string|null>(initialValues?.paymentMethodId??null);
   const [paymentReviewed,setPaymentReviewed]=useState(!(requirePaymentChoice||initialDraft?.reviewRequired?.paymentMethod));
   const [sourceReviewed,setSourceReviewed]=useState(!(requireSourceChoice||initialDraft?.reviewRequired?.incomeSource));
@@ -186,7 +189,11 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
 
   function renderPaymentDetails(){return <>{paymentDetails && <View style={{marginTop:28}}>
         <Text style={styles.title}>Payment details</Text>
-        {([['fromName','From name'],['fromNumber','From number'],['reference','Reference']] as const).map(([field,label]) => <View key={field}><Text style={styles.label}>{label}</Text><TextInput style={styles.input} placeholderTextColor={colors.subtle} accessibilityLabel={label} value={paymentDetails[field] ?? ''} onChangeText={value => setPaymentDetails({...paymentDetails,[field]:value.trim() ? value : null})} /></View>)}
+        <MotionPressable accessibilityLabel="Sender and reference details" accessibilityState={{expanded:senderDetailsOpen}} aria-expanded={senderDetailsOpen} disabled={submitting} onPress={()=>setSenderDetailsOpen(open=>!open)} style={[styles.secondaryButton,{flexDirection:'row',justifyContent:'space-between',gap:12}]}>
+          <Text style={[styles.chipTextSelected,{flex:1}]}>Sender &amp; reference (optional)</Text>
+          {senderDetailsOpen?<ChevronUp size={20} color={colors.primary}/>:<ChevronDown size={20} color={colors.primary}/>}
+        </MotionPressable>
+        {senderDetailsOpen&&<View>{([['fromName','Sender name (optional)'],['fromNumber','Sender phone/account (optional)'],['reference','Reference (optional)']] as const).map(([field,label]) => <View key={field}><Text style={styles.label}>{label}</Text><TextInput style={styles.input} placeholderTextColor={colors.subtle} accessibilityLabel={label} value={paymentDetails[field] ?? ''} editable={!submitting} onChangeText={value => setPaymentDetails({...paymentDetails,[field]:value.trim() ? value : null})} /></View>)}</View>}
         <Text style={styles.label}>Payment amount</Text>
         <MoneyInput style={styles.input} accessibilityLabel="Payment amount" keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.subtle} value={summaryDraft?.amount ?? (hasRows && totalCents !== null ? centsToDecimal(totalCents) : '')} editable={!!summaryDraft || !hasRows} onChangeText={value => {
           if (summaryDraft) changeDrafts(drafts.map(row => row.id===summaryDraft.id ? {...row,amount:value}:row));
@@ -210,10 +217,9 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
         {showText && <Text selectable style={styles.subtitle}>{receiptText}</Text>}
       </>}</>;}
 
-  function renderSaveActions(){return <>{draftAction&&<MotionPressable style={styles.secondaryButton} disabled={submitting||draftAction.busy||!type} onPress={()=>{if(type)draftAction.onSave(draftFields());}}><Text style={styles.chipTextSelected}>{draftAction.busy?'Saving draft…':'Save draft'}</Text></MotionPressable>}
-      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || submitDisabled || !!rowError || !type || blockedPayment}>
-        <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
-      </MotionPressable></>;}
+  function renderSaveActions(){return <FormActions
+    secondary={draftAction?{label:draftAction.busy?'Saving draft…':'Save draft',disabled:submitting||draftAction.busy||!type,onPress:()=>{if(type)draftAction.onSave(draftFields());}}:undefined}
+    primary={{label:submitting?'Saving…':submitLabel,onPress:handleSubmit,disabled:submitting||submitDisabled||!!rowError||!type||blockedPayment}}/>;}
 
   function renderTypeSelection(){return <><Text style={styles.label}>Type</Text>
       <View style={styles.optionRow}>

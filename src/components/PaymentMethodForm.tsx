@@ -4,6 +4,8 @@ import {Text,TextInput,View} from 'react-native';
 import {useFormStyles} from '../styles/forms';
 import {useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
+import {FormActions} from './FormActions';
+import {paymentMethodActionLabel} from '../domain/formActionLabels';
 import {createRequestId} from '../domain/ocr';
 import {CARD_PRIVACY_NOTE,validatePaymentMethod,isCreditCard,type PaymentMethod,type PaymentMethodKind,type PaymentMethodValues} from '../domain/paymentMethods';
 const KINDS:[PaymentMethodKind,string][]=[['card','Card'],['bank_account','Bank account'],['wallet','E-wallet'],['other','Other']];
@@ -30,7 +32,7 @@ export function PaymentMethodForm({initial,submitting,error:onSaveError,onSave,o
     <Text style={[form.subtitle,{marginTop:8}]}>The initial amount is saved first. Transactions recorded or reassigned afterward update the current balance. Future-dated transactions apply on their date.</Text>
     {credit&&<Text style={form.subtitle}>Spending increases the amount owed. Payments reduce it. An overpayment is shown as a credit balance, not available credit.</Text>}
     {!!(error||onSaveError)&&<Text accessibilityRole="alert" style={form.error}>{error||onSaveError}</Text>}
-    <MotionPressable style={form.button} disabled={submitting} onPress={submit}><Text style={form.buttonText}>{submitting?'Saving…':initial?'Save payment method':'Create payment method'}</Text></MotionPressable>
-    <MotionPressable style={form.secondaryButton} disabled={submitting} onPress={onCancel}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
+    <FormActions secondary={{label:'Cancel',disabled:submitting,onPress:onCancel}}
+      primary={{label:paymentMethodActionLabel(submitting,!!initial),disabled:submitting,onPress:submit}}/>
   </View>;
 }

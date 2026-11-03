@@ -21,6 +21,8 @@ import {MoneyInput} from './MoneyInput';
 import {TransactionDateField} from './TransactionDateField';
 import {TransferMethodCreation,type AccountChoice} from './TransferMethodCreation';
 import {TransferAccountAutocomplete} from './TransferAccountAutocomplete';
+import {FormActions} from './FormActions';
+import {transferActionLabel} from '../domain/formActionLabels';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from './TransactionAttachments';
 
 interface Props {defaultCash?:boolean;entryContext?:{startedAt:string;day:string;timezone:string;currency:string};id?:string;initial?:PaymentTransfer;initialFields?:Partial<TransferFields>;restored?:TransferDraft;methods:PaymentMethod[];active?:boolean;persist?:boolean;proof?:ReturnType<typeof useProofDraft>;onClose:()=>void;onSaved?:()=>void;onBusyChange?:(busy:boolean)=>void;onUncertainChange?:(busy:boolean)=>void}
@@ -125,9 +127,11 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   <Text style={form.label}>Note (optional)</Text><TextInput accessibilityLabel="Transfer note" style={form.input} editable={!locked} maxLength={200} value={fields.note} onChangeText={v=>change('note',v)}/>
   <ProofPicker draft={proof} disabled={locked}/>{persist&&<Text style={form.subtitle}>Draft fields stay on this device. Reattach files after restarting.</Text>}
   {initial&&<SavedAttachments transferId={id}/>}
-  {!pending&&!financialSaved&&<MotionPressable disabled={locked||!query.transferEntrySupported} style={form.button} onPress={()=>submit(initial?'update':'create')}><Text style={form.buttonText}>{busy?'Saving…':initial?'Save transfer changes':'Record transfer'}</Text></MotionPressable>}
+  {!pending&&!financialSaved&&<FormActions marginTop={0}
+   secondary={{label:'Cancel',disabled:busy||creating,onPress:onClose}}
+   primary={{label:transferActionLabel(busy,!!initial),disabled:locked||!query.transferEntrySupported,onPress:()=>submit(initial?'update':'create')}}/>}
   {financialSaved&&<MotionPressable disabled={busy} style={form.button} onPress={()=>void finish('saved')}><Text style={form.buttonText}>Finish saved transfer</Text></MotionPressable>}
-  <MotionPressable disabled={busy||creating} style={form.secondaryButton} onPress={onClose}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
+  {(pending||financialSaved)&&<MotionPressable disabled={busy||creating} style={form.secondaryButton} onPress={onClose}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>}
   {initial&&!pending&&!financialSaved&&<MotionPressable disabled={locked} style={form.secondaryButton} onPress={()=>setDeleting(!deleting)}><Text style={form.secondaryText}>Delete transfer</Text></MotionPressable>}
   {deleting&&!pending&&<View><Text style={form.subtitle}>Delete this transfer and its fee expense? Both tracked balances will be recalculated.</Text><MotionPressable disabled={locked} style={form.button} onPress={()=>submit('delete')}><Text style={form.buttonText}>Confirm delete transfer</Text></MotionPressable></View>}
  </View>;

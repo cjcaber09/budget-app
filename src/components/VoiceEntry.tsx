@@ -7,6 +7,7 @@ import {useColors} from '../styles/theme';
 import {useFormStyles} from '../styles/forms';
 import {usePageLayout} from '../styles/pageLayout';
 import {MotionPressable} from './MotionPressable';
+import {FormActions} from './FormActions';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {useConnectivityStore} from '../stores/useConnectivityStore';
 import {useAppLockStore} from '../stores/useAppLockStore';
@@ -22,12 +23,16 @@ import {useCategories} from '../hooks/useCategories';
 import {usePaymentMethods} from '../hooks/usePaymentMethods';
 import {useIncomeSources} from '../hooks/useIncomeSources';
 
+import {useAccountOperation} from '../hooks/useAccountOperation';
+import {accountOperationActive} from '../lib/accountOperation';
+
 export function VoiceEntry(){return Platform.OS==='android'?<AndroidVoiceEntry/>:<Text>Voice entry is available in the Android app. Use Manual Entry here.</Text>;}
 function AndroidVoiceEntry(){
  const recorder=useAudioRecorder({...RecordingPresets.HIGH_QUALITY,numberOfChannels:1,bitRate:64000});
  const status=useAudioRecorderState(recorder,100);
  const form=useFormStyles(),layout=usePageLayout(),colors=useColors(),router=useRouter();
  const profile=usePreferencesStore(s=>s.profile),online=useConnectivityStore(s=>s.online);
+ const paused=useAccountOperation();
  const lock=useAppLockStore(s=>s.enabled&&(s.locked||s.obscured));
  const categories=useCategories(),methods=usePaymentMethods(),sources=useIncomeSources();
  const [phase,setPhase]=useState<'ready'|'preparing'|'recording'|'processing'|'review'>('ready');
@@ -49,10 +54,12 @@ function AndroidVoiceEntry(){
  useEffect(()=>{void cleanupVoiceFiles().then(()=>setClean(true)).catch(()=>setError('Could not remove an old recording. Close Voice and retry before recording.'));const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer);},[]);
  useFocusEffect(useCallback(()=>{valid.current=true;return()=>{void cancel();};},[cancel]));
  useEffect(()=>{const listener=AppState.addEventListener('change',state=>{if(state!=='active'&&recording.current){void cancel();setError('Recording stopped when you left the app. Start again when ready.');}});return()=>listener.remove();},[cancel]);
+ useEffect(()=>{if(paused)void cancel();},[paused,cancel]);
  useEffect(()=>{if(lock&&phase!=='preparing'){void cancel();}},[lock,cancel,phase]);
  useEffect(()=>{if(phase==='recording'&&status.durationMillis>=19500)void stop();});
  function showFailure(issue:unknown){const failure=issue as VoiceFailure;setError(failure?.message||'Voice entry failed. Try again.');if(failure.retryAfterSeconds)setRetryAt(Date.now()+failure.retryAfterSeconds*1000);setPhase('ready');}
  async function start(){
+  if(accountOperationActive())return;
   if(busy.current||!clean||online!==true||!profile||Date.now()<retryAt)return;
   busy.current=true;valid.current=true;setError('');setDenied(false);setPhase('preparing');
   const visitSequence=++sequence.current;
@@ -96,7 +103,9 @@ function AndroidVoiceEntry(){
   useVoiceEntryStore.getState().set({context:captured,proposal});
   router.replace({pathname:'/transaction/new',params:{visit:captured.visit}});
  }
+ const manualEntry=()=>{void cancel().then(()=>{if(!accountOperationActive())router.replace({pathname:'/transaction/new',params:{visit:createRequestId()}});});};
  const wait=Math.max(0,Math.ceil((retryAt-clock)/1000));
+ if(paused)return null;
  return <ScrollView style={layout.screen} contentContainerStyle={layout.scrollContent}><View style={[layout.card,{gap:20}]}>
   <Mic size={36} color={colors.primary}/><Text style={form.title}>Speak an entry</Text>
   <Text style={form.subtitle}>One income or expense, in English, Tagalog or Taglish. List up to 20 purchases with prices in one recording: “Rice 100, eggs 60, milk 80, paid using GCash.” Compatible purchases become items in one expense.</Text>
@@ -109,8 +118,10 @@ function AndroidVoiceEntry(){
   {phase==='recording'&&<><Text accessibilityLiveRegion="polite" style={form.title}>{Math.min(20,Math.floor(status.durationMillis/1000))} / 20 seconds</Text><MotionPressable style={form.button} onPress={()=>void stop()}><Square size={18} color={colors.onPrimary}/><Text style={form.buttonText}>Stop and process</Text></MotionPressable></>}
   {phase==='processing'&&<Text accessibilityLiveRegion="polite" style={form.subtitle}>Transcribing and preparing your entry…</Text>}
   {proposal&&<><Text style={form.label}>What we heard</Text><Text selectable style={form.subtitle}>{proposal.transcript||'No clear speech detected.'}</Text>{proposal.intent==='entry'?<><Text style={form.subtitle}>Review and correct every field before saving.</Text>{proposal.unresolved.map((warning,index)=><Text key={index} style={form.subtitle}>{warning}</Text>)}<MotionPressable style={form.button} onPress={review}><Text style={form.buttonText}>Review entry</Text></MotionPressable></>:<Text style={form.error}>{proposal.groupingIssue==='unsupported_adjustment'?'This includes a discount, refund or adjustment. Use Manual Entry to include every amount.':proposal.groupingIssue==='too_many_purchases'?'Voice supports up to 20 purchases. Record a shorter list or use Manual Entry.':proposal.intent==='multiple'?'These purchases need separate transactions. Record purchases with the same date, currency and payment account together.':proposal.intent==='transfer'?'This is a transfer or balance operation. Use Manual Entry.':'The transaction or shared details are unclear. Record again or use Manual Entry.'}</Text>}
-   <MotionPressable style={form.secondaryButton} onPress={()=>{setProposal(null);setPhase('ready');}}><Text style={form.chipTextSelected}>Record again</Text></MotionPressable></>}
-  <MotionPressable style={form.secondaryButton} onPress={()=>{void cancel().then(()=>router.replace({pathname:'/transaction/new',params:{visit:createRequestId()}}));}}><Text style={form.chipTextSelected}>Manual Entry</Text></MotionPressable>
+   <FormActions primaryVariant="secondary" marginTop={0}
+    secondary={{label:'Record again',onPress:()=>{setProposal(null);setPhase('ready');}}}
+    primary={{label:'Manual Entry',onPress:manualEntry}}/></>}
+  {!proposal&&<MotionPressable style={form.secondaryButton} onPress={manualEntry}><Text style={form.chipTextSelected}>Manual Entry</Text></MotionPressable>}
   <MotionPressable style={form.secondaryButton} onPress={()=>{void cancel().then(()=>router.back());}}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>
  </View></ScrollView>;
 }
