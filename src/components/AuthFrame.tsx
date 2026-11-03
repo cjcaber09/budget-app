@@ -2,7 +2,7 @@ import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wallet } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { createThemedStyles, type, useColors } from '../styles/theme';
+import { cardElevation, createThemedStyles, type, useColors } from '../styles/theme';
 
 export function AuthFrame({ children }: { children: ReactNode }) {
   const styles = useStyles();
@@ -22,5 +22,5 @@ const useStyles = createThemedStyles(colors => ({
   frame: { width: '100%', maxWidth: 440, gap: 32 },
   brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   brandText: { ...type.body, color: colors.text, fontWeight: '700' },
-  form: { backgroundColor: colors.surface, borderRadius: 16, padding: 24, width: '100%' },
+  form: { ...cardElevation(colors), backgroundColor: colors.surface, borderRadius: 16, padding: 24, width: '100%' },
 }));

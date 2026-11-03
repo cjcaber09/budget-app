@@ -70,7 +70,7 @@ export function TransferAccountAutocomplete({label,value,excludedId,methods,open
  const webListProps=Platform.OS==='web'?{role:'listbox' as ViewProps['role']}:{};
  return <View>
   <Text style={form.label}>{label}</Text>
-  <View style={{borderWidth:1,borderColor:expanded?colors.primary:colors.border,borderRadius:8,backgroundColor:colors.surface,overflow:'hidden'}}>
+  <View style={{borderWidth:1,borderColor:expanded?colors.primary:colors.controlBorder,borderRadius:8,backgroundColor:colors.inputBackground,overflow:'hidden'}}>
    <View style={{flexDirection:'row',alignItems:'center'}}>
     <Search size={18} color={colors.muted} style={{marginLeft:14}} accessible={false}/>
     <TextInput ref={input} accessibilityLabel={label} accessibilityRole="combobox" accessibilityState={{expanded,disabled}} accessibilityHint="Type to search, then select an account."

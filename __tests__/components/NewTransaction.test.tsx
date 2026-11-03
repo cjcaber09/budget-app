@@ -7,11 +7,16 @@ jest.mock('../../src/components/IncomeSources',()=>({IncomeSourcePicker:({onChan
 import { render, screen, fireEvent, act,waitFor,configure } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {usePreferencesStore,defaultProfile} from '../../src/stores/usePreferencesStore';
-jest.mock('../../src/lib/supabase',()=>({supabase:{}}));
-jest.mock('../../src/hooks/useIncomeSources',()=>({useIncomeSources:()=>({data:[],isSuccess:true})}));
+import {useConnectivityStore} from '../../src/stores/useConnectivityStore';
+import {loadTransactionDraft} from '../../src/lib/transactionDraftStorage';
+const mockRefreshCategories=jest.fn(),mockRefreshMethods=jest.fn(),mockRefreshSources=jest.fn();
+let mockCategoriesAvailable=true;
+const mockGetUser=jest.fn(),mockReadProfile=jest.fn();
+jest.mock('../../src/lib/supabase',()=>({supabase:{auth:{getUser:()=>mockGetUser()},from:()=>{const q={select:()=>q,eq:()=>q,single:()=>mockReadProfile()};return q;}}}));
+jest.mock('../../src/hooks/useIncomeSources',()=>({useIncomeSources:()=>({data:[],isSuccess:true,refetch:mockRefreshSources})}));
 const mockTransferSave=jest.fn();
 const mockTransferMethods=[{id:'00000000-0000-4000-8000-000000000201',user_id:'00000000-0000-4000-8000-000000000001',name:'Cash',method:'cash',payment_type:'Cash',last_four:null,archived:false},{id:'00000000-0000-4000-8000-000000000202',user_id:'00000000-0000-4000-8000-000000000001',name:'Bank',method:'bank_account',payment_type:'Savings',last_four:null,archived:false}];
-jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>({methods:mockTransferMethods,isSuccess:true,transferEntrySupported:true}),useSavePaymentMethod:()=>({mutate:jest.fn(),isPending:false})}));
+jest.mock('../../src/hooks/usePaymentMethods',()=>({usePaymentMethods:()=>({methods:mockTransferMethods,isSuccess:true,transferEntrySupported:true,refetch:mockRefreshMethods}),useSavePaymentMethod:()=>({mutate:jest.fn(),isPending:false})}));
 jest.mock('../../src/hooks/useTransferEntry',()=>({useTransferCommand:()=>({mutateAsync:mockTransferSave,isPending:false}),transferStatus:jest.fn()}));
 import { reconcileReceipt } from '../../supabase/functions/ocr/shared';
 import NewTransactionScreen from '../../app/(tabs)/transaction/new';
@@ -30,8 +35,8 @@ jest.mock('../../src/hooks/useOcr', () => ({
 }));
 
 jest.mock('../../src/hooks/useCategories', () => ({
-  useCategories: () => ({isSuccess:true,isFetching:false,
-    data: [{ id: '00000000-0000-4000-8000-000000000010', user_id: '00000000-0000-4000-8000-000000000001', name: 'Groceries', color: '#4CAF50', icon: 'cart', is_default: true }],
+  useCategories: () => ({isSuccess:true,isFetching:false,refetch:mockRefreshCategories,
+    data: mockCategoriesAvailable?[{ id: '00000000-0000-4000-8000-000000000010', user_id: '00000000-0000-4000-8000-000000000001', name: 'Groceries', color: '#4CAF50', icon: 'cart', is_default: true }]:undefined,
   }),
 }));
 
@@ -66,6 +71,14 @@ jest.setTimeout(20000);
 describe('NewTransactionScreen', () => {
   beforeEach(async() => {
     await AsyncStorage.clear();
+    useConnectivityStore.setState({online:true});
+    mockCategoriesAvailable=true;
+    const owner='00000000-0000-4000-8000-000000000001';
+    mockGetUser.mockResolvedValue({data:{user:{id:owner}},error:null});
+    mockReadProfile.mockResolvedValue({data:{user_id:owner,currency:'USD',timezone:'Asia/Manila'},error:null});
+    mockRefreshCategories.mockResolvedValue({data:[{id:'00000000-0000-4000-8000-000000000010',user_id:owner}],isError:false});
+    mockRefreshMethods.mockResolvedValue({data:{owner,methods:mockTransferMethods},isError:false});
+    mockRefreshSources.mockResolvedValue({data:[{id:'00000000-0000-4000-8000-000000000301',user_id:owner,name:'Salary',archived:false}],isError:false});
     usePreferencesStore.getState().setProfile(defaultProfile('00000000-0000-4000-8000-000000000001'));
     mockRunOcr.mockReset();
     mockAddTransaction.mockReset();
@@ -221,6 +234,48 @@ describe('NewTransactionScreen', () => {
     await waitFor(async()=>expect((await AsyncStorage.getAllKeys()).some(key=>key.includes('transaction-draft'))).toBe(true));first.unmount();
     mockParams={visit:'item-restart'};render(<NewTransactionScreen/>);await act(async()=>{await Promise.resolve();});await screen.findByText('Resume draft');fireEvent.press(screen.getByText('Resume draft'));
     expect(screen.getByText('Unfinished item')).toBeTruthy();expect(screen.getByText(/Row 1: enter a label/)).toBeTruthy();expect(mockAddTransaction).not.toHaveBeenCalled();
+  });
+
+  it('saves an incomplete offline draft, restores after restart and never submits on reconnect',async()=>{
+    useConnectivityStore.setState({online:false});mockCategoriesAvailable=false;
+    const first=render(<NewTransactionScreen/>);await screen.findByText('Save draft');
+    fireEvent.changeText(screen.getByLabelText('Note'),'Offline unfinished expense');
+    await screen.findByText('Saved on this device · Not submitted');
+    fireEvent.press(screen.getByText('Save draft'));
+    await screen.findByText('Saved on this device · Not submitted');
+    expect(mockAddTransaction).not.toHaveBeenCalled();first.unmount();
+    mockParams={visit:'offline-restart'};
+    render(<NewTransactionScreen/>);await screen.findByText('Resume draft');fireEvent.press(screen.getByText('Resume draft'));
+    expect(screen.getByLabelText('Note').props.value).toBe('Offline unfinished expense');
+    expect(screen.getByLabelText('Amount').props.value).toBe('');
+    await act(async()=>{useConnectivityStore.setState({online:true});});
+    expect(mockAddTransaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps a draft editable when refreshed choices reject its category',async()=>{
+    mockRefreshCategories.mockResolvedValue({data:[],isError:false});
+    render(<NewTransactionScreen/>);await screen.findByText('Add Transaction');
+    fireEvent.changeText(screen.getByLabelText('Amount'),'42');fireEvent.press(screen.getByText('Add Transaction'));
+    await screen.findByText('This category is no longer available. Choose a category and retry.');
+    expect(screen.getByLabelText('Amount').props.value).toBe('42');expect(mockAddTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed local save and retries without submitting a transaction',async()=>{
+    render(<NewTransactionScreen/>);await screen.findByText('Save draft');
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('Storage full'));
+    fireEvent.changeText(screen.getByLabelText('Note'),'Keep this text');
+    await screen.findByText('Could not save this draft on your device. Keep this screen open and retry.');
+    fireEvent.press(screen.getByText('Retry saving draft'));
+    await screen.findByText('Saved on this device · Not submitted');expect(mockAddTransaction).not.toHaveBeenCalled();
+  });
+  it('adopts preferences loaded before the first edit, then freezes an existing draft currency',async()=>{
+    render(<NewTransactionScreen/>);await screen.findByText('Save draft');
+    await act(async()=>{usePreferencesStore.getState().setProfile({...usePreferencesStore.getState().profile!,currency:'PHP'});});
+    fireEvent.changeText(screen.getByLabelText('Note'),'First edit after hydration');await screen.findByText('Saved on this device · Not submitted');
+    expect((await loadTransactionDraft('00000000-0000-4000-8000-000000000001'))?.currency).toBe('PHP');
+    await act(async()=>{usePreferencesStore.getState().setProfile({...usePreferencesStore.getState().profile!,currency:'USD'});});
+    fireEvent.changeText(screen.getByLabelText('Note'),'Keep original draft currency');await screen.findByText('Saved on this device · Not submitted');
+    expect((await loadTransactionDraft('00000000-0000-4000-8000-000000000001'))?.currency).toBe('PHP');
   });
 });
 

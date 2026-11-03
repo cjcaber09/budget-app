@@ -1,7 +1,7 @@
 import { MoneyInput } from './MoneyInput';
 import {CategoryPicker} from './CategoryPicker';
 import { formatMoney } from '../domain/money';
-import { useEffect,useRef,useState,type ReactNode } from 'react';
+import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import type {TransactionDraftFields} from '../domain/transactionDraft';
 import { MotionPressable } from './MotionPressable';
 import { useFormStyles } from '../styles/forms';
@@ -13,6 +13,7 @@ import { draftItem, parseItemDrafts, type ItemDraft } from '../domain/itemDrafts
 import { TransactionItemsEditor } from './TransactionItemsEditor';
 import { TransactionDateField } from './TransactionDateField';
 import { localDateKey } from '../domain/transactionDates';
+import {voicePurchaseSummary} from '../domain/voicePurchases';
 
 export interface TransactionFormValues {
   incomeSourceId:string|null;
@@ -27,7 +28,14 @@ export interface TransactionFormValues {
 }
 
 interface Props {
-  transferControl?:{selected:boolean;onSelect:()=>void;content:ReactNode;onLeave?:()=>void};
+  summaryCurrency?:string;
+  unresolvedType?:boolean;
+  persistInitial?:boolean;
+  requirePaymentChoice?:boolean;
+  requireSourceChoice?:boolean;
+  draftAction?: {onSave:(fields:TransactionDraftFields)=>void;busy?:boolean};
+  submitDisabled?: boolean;
+  transferControl?:{selected:boolean;onSelect:()=>void;content:ReactNode;onLeave?:()=>void;disabled?:boolean};
   initialDraft?:TransactionDraftFields;
   onDraftChange?:(draft:TransactionDraftFields)=>void;
   attachmentControl?:ReactNode;
@@ -57,10 +65,26 @@ interface Props {
 
 const TYPE_OPTIONS: TransactionType[] = ['expense', 'income'];
 
-export function TransactionForm({ categories, initialValues, initialDraft,onDraftChange,receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl,attachmentControl,transferControl }: Props) {
+function initialType(initialValues:Props['initialValues'],receipt:Props['receipt'],scanned:Props['scanned']):TransactionType|null {
+ if(initialValues?.type)return initialValues.type;
+ if(receipt?.transactionType==='income'||receipt?.transactionType==='expense')return receipt.transactionType;
+ return scanned?null:'expense';
+}
+function rowCalculation(drafts:ItemDraft[],type:TransactionType|null,receipt:Props['receipt'],manualEntry:boolean) {
+ const parsed=parseItemDrafts(drafts),hasRows=drafts.length>0;
+ const totalCents=type===null?null:sumItemCents(parsed.rows,type);
+ let rowError:string|null=null;
+ if(hasRows){rowError=parsed.error;if(!rowError&&totalCents!==null&&(totalCents<=0||totalCents>MAX_MONEY_CENTS))rowError='Rows must add up to a positive amount within the supported range.';}
+ const target=manualEntry?null:receiptTarget(receipt,type);
+ const difference=target!==null&&totalCents!==null?target-totalCents:null;
+ const blockedPayment=!manualEntry&&receipt?.schemaVersion!==1&&!!receipt&&receipt.paymentStatus!=='completed';
+ return {parsed,hasRows,totalCents,rowError,target,difference,blockedPayment};
+}
+
+export function TransactionForm({ categories, initialValues, initialDraft,onDraftChange,receipt, receiptText, scanDate, scanned, onDiscard, submitLabel, submitting, onSubmit,paymentMethodControl,incomeSourceControl,attachmentControl,transferControl,draftAction,submitDisabled,unresolvedType,persistInitial,requirePaymentChoice,requireSourceChoice,summaryCurrency='USD' }: Props) {
   const styles = useFormStyles();
   const colors = useColors();
-  const [type, setType] = useState<TransactionType|null>(() => initialValues?.type ?? (receipt?.transactionType === 'income' || receipt?.transactionType === 'expense' ? receipt.transactionType : scanned ? null : 'expense'));
+  const [type, setType] = useState<TransactionType|null>(() => unresolvedType?null:initialType(initialValues,receipt,scanned));
   const [manualEntry, setManualEntry] = useState(false);
   const [transferVisited,setTransferVisited]=useState(false);
   if(transferControl?.selected&&!transferVisited)setTransferVisited(true);
@@ -68,12 +92,23 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
   const [dateEdited,setDateEdited] = useState(false);
   const [paymentDetails,setPaymentDetails] = useState<PaymentDetails|null>(initialValues?.paymentDetails ?? receipt?.paymentDetails ?? null);
   const [paymentMethodId,setPaymentMethodId]=useState<string|null>(initialValues?.paymentMethodId??null);
+  const [paymentReviewed,setPaymentReviewed]=useState(!(requirePaymentChoice||initialDraft?.reviewRequired?.paymentMethod));
+  const [sourceReviewed,setSourceReviewed]=useState(!(requireSourceChoice||initialDraft?.reviewRequired?.incomeSource));
   const [incomeSourceId,setIncomeSourceId]=useState<string|null>(initialValues?.incomeSourceId??null);
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? categories[0]?.id ?? '');
   const [amount, setAmount] = useState(initialValues?.amount ?? '');
-  const [note, setNote] = useState(initialValues?.note ?? '');
+  const [manualNote, setNote] = useState(initialValues?.note ?? initialDraft?.note ?? '');
+  const [voiceOrigin]=useState(!!initialDraft?.voicePurchase);
+  const [autoNote,setAutoNote]=useState(initialDraft?.voicePurchase?.noteMode==='auto');
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<ItemDraft[]>(() => initialDraft?.drafts??(initialValues?.items ?? receipt?.rows ?? []).map(draftItem));
+  const note=voiceOrigin&&autoNote?voicePurchaseSummary(drafts,summaryCurrency):manualNote;
+  const draftFields=useCallback((rows=drafts):TransactionDraftFields=>{
+    const parsedRows=parseItemDrafts(rows),total=sumItemCents(parsedRows.rows,type??'expense');
+    return {...(voiceOrigin?{voicePurchase:{noteMode:autoNote?'auto':'manual'}}:{}),...(!paymentReviewed||!sourceReviewed?{reviewRequired:{paymentMethod:!paymentReviewed,incomeSource:!sourceReviewed}}:{}),type:type??'expense',
+      amount:voiceOrigin&&rows.length?(!parsedRows.error&&total>0&&total<=MAX_MONEY_CENTS?centsToDecimal(total):''):amount,
+      note:voiceOrigin&&autoNote?voicePurchaseSummary(rows,summaryCurrency):manualNote,categoryId,paymentMethodId,incomeSourceId,transactionDate,drafts:rows};
+  },[drafts,type,voiceOrigin,autoNote,paymentReviewed,sourceReviewed,amount,summaryCurrency,manualNote,categoryId,paymentMethodId,incomeSourceId,transactionDate]);
   const draftCallback=useRef(onDraftChange);
   useEffect(()=>{draftCallback.current=onDraftChange;},[onDraftChange]);
   const previousDraft=useRef<string|null>(null);
@@ -82,28 +117,23 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
     const leftTransfer=previousTransfer.current&&!transferControl?.selected;
     previousTransfer.current=!!transferControl?.selected;
     if(!type||scanned||paymentDetails||transferControl?.selected)return;
-    const draft:TransactionDraftFields={type,amount,note,categoryId,paymentMethodId,incomeSourceId,transactionDate,drafts};
+    const draft=draftFields();
     const signature=JSON.stringify(draft);
-    if(leftTransfer||previousDraft.current!==null&&signature!==previousDraft.current)draftCallback.current?.(draft);
+    if(leftTransfer||(persistInitial||previousDraft.current!==null)&&signature!==previousDraft.current)draftCallback.current?.(draft);
     previousDraft.current=signature;
-  },[type,amount,note,categoryId,paymentMethodId,incomeSourceId,transactionDate,drafts,scanned,paymentDetails,transferControl?.selected]);
+  },[draftFields,type,scanned,paymentDetails,transferControl?.selected,persistInitial]);
   const [showText, setShowText] = useState(false);
   const [lastPositiveTotal, setLastPositiveTotal] = useState<number | null>(() => {
     const total = sumItemCents(initialDraft?parseItemDrafts(initialDraft.drafts).rows:initialValues?.items ?? receipt?.rows ?? [],type ?? 'expense');
     return total > 0 && total <= MAX_MONEY_CENTS ? total : null;
   });
-  const parsed = parseItemDrafts(drafts);
-  const hasRows = drafts.length > 0;
-  const totalCents = type === null ? null : sumItemCents(parsed.rows,type);
-  const blockedPayment = !manualEntry && receipt?.schemaVersion !== 1 && !!receipt && receipt.paymentStatus !== 'completed';
-  const rowError = hasRows ? parsed.error ?? (totalCents !== null && (totalCents <= 0 || totalCents > MAX_MONEY_CENTS) ? 'Rows must add up to a positive amount within the supported range.' : null) : null;
-  const target = manualEntry ? null : receiptTarget(receipt,type);
-  const difference = target !== null && totalCents !== null ? target - totalCents : null;
+  const {parsed,hasRows,totalCents,blockedPayment,rowError,target,difference}=rowCalculation(drafts,type,receipt,manualEntry);
   const summaryDraft = drafts.find(row => row.isPaymentSummary);
   function chooseType(next:TransactionType) {
     transferControl?.onLeave?.();
     if (next === type) return;
-    if(next==='expense')setIncomeSourceId(null);
+    if(next==='income'&&voiceOrigin&&autoNote){setNote(note);setAutoNote(false);}
+    if(next==='expense'){setIncomeSourceId(null);setSourceReviewed(true);}
     const nextDrafts = drafts.map(row => row.kind === 'fee' ? { ...row, affectsTotal: row.feeParty && row.feeParty !== 'unknown' ? row.feeParty === (next === 'income' ? 'recipient' : 'sender') && row.affectsTotal : row.affectsTotal,
       requiresCountingReview: !row.feeParty || row.feeParty === 'unknown' || (!row.affectsTotal && row.feeParty === (next === 'income' ? 'recipient' : 'sender')) } : row);
     const result = parseItemDrafts(nextDrafts); const total = sumItemCents(result.rows,next);
@@ -111,7 +141,10 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
     setDrafts(nextDrafts); setType(next);
   }
   function changeDrafts(next: ItemDraft[]) {
-    if (drafts.length && !next.length && lastPositiveTotal !== null) setAmount(centsToDecimal(lastPositiveTotal));
+    if (drafts.length && !next.length){
+      if(voiceOrigin){setAmount('');setLastPositiveTotal(null);}
+      else if(lastPositiveTotal!==null)setAmount(centsToDecimal(lastPositiveTotal));
+    }
     const nextParsed = parseItemDrafts(next);
     const nextTotal = sumItemCents(nextParsed.rows,type ?? 'expense');
     if (type && !nextParsed.error && nextTotal > 0 && nextTotal <= MAX_MONEY_CENTS) setLastPositiveTotal(nextTotal);
@@ -119,10 +152,12 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
   }
 
   function handleSubmit() {
-    if (submitting) return;
+    if (submitting || submitDisabled) return;
     const manualCents = /^\d+(?:\.\d{0,2})?$/.test(amount) ? decimalToCents(amount) : null;
     const parsedAmount = hasRows ? (totalCents ?? 0) / 100 : (manualCents ?? 0) / 100;
     if (!type || blockedPayment) { setError('Choose a completed transaction type, or enter a transaction manually.'); return; }
+    if(!paymentReviewed){setError('Choose the payment method mentioned in your recording, or explicitly choose Cash.');return;}
+    if(type==='income'&&!sourceReviewed){setError('Choose the income source mentioned in your recording, or explicitly choose Unspecified.');return;}
     if (!isCalendarDate(transactionDate)) { setError('Enter a valid date in YYYY-MM-DD format.'); return; }
     if (!validPaymentDetails(paymentDetails)) { setError('Payment details must be blank or text up to 200 characters.'); return; }
 
@@ -149,14 +184,38 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
     });
   }
 
-  return (
-    <View style={styles.container}>
-      {error && <Text style={styles.error}>{error}</Text>}
-      {receipt?.classificationReason && !manualEntry && <Text style={styles.subtitle}>{receipt.classificationReason}</Text>}
-      {!type && !transferControl?.selected && <Text style={styles.subtitle}>Choose Income or Expense. The receipt direction is unclear.</Text>}
-      {!type && !transferControl?.selected && scanned && onDiscard && <MotionPressable style={styles.secondaryButton} onPress={onDiscard}><Text style={styles.chipText}>Skip transaction</Text></MotionPressable>}
-      {blockedPayment && !transferControl?.selected && <View><Text style={styles.error}>This payment is {receipt?.paymentStatus ?? 'unconfirmed'}. It cannot be saved as a completed payment.</Text><MotionPressable style={styles.chip} onPress={() => { setManualEntry(true); setType(null); setDrafts([]); setAmount(''); setNote(''); setPaymentDetails(null); setTransactionDate(scanDate ?? localDateKey(new Date())); setLastPositiveTotal(null); }}><Text style={styles.chipText}>Enter manually</Text></MotionPressable></View>}
-      <Text style={styles.label}>Type</Text>
+  function renderPaymentDetails(){return <>{paymentDetails && <View style={{marginTop:28}}>
+        <Text style={styles.title}>Payment details</Text>
+        {([['fromName','From name'],['fromNumber','From number'],['reference','Reference']] as const).map(([field,label]) => <View key={field}><Text style={styles.label}>{label}</Text><TextInput style={styles.input} placeholderTextColor={colors.subtle} accessibilityLabel={label} value={paymentDetails[field] ?? ''} onChangeText={value => setPaymentDetails({...paymentDetails,[field]:value.trim() ? value : null})} /></View>)}
+        <Text style={styles.label}>Payment amount</Text>
+        <MoneyInput style={styles.input} accessibilityLabel="Payment amount" keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.subtle} value={summaryDraft?.amount ?? (hasRows && totalCents !== null ? centsToDecimal(totalCents) : '')} editable={!!summaryDraft || !hasRows} onChangeText={value => {
+          if (summaryDraft) changeDrafts(drafts.map(row => row.id===summaryDraft.id ? {...row,amount:value}:row));
+          else if(!hasRows && drafts.length<100) changeDrafts([...drafts,{...draftItem(),label:'Payment',amount:value,isPaymentSummary:true,affectsTotal:true}]);
+        }} />
+        {!summaryDraft && hasRows && <Text style={styles.subtitle}>Calculated from the rows below. Edit rows to change it.</Text>}
+        {!summaryDraft && drafts.length>=100 && <Text style={styles.subtitle}>Remove a row before adding a payment amount.</Text>}
+      </View>}</>;}
+
+  function renderReceiptReview(){return <>{rowError && <Text style={[styles.error, { marginTop: 16 }]} accessibilityRole="alert">{rowError}</Text>}
+      {hasRows && !rowError && difference !== null && Math.abs(difference) > 1 && <View style={{ marginTop: 16 }}>
+        <Text style={styles.subtitle}>Rows add up to {formatMoney((totalCents!)/100)}; printed {type === 'income' ? 'net received' : 'total paid'} is {formatMoney((target!)/100)}</Text>
+        <MotionPressable style={styles.chip} disabled={drafts.length >= 100 || Math.abs(difference) > MAX_MONEY_CENTS} onPress={() => changeDrafts([...drafts, draftItem({ kind: 'adjustment', label: 'Receipt adjustment', amountCents: difference, quantity: null, unitPriceCents: null, taxIncluded: false })])}>
+          <Text style={styles.chipText}>{difference < 0 ? 'Subtract' : 'Add'} {formatMoney((Math.abs(difference))/100)} adjustment</Text>
+        </MotionPressable>
+        {drafts.length >= 100 && <Text style={styles.subtitle}>Remove a row before adding an adjustment.</Text>}
+      </View>}
+      {receipt && (receipt.droppedRowCount > 0 || receipt.cappedRowCount > 0 || !receipt.rows.length) && <Text style={[styles.subtitle, { marginTop: 16 }]}>{receipt.rows.length ? `${receipt.droppedRowCount + receipt.cappedRowCount} receipt rows could not be added. Review the transcription before saving.` : 'No items found. Review the receipt and enter them manually.'}</Text>}
+      {receiptText && <>
+        <MotionPressable style={styles.secondaryButton} onPress={() => setShowText(!showText)}><Text style={styles.chipText}>{showText ? 'Hide receipt text' : 'View receipt text'}</Text></MotionPressable>
+        {showText && <Text selectable style={styles.subtitle}>{receiptText}</Text>}
+      </>}</>;}
+
+  function renderSaveActions(){return <>{draftAction&&<MotionPressable style={styles.secondaryButton} disabled={submitting||draftAction.busy||!type} onPress={()=>{if(type)draftAction.onSave(draftFields());}}><Text style={styles.chipTextSelected}>{draftAction.busy?'Saving draft…':'Save draft'}</Text></MotionPressable>}
+      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || submitDisabled || !!rowError || !type || blockedPayment}>
+        <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
+      </MotionPressable></>;}
+
+  function renderTypeSelection(){return <><Text style={styles.label}>Type</Text>
       <View style={styles.optionRow}>
         {TYPE_OPTIONS.map((option) => (
           <MotionPressable
@@ -169,55 +228,61 @@ export function TransactionForm({ categories, initialValues, initialDraft,onDraf
             </Text>
           </MotionPressable>
         ))}
-        {transferControl&&<MotionPressable disabled={submitting} accessibilityState={{selected:transferControl.selected}} onPress={transferControl.onSelect} style={[styles.chip,transferControl.selected&&styles.chipSelected]}><Text style={transferControl.selected?styles.chipTextSelected:styles.chipText}>Transfer</Text></MotionPressable>}
-      </View>
+        {transferControl&&<MotionPressable disabled={submitting||transferControl.disabled} accessibilityState={{selected:transferControl.selected}} onPress={transferControl.onSelect} style={[styles.chip,transferControl.selected&&styles.chipSelected]}><Text style={transferControl.selected?styles.chipTextSelected:styles.chipText}>Transfer</Text></MotionPressable>}
+      </View></>;}
+
+  function renderReceiptStatus(){return <>{error && <Text style={styles.error}>{error}</Text>}
+      {receipt?.classificationReason && !manualEntry && <Text style={styles.subtitle}>{receipt.classificationReason}</Text>}
+      {!type && !transferControl?.selected && <Text style={styles.subtitle}>Choose Income or Expense. The transaction direction is unclear.</Text>}
+      {!type && !transferControl?.selected && scanned && onDiscard && <MotionPressable style={styles.secondaryButton} onPress={onDiscard}><Text style={styles.chipText}>Skip transaction</Text></MotionPressable>}
+      {blockedPayment && !transferControl?.selected && <View><Text style={styles.error}>This payment is {receipt?.paymentStatus ?? 'unconfirmed'}. It cannot be saved as a completed payment.</Text><MotionPressable style={styles.chip} onPress={() => { setManualEntry(true); setType(null); setDrafts([]); setAmount(''); setNote(''); setPaymentDetails(null); setTransactionDate(scanDate ?? localDateKey(new Date())); setLastPositiveTotal(null); }}><Text style={styles.chipText}>Enter manually</Text></MotionPressable></View>}</>;}
+
+  function displayAmount(){
+    if(!hasRows)return amount;
+    if(voiceOrigin&&rowError)return '';
+    if(totalCents===null)return '';
+    return centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS?totalCents:0);
+  }
+  function dateHint(){
+    if(dateEdited)return 'Edited date';
+    if(receipt?.receiptDate)return 'Receipt date';
+    if(!scanned)return undefined;
+    return receipt?.receiptDateRaw?'Receipt date was unclear; using the date this scan started.':'No receipt date found; using the date this scan started.';
+  }
+  function renderExpenseFields(){return <><Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
+      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows&&!submitting} keyboardType="decimal-pad" value={displayAmount()} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
+      {voiceOrigin&&hasRows&&rowError&&<Text accessibilityLiveRegion="polite" style={styles.subtitle}>Total pending price review</Text>}
+      {type === 'expense' && <CategoryPicker compact categories={categories} value={categoryId} onChange={setCategoryId}/>}
+      {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,value=>{setIncomeSourceId(value);setSourceReviewed(true);}):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
+      {paymentMethodControl?paymentMethodControl(paymentMethodId,value=>{setPaymentMethodId(value);setPaymentReviewed(true);}):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
+      <TransactionDateField value={transactionDate} onChange={day => {setTransactionDate(day);setDateEdited(true);}} hint={dateHint()} />
+          {renderPaymentDetails()}</>;}
+
+  function renderForm(){
+  return (
+    <View style={styles.container} pointerEvents={submitting?'none':'auto'}>
+      {renderReceiptStatus()}
+          {renderTypeSelection()}
       {transferControl&&(transferControl.selected||transferVisited)&&<View style={transferControl.selected?undefined:{display:'none'}}>{transferControl.content}</View>}
       <View style={transferControl?.selected?{display:'none'}:undefined}>
-      <Text style={styles.label}>{paymentDetails ? 'Total' : 'Amount'}</Text>
-      <MoneyInput placeholderTextColor={colors.subtle} style={styles.input} accessibilityLabel="Amount" accessibilityHint={hasRows ? 'Computed from counted rows' : undefined} editable={!hasRows} keyboardType="decimal-pad" value={hasRows ? totalCents === null ? '' : centsToDecimal(Math.abs(totalCents)<=MAX_MONEY_CENTS ? totalCents : 0) : amount} onChangeText={setAmount} placeholder={type ? '0.00' : 'Choose a type'} />
-      {type === 'expense' && <CategoryPicker compact categories={categories} value={categoryId} onChange={setCategoryId}/>}
-      {type==='income'&&(incomeSourceControl?incomeSourceControl(incomeSourceId,setIncomeSourceId):<View><Text style={styles.label}>Income source</Text><Text style={styles.subtitle}>Unspecified</Text></View>)}
-      {paymentMethodControl?paymentMethodControl(paymentMethodId,setPaymentMethodId):<View><Text style={styles.label}>Payment method</Text><Text style={styles.subtitle}>Cash</Text></View>}
-      <TransactionDateField value={transactionDate} onChange={day => {setTransactionDate(day);setDateEdited(true);}} hint={dateEdited ? 'Edited date' : receipt?.receiptDate ? 'Receipt date' : scanned ? receipt?.receiptDateRaw ? 'Receipt date was unclear; using the date this scan started.' : 'No receipt date found; using the date this scan started.' : undefined} />
-      {paymentDetails && <View style={{marginTop:28}}>
-        <Text style={styles.title}>Payment details</Text>
-        {([['fromName','From name'],['fromNumber','From number'],['reference','Reference']] as const).map(([field,label]) => <View key={field}><Text style={styles.label}>{label}</Text><TextInput style={styles.input} placeholderTextColor={colors.subtle} accessibilityLabel={label} value={paymentDetails[field] ?? ''} onChangeText={value => setPaymentDetails({...paymentDetails,[field]:value.trim() ? value : null})} /></View>)}
-        <Text style={styles.label}>Payment amount</Text>
-        <MoneyInput style={styles.input} accessibilityLabel="Payment amount" keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.subtle} value={summaryDraft?.amount ?? (hasRows && totalCents !== null ? centsToDecimal(totalCents) : '')} editable={!!summaryDraft || !hasRows} onChangeText={value => {
-          if (summaryDraft) changeDrafts(drafts.map(row => row.id===summaryDraft.id ? {...row,amount:value}:row));
-          else if(!hasRows && drafts.length<100) changeDrafts([...drafts,{...draftItem(),label:'Payment',amount:value,isPaymentSummary:true,affectsTotal:true}]);
-        }} />
-        {!summaryDraft && hasRows && <Text style={styles.subtitle}>Calculated from the rows below. Edit rows to change it.</Text>}
-        {!summaryDraft && drafts.length>=100 && <Text style={styles.subtitle}>Remove a row before adding a payment amount.</Text>}
-      </View>}
-      <TransactionItemsEditor drafts={drafts} onChange={changeDrafts} transactionType={type} onUnfinishedDraft={onDraftChange&&!scanned&&!paymentDetails?rows=>{if(type)draftCallback.current?.({type,amount,note,categoryId,paymentMethodId,incomeSourceId,transactionDate,drafts:rows});}:undefined} />
-      {rowError && <Text style={[styles.error, { marginTop: 16 }]} accessibilityRole="alert">{rowError}</Text>}
-      {hasRows && !rowError && difference !== null && Math.abs(difference) > 1 && <View style={{ marginTop: 16 }}>
-        <Text style={styles.subtitle}>Rows add up to {formatMoney((totalCents!)/100)}; printed {type === 'income' ? 'net received' : 'total paid'} is {formatMoney((target!)/100)}</Text>
-        <MotionPressable style={styles.chip} disabled={drafts.length >= 100 || Math.abs(difference) > MAX_MONEY_CENTS} onPress={() => changeDrafts([...drafts, draftItem({ kind: 'adjustment', label: 'Receipt adjustment', amountCents: difference, quantity: null, unitPriceCents: null, taxIncluded: false })])}>
-          <Text style={styles.chipText}>{difference < 0 ? 'Subtract' : 'Add'} {formatMoney((Math.abs(difference))/100)} adjustment</Text>
-        </MotionPressable>
-        {drafts.length >= 100 && <Text style={styles.subtitle}>Remove a row before adding an adjustment.</Text>}
-      </View>}
-      {receipt && (receipt.droppedRowCount > 0 || receipt.cappedRowCount > 0 || !receipt.rows.length) && <Text style={[styles.subtitle, { marginTop: 16 }]}>{receipt.rows.length ? `${receipt.droppedRowCount + receipt.cappedRowCount} receipt rows could not be added. Review the transcription before saving.` : 'No items found. Review the receipt and enter them manually.'}</Text>}
-      {receiptText && <>
-        <MotionPressable style={styles.secondaryButton} onPress={() => setShowText(!showText)}><Text style={styles.chipText}>{showText ? 'Hide receipt text' : 'View receipt text'}</Text></MotionPressable>
-        {showText && <Text selectable style={styles.subtitle}>{receiptText}</Text>}
-      </>}
+      {renderExpenseFields()}
+      <TransactionItemsEditor drafts={drafts} showZeroItems={voiceOrigin} onChange={changeDrafts} transactionType={type} onUnfinishedDraft={onDraftChange&&!scanned&&!paymentDetails?rows=>{if(type)onDraftChange(draftFields(rows));}:undefined} />
+          {renderReceiptReview()}
       <Text style={styles.label}>Note (optional)</Text>
       <TextInput
         placeholderTextColor={colors.subtle}
         style={[styles.input, styles.noteInput]}
         value={note}
-        onChangeText={setNote}
+        onChangeText={value=>{setNote(value);setAutoNote(false);}}
         accessibilityLabel="Note" placeholder="What was it for?"
+        editable={!submitting}
         multiline
       />
       {attachmentControl}
-      <MotionPressable style={styles.button} onPress={handleSubmit} disabled={submitting || !!rowError || !type || blockedPayment}>
-        <Text style={styles.buttonText}>{submitting ? 'Saving…' : submitLabel}</Text>
-      </MotionPressable>
+          {renderSaveActions()}
       </View>
     </View>
   );
+  }
+  return renderForm();
 }

@@ -1,21 +1,24 @@
-import { createThemedStyles } from './theme';
+import { cardElevation, createThemedStyles } from './theme';
 import { useContext } from 'react';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import { useWindowDimensions } from 'react-native';
+import { tabBodyHeight } from '../constants/layout';
 
 // Screens retain their own ScrollView/FlatList wrappers and share themed layout.
 const useLayoutStyles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1, alignItems: 'center', padding: 24, paddingBottom: 96, backgroundColor: colors.background },
-  card: { width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+  card: { ...cardElevation(colors), width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
   workspace: { width: '100%', maxWidth: 560, gap: 28 },
-  section: { backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
+  section: { ...cardElevation(colors), backgroundColor: colors.surface, borderRadius: 16, padding: 24 },
 }));
 
 export function usePageLayout({ safeTop = false }: { safeTop?: boolean } = {}) {
   const styles = useLayoutStyles();
   const insets = useContext(SafeAreaInsetsContext);
+  const { fontScale } = useWindowDimensions();
   return {
     ...styles,
-    scrollContent: { ...styles.scrollContent, paddingTop: 24 + (safeTop ? insets?.top ?? 0 : 0), paddingBottom: 96 + (insets?.bottom ?? 0) },
+    scrollContent: { ...styles.scrollContent, paddingTop: 24 + (safeTop ? insets?.top ?? 0 : 0), paddingBottom: Math.max(96, tabBodyHeight(fontScale) + 12) + (insets?.bottom ?? 0) },
   };
 }

@@ -1,7 +1,8 @@
-import {createThemedStyles,type} from './theme';
+import {cardElevation,createThemedStyles,type} from './theme';
 export const useSpendingGuidanceStyles = createThemedStyles((c) => ({
   container: { gap: 20 },
   section: {
+    ...cardElevation(c),
     gap: 12,
     backgroundColor:c.surfaceAlt,
     borderRadius:16,
@@ -29,7 +30,7 @@ export const useSpendingGuidanceStyles = createThemedStyles((c) => ({
   number: { ...type.number, color: c.text, fontSize: 15 },
   value: { ...type.number, color: c.primary, fontSize: 22 },
   action: { ...type.label, color: c.primary },
-  editButton:{borderWidth:1,borderColor:c.border,borderRadius:8,minHeight:44,paddingHorizontal:14,justifyContent:'center'},
+  editButton:{backgroundColor:c.controlBackground,borderWidth:1,borderColor:c.controlBorder,borderRadius:8,minHeight:44,paddingHorizontal:14,justifyContent:'center'},
   saveButton:{backgroundColor:c.primary,borderRadius:10,minHeight:48,paddingHorizontal:18,justifyContent:'center',alignItems:'center',marginTop:12},
   saveButtonText:{...type.label,color:c.onPrimary},
   bill: { gap: 8, paddingVertical: 12 },

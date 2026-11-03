@@ -18,7 +18,7 @@ it('autofills income, separate sender identifiers and date, and counts the repea
   expect(screen.getByLabelText('From number').props.value).toBe('0912 *** 0042');
   expect(screen.getByLabelText('Payment amount').props.value).toBe('1,000.00');
   expect(screen.getByLabelText('Amount').props.value).toBe('1,000.00');
-  expect(screen.getByText('2026-09-01')).toBeTruthy();
+  expect(screen.getByText('September 1, 2026')).toBeTruthy();
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0]).toMatchObject({type:'income',amount:1000,transactionDate:'2026-09-01',paymentDetails:{fromNumber:'0912 *** 0042'}});
   expect(save.mock.calls[0][0].items).toHaveLength(1);
@@ -49,7 +49,7 @@ it('shows a breakdown payment without permitting a duplicate counted summary',()
 });
 it('uses scan date when printed date is absent and permits native date correction',()=>{
   const {save}=mount({receiptDate:null,receiptDateRaw:null});
-  expect(screen.getByText('2026-10-07')).toBeTruthy();
+  expect(screen.getByText('October 7, 2026')).toBeTruthy();
   expect(screen.getByText(/No receipt date found/)).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Change transaction date'));
   fireEvent(screen.getByTestId('native-date-picker'),'valueChange',{},new Date(2026,8,2,12));

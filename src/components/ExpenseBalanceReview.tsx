@@ -1,5 +1,9 @@
-import {useState} from 'react';
-import {View,Text} from 'react-native';
+import {useEffect,useRef,useState} from 'react';
+import {Keyboard,View,Text} from 'react-native';
+import {supabase} from '../lib/supabase';
+import {decodeReportSnapshot} from '../domain/reports';
+import {localDateKey} from '../domain/transactionDates';
+import {expenseBudgetWarning,type BudgetExpense} from '../domain/expenseBudget';
 import {Check,ArrowLeftRight,SlidersHorizontal} from 'lucide-react-native';
 import {usePaymentMethods} from '../hooks/usePaymentMethods';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
@@ -10,23 +14,44 @@ import {useFormStyles} from '../styles/forms';
 import {useColors} from '../styles/theme';
 import type {Transaction} from '../types/database';
 
-export function useExpenseBalanceReview<T extends {type:string;amount:number;paymentMethodId?:string|null;occurrenceId?:string}>(previous?:Transaction) {
+async function reviewCategoryBudget(input:BudgetExpense,profile:NonNullable<ReturnType<typeof usePreferencesStore.getState>['profile']>,previous?:Transaction) {
+ if(!input.categoryId||!input.transactionDate)return null;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+ try{
+  const month=input.transactionDate.slice(0,7)+'-01';
+  const result=await supabase.rpc('reporting_snapshot',{p_month:month}).abortSignal(controller.signal);
+  if(result.error)throw result.error;
+  const snapshot=decodeReportSnapshot(result.data,{owner:profile.user_id,month,timezone:profile.timezone,today:localDateKey(new Date(),profile.timezone)});
+  if(!snapshot.categories.data)throw new Error('Budget totals unavailable.');
+  return expenseBudgetWarning(input,snapshot.categories.data,previous,profile.timezone,profile.currency);
+ }catch{return 'The category budget could not be checked. Retry by returning to the expense, or record anyway without a budget check.';}
+ finally{clearTimeout(timer);}
+}
+
+export function useExpenseBalanceReview<T extends BudgetExpense & {paymentMethodId?:string|null;occurrenceId?:string}>(previous?:Transaction) {
  const query=usePaymentMethods(),profile=usePreferencesStore(s=>s.profile);
  const [checking,setChecking]=useState(false);
- const [pending,setPending]=useState<{input:T;proceed:()=>void;message:string;owner?:string}|null>(null);
+ const [pending,setPending]=useState<{input:T;proceed:()=>void;message:string;funds:boolean;owner?:string;timezone?:string}|null>(null);
  const [dialog,setDialog]=useState<'pick'|'details'|null>(null);
+ const alive=useRef(true),running=useRef(false);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  async function review(input:T,proceed:()=>void){
-  if(checking)return;
-  if(input.type!=='expense'||input.occurrenceId){proceed();return;}
+  if(running.current)return;
+  if(input.type!=='expense'){proceed();return;}
+  Keyboard.dismiss();
   setChecking(true);
+  running.current=true;
   const owner=profile?.user_id;
   try{
    const result=await query.refetch();
-   if(usePreferencesStore.getState().profile?.user_id!==owner)return;
+   if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner)return;
    const methods=!result.isError&&result.data?.owner===owner&&result.data?.timezone===profile?.timezone?result.data?.methods:undefined;
-   const message=expenseFundsWarning(input,methods,previous,profile?.timezone);
-   if(message)setPending({input,proceed,message,owner});else proceed();
-  }finally{setChecking(false);}
+   const funds=input.occurrenceId?null:expenseFundsWarning(input,methods,previous,profile?.timezone);
+   const budget=profile?await reviewCategoryBudget(input,profile,previous):null;
+   if(!alive.current||usePreferencesStore.getState().profile?.user_id!==owner||usePreferencesStore.getState().profile?.timezone!==profile?.timezone)return;
+   const message=[budget,funds].filter(Boolean).join('\n\n');
+   if(message)setPending({input,proceed,message,funds:!!funds,owner,timezone:profile?.timezone});else proceed();
+  }finally{running.current=false;if(alive.current)setChecking(false);}
  }
  const selected=query.methods?.find(m=>pending?.input.paymentMethodId?m.id===pending.input.paymentMethodId:m.method==='cash');
  function Controls({busy=false}:{busy?:boolean}){
@@ -34,14 +59,14 @@ export function useExpenseBalanceReview<T extends {type:string;amount:number;pay
   if(!pending)return null;
   return <View>
    <Text accessibilityRole="alert" style={form.subtitle}>{pending.message}</Text>
-   <MotionPressable style={[form.secondaryButton,{flexDirection:'row',gap:8}]} disabled={busy} onPress={()=>{setPending(null);setDialog('pick');}}>
+   {pending.funds&&<><MotionPressable style={[form.secondaryButton,{flexDirection:'row',gap:8}]} disabled={busy} onPress={()=>{setPending(null);setDialog('pick');}}>
     <ArrowLeftRight size={18} color={colors.primary}/><Text style={form.chipTextSelected}>Change method</Text>
    </MotionPressable>
    <MotionPressable style={[form.secondaryButton,{flexDirection:'row',gap:8}]} disabled={busy||!selected} onPress={()=>setDialog('details')}>
     <SlidersHorizontal size={18} color={colors.primary}/><Text style={form.chipTextSelected}>{selected?.balance===null?'Set balance':'Correct balance'}</Text>
-   </MotionPressable>
+   </MotionPressable></>}
    <MotionPressable style={[form.button,{flexDirection:'row',gap:8}]} disabled={busy} onPress={()=>{
-    if(usePreferencesStore.getState().profile?.user_id!==pending.owner){setPending(null);return;}
+    if(usePreferencesStore.getState().profile?.user_id!==pending.owner||usePreferencesStore.getState().profile?.timezone!==pending.timezone){setPending(null);return;}
     pending.proceed();
    }}>
     <Check size={18} color={colors.onPrimary}/><Text style={form.buttonText}>Record anyway</Text>

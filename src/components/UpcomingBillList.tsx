@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useState} from 'react';
 import {View,Text} from 'react-native';
 import {useRouter} from 'expo-router';
@@ -13,7 +14,8 @@ import {useColors} from '../styles/theme';
 import {addMonths,format,parseISO} from 'date-fns';
 import type {BillOccurrence,DashboardSnapshot} from '../domain/spendingGuidance';
 export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:DashboardSnapshot;onNavigate:()=>void}>){
- const styles=useStyles();const form=useFormStyles();const money=useMoney();const router=useRouter();const command=useBillCommand();const colors=useColors();
+ const styles=useStyles();
+ const dateLabel=useDateFormatter();const form=useFormStyles();const money=useMoney();const router=useRouter();const command=useBillCommand();const colors=useColors();
   const [linking, setLinking] = useState<BillOccurrence | null>(null);
   const [difference, setDifference] = useState<{
     bill: BillOccurrence;
@@ -47,7 +49,7 @@ export function UpcomingBillList({snapshot:s,onNavigate}:Readonly<{snapshot:Dash
                     {bill.label || "Scheduled expense"}
                   </Text>
                   <Text style={styles.caption}>
-                    {bill.scheduled_date}
+                    {dateLabel(bill.scheduled_date)}
                     {bill.scheduled_date<s.today ? ' · Overdue' : ''}
                     {bill.state === "replacement" ? " · Needs replacement" : ""}
                   </Text>

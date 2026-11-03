@@ -18,7 +18,7 @@ let client:QueryClient;
 afterEach(()=>{usePreferencesStore.getState().setProfile(null);client.clear();});
 function mount(){client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity},mutations:{retry:false,gcTime:Infinity}}});return render(<QueryClientProvider client={client}><BillPaymentForm occurrenceId={occurrence}/></QueryClientProvider>);}
 it('uses saved bill details and shows only payment method and an optional attachment',async()=>{
- mount();await screen.findByText('Rent');expect(screen.getByText(/50.00.*Due 2026-10-01/)).toBeTruthy();
+ mount();await screen.findByText('Rent');expect(screen.getByText(/50.00.*Due October 1, 2026/)).toBeTruthy();
  for(const label of ['Amount','Note','Transaction date','Income source'])expect(screen.queryByLabelText(label)).toBeNull();
  fireEvent.press(screen.getByLabelText('Choose payment method'));fireEvent.press(screen.getByLabelText('Record bill payment'));
  await waitFor(()=>expect(mockBack).toHaveBeenCalledTimes(1));expect(mockRpc).toHaveBeenCalledWith('pay_bill',expect.objectContaining({p_occurrence:occurrence,p_payment_method:'00000000-0000-4000-8000-000000000003',p_expected_amount:'50.00',p_expected_date:'2026-10-01',p_payment_date:localDateKey(new Date(),'UTC')}));

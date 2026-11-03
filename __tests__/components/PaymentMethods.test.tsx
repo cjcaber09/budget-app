@@ -146,3 +146,18 @@ test('a definite method rejection restores the same editable draft',async()=>{
  await waitFor(()=>expect(screen.getByText('Choose another name')).toBeTruthy());expect(screen.getByLabelText('Payment method name').props.value).toBe('Metrobank');expect(screen.getByLabelText('Initial balance').props.value).toBe('1,000');
  const first=mockSaveAsync.mock.calls[0][0];fireEvent.changeText(screen.getByLabelText('Payment method name'),'Accepted name');fireEvent.press(screen.getByText('Create payment method'));await waitFor(()=>expect(mockSaveAsync).toHaveBeenCalledTimes(2));expect(mockSaveAsync.mock.calls[1][0]).toEqual({...first,name:'Accepted name'});
 });
+
+test('wallet form accepts an optional number, preserves leading zeros on edit and clears it on method change',()=>{
+ const save=jest.fn();render(<PaymentMethodForm submitting={false} onSave={save} onCancel={()=>{}}/>);
+ fireEvent.press(screen.getByText('E-wallet'));fireEvent.changeText(screen.getByLabelText('Payment method name'),'My wallet');fireEvent.changeText(screen.getByLabelText('Initial balance'),'0');
+ fireEvent.changeText(screen.getByLabelText('E-wallet account number'),'09123456789');fireEvent.press(screen.getByText('Create payment method'));
+ expect(save).toHaveBeenCalledWith(expect.objectContaining({method:'wallet',walletAccountNumber:'09123456789'}));
+ fireEvent.press(screen.getByText('Card'));expect(screen.queryByLabelText('E-wallet account number')).toBeNull();fireEvent.press(screen.getByText('E-wallet'));expect(screen.getByLabelText('E-wallet account number').props.value).toBe('');
+});
+test('existing wallet number remains editable and unsupported server cannot accept a new number',()=>{
+ const wallet={...card,method:'wallet' as const,payment_type:'E-wallet',last_four:null,wallet_account_number:'00123456789'};
+ const view=render(<PaymentMethodForm initial={wallet} submitting={false} onSave={()=>{}} onCancel={()=>{}}/>);
+ expect(screen.getByLabelText('E-wallet account number').props.value).toBe('00123456789');
+ view.rerender(<PaymentMethodForm initial={wallet} walletAccountNumberSupported={false} submitting={false} onSave={()=>{}} onCancel={()=>{}}/>);
+ expect(screen.getByLabelText('E-wallet account number').props.editable).toBe(false);
+});

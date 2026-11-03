@@ -4,6 +4,14 @@ import {renderRouter,screen,testRouter,within} from 'expo-router/testing-library
 // Router's test harness replaces the shared motion mock. Restore the easing API it omits.
 jest.requireMock('react-native-reanimated').cubicBezier=jest.requireActual('../../node_modules/react-native-reanimated/src/css/easing').cubicBezier;
 jest.requireMock('react-native-reanimated').useReducedMotion=()=>true;
+jest.requireMock('react-native-reanimated').createAnimatedComponent=(component:React.ComponentType)=>component;
+jest.requireMock('react-native-reanimated').useAnimatedProps=(callback:()=>unknown)=>callback();
+jest.requireMock('react-native-reanimated').Easing=require('react-native').Easing;
+jest.requireMock('react-native-reanimated').ReduceMotion={Never:'never'};
+jest.requireMock('react-native-reanimated').useSharedValue=(initial:unknown)=>require('react').useRef({value:initial}).current;
+jest.requireMock('react-native-reanimated').useAnimatedStyle=(callback:()=>unknown)=>callback();
+jest.requireMock('react-native-reanimated').withTiming=(value:unknown)=>value;
+jest.requireMock('react-native-reanimated').View=require('react-native').View;
 const TabsLayout=require('../../app/(tabs)/_layout').default;
 jest.mock('../../src/hooks/useRecurringRules',()=>({useRecurringCatchUp:()=>{}}));
 jest.mock('../../src/hooks/useBudgetAlerts',()=>({useBudgetAlerts:()=>{}}));
@@ -28,3 +36,4 @@ it('keeps the dynamic bill-payment route out of the tab bar and preserves Back t
  expect(screen.getByText('Add Transaction')).toBeTruthy();
  expect(navigation.getSearchParams()).not.toHaveProperty('occurrenceId');
 });
+jest.mock('../../src/components/SetupGuide',()=>({SetupGuide:()=>null}));

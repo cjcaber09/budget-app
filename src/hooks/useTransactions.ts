@@ -126,6 +126,9 @@ export function useAddTransaction(_month: string) {
   const queryClient = useQueryClient();
 
   return useMutation<Transaction, Error, AddTransactionInput, AddTransactionContext>({
+    // An explicit save must fail normally if connectivity drops, never become
+    // a paused mutation that submits itself on a later reconnection.
+    networkMode: 'always',
     mutationFn: input => saveTransaction('create', input),
     onMutate: async (newTransaction) => {
       await queryClient.cancelQueries({ queryKey: ['transactions'] });

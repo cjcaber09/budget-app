@@ -11,12 +11,17 @@ import { StatusBar } from 'expo-status-bar';
 import { useColors, useThemeMode } from '../src/styles/theme';
 import { ProfileBootstrap } from '../src/hooks/useProfile';
 import { usePreferencesStore } from '../src/stores/usePreferencesStore';
-import { View,Text,ActivityIndicator } from 'react-native';
+import { View,Text,ActivityIndicator,Platform } from 'react-native';
+import {cleanupVoiceFiles} from '../src/lib/voiceEntry';
 import { MotionPressable } from '../src/components/MotionPressable';
 import {clearExportFiles} from '../src/lib/exportFiles';
 import {AccountDeletionBoundary} from '../src/components/AccountDeletion';
 import {FinancialResetBoundary} from '../src/components/FinancialReset';
 import {useFinancialResetStore} from '../src/stores/useFinancialResetStore';
+import {ConnectivityBootstrap} from '../src/components/ConnectivityBootstrap';
+import {OfflineDraftBootstrap} from '../src/components/OfflineDraftBootstrap';
+import {AppLockBoundary} from '../src/components/AppLockBoundary';
+import {LocalDataMigration} from '../src/components/LocalDataMigration';
 
 function handleQueryError(error: unknown) {
   console.error('Data request failed', { code: (error as { code?: string } | null)?.code });
@@ -55,7 +60,7 @@ function AuthGate() {
     }
   }, [session, loading,error, inAuthGroup, router]);
 
-  return <>{authorized ? <Slot /> : <View style={{flex:1,backgroundColor:colors.background,justifyContent:'center',alignItems:'center'}}>{!error&&<ActivityIndicator accessibilityLabel="Restoring session" color={colors.primary}/>}</View>}{error&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:colors.background,justifyContent:'center',padding:28,gap:20}}><Text accessibilityRole="alert" style={{color:colors.text}}>Could not restore your session. Check your connection and retry.</Text><MotionPressable onPress={()=>void refresh()}><Text style={{color:colors.primary}}>Retry session</Text></MotionPressable></View>}</>;
+  return <>{authorized ? <Slot /> : <View style={{flex:1,backgroundColor:colors.background,justifyContent:'center',alignItems:'center'}}>{!error&&<ActivityIndicator accessibilityLabel="Restoring session" color={colors.primary}/>}</View>}{error&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:colors.background,justifyContent:'center',padding:28,gap:20}}><Text accessibilityRole="alert" style={{color:colors.text}}>Could not restore your saved session. Retry without clearing app data.</Text><MotionPressable onPress={()=>void refresh()}><Text style={{color:colors.primary}}>Retry session</Text></MotionPressable></View>}</>;
 }
 
 export default function RootLayout() {
@@ -63,6 +68,7 @@ export default function RootLayout() {
   const colors = useColors();
   const dark = useThemeMode() === 'dark';
   useEffect(() => {
+    if(Platform.OS==='android')void cleanupVoiceFiles().catch(()=>{});
     void clearExportFiles().catch(()=>{});
     const { data: listener } = supabase.auth.onAuthStateChange((event,session) => {
       const owner=usePreferencesStore.getState().profile?.user_id;
@@ -74,12 +80,17 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={{ ...(dark ? DarkTheme : DefaultTheme), colors: { ...(dark ? DarkTheme.colors : DefaultTheme.colors), background: colors.background, card: colors.surface, text: colors.text, border: colors.border, primary: colors.primary } }}>
     <QueryClientProvider client={queryClient}>
+      <AppLockBoundary>
+      <ConnectivityBootstrap/>
       <ProfileBootstrap key={`profile:${resetEpoch}`}/>
+      <OfflineDraftBootstrap key={`offline:${resetEpoch}`}/>
+      <LocalDataMigration key={`migration:${resetEpoch}`}/>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <Navigator key={`navigation:${resetEpoch}`}><AuthGate /></Navigator>
       <Toast />
       <AccountDeletionBoundary />
       <FinancialResetBoundary />
+      </AppLockBoundary>
     </QueryClientProvider>
     </ThemeProvider>
   );

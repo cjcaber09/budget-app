@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {encryptedStorage as AsyncStorage} from './encryptedStorage';
 import {Platform} from 'react-native';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {decodeEntryDraft,type EntryDraft} from '../domain/transferDraft';

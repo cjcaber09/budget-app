@@ -1,5 +1,5 @@
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {encryptedStorage} from './encryptedStorage';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -16,11 +16,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // "static"). No-op there so the server render doesn't crash.
 const ssrSafeStorage = {
   getItem: (key: string) =>
-    typeof window === 'undefined' ? Promise.resolve(null) : AsyncStorage.getItem(key),
+    typeof window === 'undefined' ? Promise.resolve(null) : encryptedStorage.getItem(key),
   setItem: (key: string, value: string) =>
-    typeof window === 'undefined' ? Promise.resolve() : AsyncStorage.setItem(key, value),
+    typeof window === 'undefined' ? Promise.resolve() : encryptedStorage.setItem(key, value),
   removeItem: (key: string) =>
-    typeof window === 'undefined' ? Promise.resolve() : AsyncStorage.removeItem(key),
+    typeof window === 'undefined' ? Promise.resolve() : encryptedStorage.removeItem(key),
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

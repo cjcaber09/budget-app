@@ -93,3 +93,11 @@ assets/images/sample-receipts/
 
 # Local agent execution reports (shared specs stay in docs/)
 .superpowers/
+.impeccable/native-recovery/
+.impeccable/session-avd/
+.impeccable/native-session-probe.bundle
+.impeccable/native-session-probe*.apk
+.impeccable/native-category-probe*.apk
+.impeccable/native-category-probe.bundle
+.impeccable/native-spending-wallet-probe*.apk
+.impeccable/native-spending-wallet-probe.bundle

@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useEffect,useRef,useState} from 'react';
 import {Platform,Pressable,Text,View,type LayoutRectangle} from 'react-native';
 import Animated,{useAnimatedStyle,useReducedMotion,useSharedValue,withSpring,withTiming} from 'react-native-reanimated';
@@ -13,6 +14,7 @@ import {createRequestId} from '../domain/ocr';
 import type {ReportSection} from '../domain/reports';
 import {type,useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
+import {LoadingSkeleton} from './LoadingSkeleton';
 import {PaymentMethodDialog} from './PaymentMethodPicker';
 
 const tabs=['Recent','Categories','Methods'] as const;
@@ -27,7 +29,7 @@ function HighlightsWorkspace({month}:Readonly<{month:string}>){
  const categoryRows=query.data?.categories,methodRows=query.data?.methods;
  const link=(label:string,onPress:()=>void)=><MotionPressable onPress={onPress} style={{minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12}}><Text style={{...type.label,color:colors.primary}}>{label}</Text><ChevronRight size={16} color={colors.primary}/></MotionPressable>;
  const empty=(text:string)=><Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{text}</Text>;
- const state=<Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{!query.supported?'Choose a supported month to see highlights.':query.isError?'Could not load highlights.':'Loading highlights…'}</Text>;
+ const state=query.supported&&!query.isError?<LoadingSkeleton label="Loading highlights"/>:<Text style={{...type.body,color:colors.muted,paddingVertical:24}}>{!query.supported?'Choose a supported month to see highlights.':'Could not load highlights.'}</Text>;
  const retry=()=>void query.refetch();
  return <View style={{gap:16}} testID="overview-highlights">
   <View style={{gap:4}}><Text accessibilityRole="header" style={{...type.heading,color:colors.text}}>Monthly highlights</Text><Text style={{...type.label,fontWeight:'400',color:colors.muted}}>{format(parseISO(month),'MMMM yyyy')} · Includes future-dated entries</Text></View>
@@ -80,6 +82,7 @@ function HighlightPanel({active,onHeight,children}:Readonly<{active:boolean;onHe
 }
 
 function RecentRow({row,today}:Readonly<{row:HistoryActivity;today:string}>){
+ const dateLabel=useDateFormatter();
  const colors=useColors(),money=useMoneyCents(),router=useRouter();
  // These labels come from the same SQL snapshot as the activity, never a separate label fetch.
  const labels=row as unknown as {category?:string;payment_account?:string;payment_type?:string;last_four?:string};
@@ -89,11 +92,11 @@ function RecentRow({row,today}:Readonly<{row:HistoryActivity;today:string}>){
  const cents=transfer?Math.round(Number(row.amount)*100):Math.round(row.amount*100);
  const date=row.financial_date!,account=transfer?`${row.source_label} → ${row.destination_label}`:[labels.payment_account??'Cash',labels.payment_type,labels.last_four?'•••• '+labels.last_four:null].filter(Boolean).join(' · ');
  const open=()=>transfer?router.push({pathname:'/transfer/[id]',params:{id:row.id,visit:createRequestId()}}):router.push({pathname:'/transaction/[id]',params:{id:row.refund_of??row.id,refundId:refund?row.id:undefined,visit:createRequestId()}});
- return <MotionPressable accessibilityLabel={`${name}, ${money(cents)}${transfer?' received, principal excluded from spending':''}, ${format(parseISO(date),'MMM d, yyyy')}, ${account}${row.note?', '+row.note:''}${date>today?', future-dated entry':''}`} onPress={open} style={{paddingVertical:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'flex-start',gap:12}}>
+ return <MotionPressable accessibilityLabel={`${name}, ${money(cents)}${transfer?' received, principal excluded from spending':''}, ${dateLabel(date)}, ${account}${row.note?', '+row.note:''}${date>today?', future-dated entry':''}`} onPress={open} style={{paddingVertical:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'flex-start',gap:12}}>
   <View style={{width:36,height:36,borderRadius:10,backgroundColor:colors.surfaceAlt,alignItems:'center',justifyContent:'center'}}><Icon size={18} color={income||refund?colors.success:colors.primary}/></View>
   <View style={{flex:1,gap:3,minWidth:0}}><View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'baseline',gap:8,justifyContent:'space-between'}}><Text style={{...type.body,fontWeight:'600',color:colors.text,flexShrink:1}}>{name}</Text><Text style={{...type.number,fontSize:15,color:income||refund?colors.success:colors.text}}>{income||refund?'+':transfer?'':'−'}{money(cents)}</Text></View>
    {!!row.note&&<Text numberOfLines={2} style={{...type.label,fontWeight:'400',color:colors.muted}}>{row.note}</Text>}
-   <Text style={{...type.label,fontWeight:'400',color:colors.muted}}>{account}</Text><Text style={{...type.label,fontWeight:'400',color:colors.subtle}}>{format(parseISO(date),'MMM d, yyyy')}{transfer?' · Principal excluded from spending':''}</Text>
+   <Text style={{...type.label,fontWeight:'400',color:colors.muted}}>{account}</Text><Text style={{...type.label,fontWeight:'400',color:colors.subtle}}>{dateLabel(date)}{transfer?' · Principal excluded from spending':''}</Text>
    {date>today&&<Text style={{...type.label,color:colors.warning}}>Future-dated entry</Text>}
   </View><ArrowUpRight size={14} color={colors.subtle}/>
  </MotionPressable>;

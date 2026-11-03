@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useEffect,useRef,useState} from 'react';
 import {Text,TextInput,View} from 'react-native';
 import {useLocalSearchParams} from 'expo-router';
@@ -21,12 +22,8 @@ import {TransactionDateField} from './TransactionDateField';
 import {paymentMethodLabel} from '../domain/paymentMethods';
 import {RefundDestination} from './RefundDestination';
 
-function readableDate(day:string) {
- const date=new Date(day+'T12:00:00Z');
- return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(date);
-}
-
 export function RefundsPanel({transaction}:{transaction:Transaction}) {
+ const readableDate=useDateFormatter();
  const methods=usePaymentMethods(),query=useRefunds(transaction.id,!!methods.refundSupported);
  const {refundId}=useLocalSearchParams<{refundId?:string}>();
  const form=useFormStyles(),colors=useColors(),money=useMoneyCents();
@@ -51,6 +48,7 @@ export function RefundsPanel({transaction}:{transaction:Transaction}) {
 }
 function RefundForm({transaction,initial,refunded,purchase,expenseCreatedAt,onBusy,onSaved}:{transaction:Transaction;initial?:Refund;refunded:number;purchase:number;expenseCreatedAt:string;onBusy:(busy:boolean)=>void;onSaved:()=>void}) {
  const methods=usePaymentMethods(),save=useSaveRefund(),form=useFormStyles(),colors=useColors(),money=useMoneyCents();
+ const readableDate=useDateFormatter();
  const timezone=usePreferencesStore(s=>s.profile?.timezone),owner=usePreferencesStore(s=>s.profile?.user_id);
  const [id]=useState(()=>initial?.id??createRequestId());
  const [amount,setAmount]=useState(initial?.amount??centsToDecimal(purchase-refunded)),[date,setDate]=useState(initial?.refund_date??localDateKey(new Date(),timezone));

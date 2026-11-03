@@ -5,16 +5,23 @@ import { usePreferencesStore } from '../stores/usePreferencesStore';
 
 export const lightColors = {
   background: '#F5F6F2', surface: '#FFFFFF', surfaceAlt: '#EDF0E9',
+  inputBackground: '#FFFFFF', controlBackground: '#FFFFFF', controlBorder: '#DDE3DA',
   text: '#202B26', muted: '#626D65', subtle: '#69736A', border: '#DDE3DA',
   primary: '#193C32', primaryHover: '#285244', onPrimary: '#FFFFFF', selected: '#DFE9DD',
   success: '#326449', successBg: '#E6EFE7', warning: '#84591B', warningBg: '#F8EFDC',
   danger: '#A33F36', dangerBg: '#F9EAE5', scrim: 'rgba(14, 27, 20, 0.42)',
 };
 export type Colors = Record<keyof typeof lightColors, string>;
+export function cardElevation(colors: Colors) {
+  return {boxShadow: colors.background === lightColors.background
+    ? '0px 4px 14px rgba(16, 38, 25, 0.10)'
+    : '0px 5px 16px rgba(0, 0, 0, 0.28)'};
+}
 export const darkColors: Colors = {
-  background: '#141C18', surface: '#1C2721', surfaceAlt: '#243229',
-  text: '#F0F3EC', muted: '#AFBDB1', subtle: '#9CAE9F', border: '#35473B',
-  primary: '#BDDAC4', primaryHover: '#D6E9D9', onPrimary: '#163022', selected: '#334D3C',
+  background: '#101413', surface: '#1C2421', surfaceAlt: '#29352F',
+  inputBackground: '#101413', controlBackground: '#26372E', controlBorder: '#81988B',
+  text: '#F5F8F6', muted: '#C1CEC6', subtle: '#A8B9AE', border: '#3D4D44',
+  primary: '#6BE89A', primaryHover: '#91F5B9', onPrimary: '#092316', selected: '#244B34',
   success: '#A9D2B1', successBg: '#253F2E', warning: '#E8C58C', warningBg: '#433620',
   danger: '#F1A59B', dangerBg: '#462B28', scrim: 'rgba(0, 0, 0, 0.65)',
 };

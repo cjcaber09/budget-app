@@ -23,3 +23,18 @@ test('transfer commands use v3 and refresh all financial caches',async()=>{const
 test('missing capability blocks writes and a stale capability never falls back to legacy RPCs',async()=>{const h=setup();await act(async()=>{await expect(h.result.current.transfer.mutateAsync(transfer)).rejects.toThrow('latest server update');});enable(h);mockRpc.mockImplementation(name=>Promise.resolve(name==='save_transfer_entry'?{error:{code:'PGRST202'},data:null}:{error:null,data:snapshot}));await act(async()=>{await expect(h.result.current.transfer.mutateAsync(transfer)).rejects.toThrow('latest server update');});expect(mockRpc.mock.calls.some(c=>c[0]==='save_payment_transfer'||c[0]==='save_payment_transfer_with_fee')).toBe(false);expect(h.invalidate).not.toHaveBeenCalled();h.unmount();h.client.clear();});
 test.each([['BT001','transfer and fee'],['TE002','changed elsewhere'],['TE003','already used']])('failed command %s retains financial caches',async(code,message)=>{const h=setup();enable(h);mockRpc.mockImplementation(name=>Promise.resolve(name==='save_transfer_entry'?{error:{code},data:null}:{error:null,data:snapshot}));await act(async()=>{await expect(h.result.current.transfer.mutateAsync(transfer)).rejects.toThrow(message);});expect(h.invalidate).not.toHaveBeenCalled();h.unmount();h.client.clear();});
 test('stale balance correction supplies a recovery message and preserves caches',async()=>{const h=setup();mockRpc.mockImplementation(name=>Promise.resolve(name==='correct_method_balance'?{data:null,error:{code:'40001'}}:{error:null,data:{owner:'owner',timezone:'Asia/Manila',methods:[]}}));await act(async()=>{await expect(h.result.current.correct.mutateAsync({id:'id',methodId:'card',targetBalance:'100',expectedBalance:'50.00',note:null})).rejects.toThrow('Refresh balances');});expect(h.invalidate).not.toHaveBeenCalled();h.unmount();h.client.clear();});
+
+test('wallet account number requires server capability and sends exact text without card digits',async()=>{
+ const h=setup(),wallet={...input,method:'wallet' as const,paymentType:'E-wallet',walletAccountNumber:'09123456789'};
+ await act(async()=>{await expect(h.result.current.save.mutateAsync(wallet)).rejects.toThrow('latest server update');});
+ h.client.setQueryData(['paymentMethods','owner','Asia/Manila','wallet-cap'],{owner:'owner',walletAccountNumberVersion:1});
+ await act(async()=>{await h.result.current.save.mutateAsync(wallet);});
+ expect(mockRpc).toHaveBeenCalledWith('save_payment_method',{p_method:expect.objectContaining({walletAccountNumber:'09123456789',lastFour:null})},expect.any(AbortSignal));
+ h.unmount();h.client.clear();
+});
+test('explicit wallet clearing sends null while older payloads omit the new metadata',async()=>{
+ const h=setup();await act(async()=>{await h.result.current.save.mutateAsync({...input,method:'wallet',paymentType:'E-wallet',walletAccountNumber:''});});
+ expect(mockRpc).toHaveBeenCalledWith('save_payment_method',{p_method:expect.objectContaining({walletAccountNumber:null})},expect.any(AbortSignal));
+ await act(async()=>{await h.result.current.save.mutateAsync(input);});
+ expect(mockRpc.mock.calls.filter(c=>c[0]==='save_payment_method').at(-1)[1].p_method).not.toHaveProperty('walletAccountNumber');h.unmount();h.client.clear();
+});

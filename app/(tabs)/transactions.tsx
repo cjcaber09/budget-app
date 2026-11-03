@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../../src/hooks/useDateFormatter';
 import {activityKey} from '../../src/domain/activityPages';
 import type {TransactionFilter} from '../../src/domain/csv';
 import {useMoney} from '../../src/domain/money';
@@ -22,6 +23,7 @@ import { createRequestId } from '../../src/domain/ocr';
 import {CsvExport} from '../../src/components/CsvExport';
 
 export default function TransactionsScreen() {
+ const dateLabel=useDateFormatter();
   const router = useRouter();
   const money=useMoney();
   const styles = useStyles();
@@ -64,13 +66,13 @@ export default function TransactionsScreen() {
       {transactionsQuery.hasNextPage&&<MotionPressable accessibilityLabel="Load more transactions" disabled={transactionsQuery.isFetching} onPress={()=>void transactionsQuery.fetchNextPage()} style={styles.loadMore}><Text style={styles.activeFilterText}>{transactionsQuery.isFetchingNextPage?'Loading…':transactionsQuery.isFetchNextPageError?'Retry load more':'Load more'}</Text></MotionPressable>}
       {transactionsQuery.isRefetchError&&transactions.length>0&&<MotionPressable style={styles.loadMore} onPress={()=>void transactionsQuery.refetch()}><Text style={styles.activeFilterText}>Could not refresh. Retry</Text></MotionPressable>}
     </View>}
-    renderItem={({ item }) => item.type==='transfer'?<MotionPressable accessibilityLabel={`Transfer from ${item.source_label} to ${item.destination_label}, ${money(Number(item.amount))} received`} style={[styles.item,{paddingVertical:18,gap:6}]} onPress={()=>router.push({pathname:'/transfer/[id]',params:{id:item.id,visit:createRequestId()}})}><Text style={styles.heading}>{item.source_label} → {item.destination_label}</Text><Text style={styles.caption}>{money(Number(item.amount))} received · {item.financial_date}{Number(item.fee_amount)>0?` · ${money(Number(item.fee_amount))} fee`:''}</Text>{item.note&&<Text style={styles.caption}>{item.note}</Text>}</MotionPressable>:<View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
+    renderItem={({ item }) => item.type==='transfer'?<MotionPressable accessibilityLabel={`Transfer from ${item.source_label} to ${item.destination_label}, ${money(Number(item.amount))} received`} style={[styles.item,{paddingVertical:18,gap:6}]} onPress={()=>router.push({pathname:'/transfer/[id]',params:{id:item.id,visit:createRequestId()}})}><Text style={styles.heading}>{item.source_label} → {item.destination_label}</Text><Text style={styles.caption}>{money(Number(item.amount))} received · {dateLabel(item.financial_date!)}{Number(item.fee_amount)>0?` · ${money(Number(item.fee_amount))} fee`:''}</Text>{item.note&&<Text style={styles.caption}>{item.note}</Text>}</MotionPressable>:<View style={styles.item}><TransactionListItem transaction={item} paymentMethodLabel={item.payment_method_id ? (paymentMethods.methods?.find(method => method.id === item.payment_method_id) ? paymentMethodLabel(paymentMethods.methods.find(method => method.id === item.payment_method_id)!) : 'Saved payment method') : 'Cash'} category={categories.find(category => category.id === item.category_id)} onPress={() => router.push({ pathname: '/transaction/[id]', params: { visit: createRequestId(), id: item.refund_of??item.id, refundId:item.type==='refund'?item.id:undefined, type: item.type, categoryId: item.category_id ?? '', amount: String(item.amount), note: item.note ?? '', occurredAt: item.occurred_at } })} /></View>}
   /></View>;
 }
 const useStyles = createThemedStyles(colors => ({
   content: { alignItems: 'stretch', alignSelf: 'center', width: '100%', maxWidth: 560 },
   header: { gap: 28 }, toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 },
-  search: { flex: 1, minWidth: 220, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  search: { flex: 1, minWidth: 220, backgroundColor: colors.inputBackground, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchInput: { ...type.body, color: colors.text, paddingVertical: 12, paddingRight: 14, minHeight: 48, flex: 1 },
   filters: { flexWrap:'wrap', flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceAlt, padding: 4, borderRadius: 10 },
   filter: { paddingHorizontal: 12, minHeight: 48, justifyContent: 'center', borderRadius: 7 }, activeFilter: { backgroundColor: colors.surface },
@@ -79,5 +81,5 @@ const useStyles = createThemedStyles(colors => ({
   heading: { ...type.heading, color: colors.text }, caption: { ...type.label, color: colors.muted, fontWeight: '400' },
   item: { width: '100%' }, empty: { minHeight: 250 },
   add: { flexDirection: 'row', gap: 8, alignItems: 'center', minHeight: 48, paddingHorizontal: 16 },
-  footer:{gap:12,paddingVertical:20},loadMore:{minHeight:48,alignItems:'center',justifyContent:'center',padding:12,borderWidth:1,borderColor:colors.border,borderRadius:10,backgroundColor:colors.surface},
+  footer:{gap:12,paddingVertical:20},loadMore:{minHeight:48,alignItems:'center',justifyContent:'center',padding:12,borderWidth:1,borderColor:colors.controlBorder,borderRadius:10,backgroundColor:colors.controlBackground},
 }));

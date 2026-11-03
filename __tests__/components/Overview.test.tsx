@@ -86,3 +86,4 @@ test('fresh dashboard retry recovers a saved month after leaving its failed-refr
  expect(screen.queryByText('Safe to spend')).toBeNull();mockDashboard.refetch.mockResolvedValue({isError:false,data:mockDashboard.data});await act(async()=>fireEvent.press(screen.getByText('Try again')));
  expect(screen.getByText('Safe to spend')).toBeTruthy();expect(screen.getByLabelText('Edit monthly budget')).toBeTruthy();expect(mockLimit).toHaveBeenCalledTimes(1);
 });
+jest.mock('../../src/components/SetupGuide',()=>({SetupPrompt:()=>null}));

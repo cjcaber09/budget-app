@@ -1,0 +1,21 @@
+﻿# Itemized voice purchases — 2026-11-01
+
+## Delivered behavior
+
+Version-2 Voice automatically groups up to20 compatible completed purchases per20-second recording into one expense. Descriptions, decimal line prices, optional quantity/unit price and explicitly spoken grouping context are validated server-side and again on the client. Integer-cent arithmetic and exact quantity multiplication/half-away rounding derive the authoritative total. Missing/conflicting prices remain blank across both validation passes. Explicit zero-price items stay visible. Conflicting dates/accounts/currencies/direction, uncertain grouping, overflow and unsupported adjustments cannot silently become a partial expense. Unknown methods require an explicit selection; mixed/unknown categories stay unselected through repeated validation.
+
+The existing shared form owns stable editable ItemDraft rows, pending-total display/save blocking, total recomputation and the existing budget/balance review/save RPC. Purchase summaries derive synchronously from current rows/captured draft currency, stay within1000characters and update until manual note editing. Backward-compatible encrypted draft metadata retains immutable voice origin plus auto/manual summary mode through autosave, explicit drafts, unfinished row edits and recovery. Removing every voice purchase clears stale amount/automatic note. Income conversion makes the note manual. Pending saves freeze the reviewed payload and summary mode for exact retries.
+
+Version1 requests/schema/prompt/fingerprint/output remain supported. Version2 uses an explicit request/response version and fingerprint prefix, bounded20-row schema,4096output tokens and existing64KiB response limit. No migration/native dependency/quota change. Only normalized financial draft fields persist; audio/transcripts/grouping evidence are not draft payloads. The + button has two centered shadow layers with zero horizontal/vertical offset and no additional Android elevation shadow. The fixed U cutout reveals underlying page content; center positioning remains.
+
+## Verification
+
+105tests/12targeted suites pass (73voice/shared-route tests plus32receipt/manual-form regressions). Additional regression pass found2obsolete ISO date display expectations from the preceding date-format feature; assertions updated to default long format, preserving ISO save expectations. TypeScript, fullExpo lint, Deno check and whitespace checks pass. New voice validation helpers stay within local Sonar cognitive-complexity15; pre-existing shared submit/draft-decoder findings remain outside this feature's refactor scope.
+
+Production Android/iOS/web exports pass; dist/voice-purchases-verified98files audited for expected current Android behavior, public config inclusion/private-value exclusion and runtime1.0.3/code7. Synthetic production web360dark/390light checks pending prices, row edits/total/summary, manual note override and encrypted draft recovery across reloads, shadows, no horizontal overflow and zero financial writes. Actual screenshots inspected; curated copies docs/screenshots/plus-shadow-dark.png and voice-purchases-review-light.png. A first harness attempt looked for the accessibility label as visible Manual text; corrected to the existing aria-label without app changes.
+
+Updated voice-entry deployed to configured linked project. Two fictional English/Taglish provider calls verify ordered100/60/80prices and240total, and an unspoken eggs price preserved blank after rice100. Unknown protocol rejected before quota, duplicate and version-conflict requests rejected, zero transactions created. Disposable Auth owners removed, anonymous content-free quota receipts retained, all4temporary WAV/M4A files removed. No connected Android device: physical recording, keyboard, safe-area, screen-reader/shadow feel and delivery remain unverified.
+
+## OTA delivery
+
+Android preview runtime1.0.3 published2026-11-01T05:47:00.701Z: group73fd481c-ef5d-42d4-a6fe-4d1b1ca8f1ec / update01a195a5-9add-73b8-9be7-a5c145fa0146. Live manifest bundle/all29asset hashes match audited export. Direct launch downloadHTTP403 remains environment limitation. Runtime1.0.2 unchanged; no new APK needed for existing1.0.3. EAS gitCommitHash419375f is base metadata; feature source remains uncommitted. No Git push/merge or retained financial test writes.

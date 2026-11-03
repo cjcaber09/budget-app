@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useEffect,useState} from 'react';
 import {AppState,Text,TextInput,View} from 'react-native';
 import {useReportTransactions,useReportTransfers} from '../hooks/useReports';
@@ -18,6 +19,7 @@ import {QueryState} from './QueryState';
 export function AccountActivity({method,corrections,unavailable,refresh,onBack}:{method:PaymentMethod;corrections:BalanceCorrection[];unavailable:boolean;refresh:()=>void;onBack:()=>void}) {
  const profile=usePreferencesStore(s=>s.profile),selectedMonth=useUiStore(s=>s.selectedMonth);
  const [month,setMonth]=useState(selectedMonth),[search,setSearch]=useState(''),[kind,setKind]=useState<'all'|AccountActivityRow['kind']>('all');
+ const dateLabel=useDateFormatter();
  const supported=reportingMonthSupported(month,localDateKey(new Date(),profile?.timezone));
  const transactions=useReportTransactions(month,supported),transfers=useReportTransfers(month,supported),categories=useCategories();
  const refetchTransactions=transactions.refetch,refetchTransfers=transfers.refetch;
@@ -46,7 +48,7 @@ export function AccountActivity({method,corrections,unavailable,refresh,onBack}:
    {!filtered.length&&<Text style={form.subtitle}>{search.trim()||kind!=='all'?'No matching activity. Clear the search or choose All.':'No recorded activity this month.'}</Text>}
    {filtered.map(row=><View key={row.key} style={{paddingVertical:14,borderBottomWidth:1,borderBottomColor:colors.border,gap:6}}>
     <View style={{flexDirection:'row',gap:12,alignItems:'flex-start'}}><Text style={{...type.body,color:colors.text,flex:1}}>{row.label}</Text><Text style={{...type.number,color:colors.text,flexShrink:1}}>{row.cents>0?'+':''}{money(row.cents)}</Text></View>
-    <Text style={form.subtitle}>{row.date}{row.detail?' · '+row.detail:''}</Text>
+    <Text style={form.subtitle}>{dateLabel(row.date)}{row.detail?' · '+row.detail:''}</Text>
     {!!row.note&&<Text style={form.subtitle}>{row.note}</Text>}
    </View>)}
   </QueryState>}

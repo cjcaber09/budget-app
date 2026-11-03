@@ -12,7 +12,7 @@ import { useHelpStore } from '../stores/useHelpStore';
 import { useAccountDeletionStore } from '../stores/useAccountDeletionStore';
 import { useFinancialResetStore } from '../stores/useFinancialResetStore';
 import { usePreferencesStore } from '../stores/usePreferencesStore';
-import { createThemedStyles, type, useColors } from '../styles/theme';
+import { cardElevation, createThemedStyles, type, useColors } from '../styles/theme';
 import { MotionPressable } from './MotionPressable';
 
 type UpdateError = 'check' | 'download' | 'restart';
@@ -142,7 +142,7 @@ export function AppUpdatesSettings() {
   </View>;
 }
 const useStyles = createThemedStyles(colors => ({
-  banner: { gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  banner: { ...cardElevation(colors), gap: 8, padding: 16, borderRadius: 12, backgroundColor: colors.surface },
   heading: { ...type.heading, color: colors.text }, title: { ...type.label, color: colors.text },
   body: { ...type.body, color: colors.text }, caption: { ...type.label, fontWeight: '400', color: colors.muted },
   percent: { ...type.number, fontSize: 13, color: colors.text }, progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, type PressableProps } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
-import { motion } from '../styles/theme';
+import { motion, useColors } from '../styles/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -10,6 +10,7 @@ export function MotionPressable({ style, disabled, onPressIn, onPressOut, onFocu
   const [pressed, setPressed] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
   const reduced = useReducedMotion();
+  const colors = useColors();
   return (
     <AnimatedPressable
       {...props}
@@ -30,6 +31,9 @@ export function MotionPressable({ style, disabled, onPressIn, onPressOut, onFocu
           transform: [{ scale: pressed && !reduced && !keyboardFocus ? 0.98 : 1 }],
           opacity: disabled ? 0.45 : pressed ? 0.88 : 1,
         },
+        Platform.OS === 'web' && keyboardFocus && !disabled ? {
+          outlineStyle: 'solid', outlineWidth: 2, outlineOffset: 3, outlineColor: colors.primary,
+        } : undefined,
       ]}
     />
   );
