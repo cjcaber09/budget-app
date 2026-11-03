@@ -9,21 +9,25 @@ import { MotionPressable } from './MotionPressable';
 import { KeyboardViewport } from './KeyboardViewport';
 import { useUpdateBlocker } from '../stores/useUpdateSafetyStore';
 
+import {useAccountOperation} from '../hooks/useAccountOperation';
+
 type Layer = { title: string; content: ReactNode; onClose: () => void; busy?: boolean };
 const Host = createContext<((layer: Layer | null) => void) | null>(null);
 
 /** One native modal, including child account creation. Hidden children stay mounted. */
-export function KeyboardSheet({ title, visible = true, onClose, busy = false, children, closeLabel, animationType = 'slide' }: {
-  title: string; visible?: boolean; onClose: () => void; busy?: boolean; children: ReactNode; closeLabel?: string; animationType?: 'slide' | 'none';
+export function KeyboardSheet({ title, visible = true, onClose, busy = false, children, closeLabel, animationType = 'slide', allowAccountOperation = false }: {
+  title: string; visible?: boolean; onClose: () => void; busy?: boolean; children: ReactNode; closeLabel?: string; animationType?: 'slide' | 'none'; allowAccountOperation?: boolean;
 }) {
   const colors = useColors(), insets = useContext(SafeAreaInsetsContext), reduced = useReducedMotion();
   useUpdateBlocker(visible);
   const [layer, setLayer] = useState<Layer | null>(null);
+  const paused = useAccountOperation();
+  useEffect(()=>{if(paused&&visible&&!allowAccountOperation)onClose();},[paused,visible,allowAccountOperation,onClose]);
   const active = layer ?? { title, onClose, busy };
   const close = () => { if (!active.busy) active.onClose(); };
   const scroll = useFocusedFieldScroll(visible && !layer);
   const childScroll = useFocusedFieldScroll(visible && !!layer);
-  return <Modal visible={visible} transparent animationType={reduced ? 'none' : animationType} statusBarTranslucent onRequestClose={close}>
+  return <Modal visible={visible&&(!paused||allowAccountOperation)} transparent animationType={reduced ? 'none' : animationType} statusBarTranslucent onRequestClose={close}>
     <KeyboardViewport visible={visible}>
       <MotionPressable accessibilityLabel={`Close ${active.title} sheet`} disabled={active.busy} onPress={close} style={{ position: 'absolute', inset: 0, backgroundColor: colors.scrim }} />
       <View accessibilityViewIsModal onAccessibilityEscape={close} style={{ maxHeight: '92%', flexShrink: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Math.max(insets?.bottom ?? 0, 16) }}>

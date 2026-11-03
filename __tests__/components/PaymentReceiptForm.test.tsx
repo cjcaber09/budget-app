@@ -15,7 +15,12 @@ function mount(changes:Partial<ExtractedReceipt>={}) {
 }
 it('autofills income, separate sender identifiers and date, and counts the repeated amount once',()=>{
   const {save}=mount();
-  expect(screen.getByLabelText('From number').props.value).toBe('0912 *** 0042');
+  expect(screen.queryByLabelText('Sender phone/account (optional)')).toBeNull();
+  expect(screen.getByLabelText('Sender and reference details').props.accessibilityState.expanded).toBe(false);
+  fireEvent.press(screen.getByLabelText('Sender and reference details'));
+  expect(screen.getByLabelText('Sender phone/account (optional)').props.value).toBe('0912 *** 0042');
+  fireEvent.press(screen.getByLabelText('Sender and reference details'));
+  expect(screen.queryByLabelText('Sender phone/account (optional)')).toBeNull();
   expect(screen.getByLabelText('Payment amount').props.value).toBe('1,000.00');
   expect(screen.getByLabelText('Amount').props.value).toBe('1,000.00');
   expect(screen.getByText('September 1, 2026')).toBeTruthy();
@@ -33,7 +38,8 @@ it('links edits from both amount fields and recreates a removed summary while pr
   expect(screen.getByLabelText('Payment amount').props.value).toBe('1,100');
   fireEvent.press(screen.getByLabelText('Edit row 1'));fireEvent.press(screen.getByLabelText('Remove row 1'));
   expect(screen.getByLabelText('Payment amount').props.value).toBe('');
-  expect(screen.getByLabelText('From name').props.value).toBe('Employer');
+  fireEvent.press(screen.getByLabelText('Sender and reference details'));
+  expect(screen.getByLabelText('Sender name (optional)').props.value).toBe('Employer');
   fireEvent.changeText(screen.getByLabelText('Payment amount'),'900');
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0]).toMatchObject({amount:900,items:[{isPaymentSummary:true,amountCents:90000}]});
@@ -46,6 +52,17 @@ it('shows a breakdown payment without permitting a duplicate counted summary',()
   fireEvent.press(screen.getByText('Save'));
   expect(save.mock.calls[0][0]).toMatchObject({amount:900});
   expect(save.mock.calls[0][0].items).toHaveLength(2);
+});
+it('preserves edited sender details through collapsing and saving',()=>{
+ const {save}=mount();fireEvent.press(screen.getByLabelText('Sender and reference details'));
+ fireEvent.changeText(screen.getByLabelText('Sender name (optional)'),'Updated sender');
+ fireEvent.changeText(screen.getByLabelText('Sender phone/account (optional)'),'0012345');
+ fireEvent.changeText(screen.getByLabelText('Reference (optional)'),'REF-123');
+ fireEvent.press(screen.getByLabelText('Sender and reference details'));
+ expect(screen.queryByLabelText('Sender name (optional)')).toBeNull();
+ expect(screen.getByLabelText('Payment amount')).toBeTruthy();
+ fireEvent.press(screen.getByText('Save'));
+ expect(save.mock.calls[0][0]).toMatchObject({paymentDetails:{fromName:'Updated sender',fromNumber:'0012345',reference:'REF-123'},amount:1000});
 });
 it('uses scan date when printed date is absent and permits native date correction',()=>{
   const {save}=mount({receiptDate:null,receiptDateRaw:null});

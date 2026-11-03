@@ -51,3 +51,4 @@ test('destination selection stays in the refund sheet and preserves the amount d
  expect(screen.queryByLabelText('Search refund destinations')).toBeNull();
  expect(mockSave).not.toHaveBeenCalled();
 });
+jest.mock('../../src/hooks/useActivityBalances',()=>({useActivityBalances:()=>({data:new Map(),isError:false,isFetching:false})}));

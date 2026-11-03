@@ -6,6 +6,8 @@ import {usePreferencesStore} from '../stores/usePreferencesStore';
 import {createRequestId} from '../domain/ocr';
 import {useRecoveredPickerStore} from '../stores/useRecoveredPickerStore';
 
+import {accountOperationActive} from './accountOperation';
+
 export const HANDOFF_TIMEOUT=120_000;
 const MARKER='budget-tracker:native-handoff:v1';
 export type HandoffPurpose='receipt-camera'|'receipt-upload'|'avatar'|'microphone'|'notification-permission';
@@ -28,6 +30,7 @@ export function observeHandoffState(next:string):'guarded'|'expired'|'ordinary'{
  return 'guarded';
 }
 export async function runNativeHandoff<T>(purpose:HandoffPurpose,action:()=>Promise<T>):Promise<T>{
+ if(accountOperationActive())throw new Error('Wait for account cleanup to finish.');
  if(Platform.OS==='web')return action();
  const lock=useAppLockStore.getState(),owner=usePreferencesStore.getState().profile?.user_id;
  if(active||opening||!owner||AppState.currentState!=='active'||lock.enabled&&(!lock.loaded||lock.locked||lock.obscured))throw new Error('Unlock the app before opening this action.');
@@ -37,7 +40,7 @@ export async function runNativeHandoff<T>(purpose:HandoffPurpose,action:()=>Prom
  const marker:HandoffMarker={owner,purpose,visit:createRequestId(),startedAt:Date.now()};
  if(purpose!=='microphone'&&purpose!=='notification-permission')await encryptedStorage.setItem(MARKER,JSON.stringify(marker));
  const currentLock=useAppLockStore.getState();
- if(attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner||AppState.currentState!=='active'||currentLock.enabled&&(currentLock.locked||currentLock.obscured))throw new Error('The entry session changed. Try again.');
+ if(accountOperationActive(owner)||attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner||AppState.currentState!=='active'||currentLock.enabled&&(currentLock.locked||currentLock.obscured))throw new Error('The entry session changed. Try again.');
  const token={marker,deadline:Date.now()+HANDOFF_TIMEOUT,settled:false,timer:setTimeout(()=>{
   if(active!==token)return;clearGuard();if(useAppLockStore.getState().enabled)useAppLockStore.setState({locked:true});
  },HANDOFF_TIMEOUT)};
@@ -52,12 +55,12 @@ export async function runNativeHandoff<T>(purpose:HandoffPurpose,action:()=>Prom
 export async function clearHandoffMarker(){await encryptedStorage.removeItem(MARKER);}
 export async function waitForHandoffReturn(owner:string,attempt:number){
  const ready=()=>AppState.currentState==='active'&&!(useAppLockStore.getState().enabled&&(useAppLockStore.getState().locked||useAppLockStore.getState().obscured));
- if(attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner)throw new Error('The entry session changed.');
+ if(accountOperationActive(owner)||attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner)throw new Error('The entry session changed.');
  if(ready())return;
  await new Promise<void>((resolve,reject)=>{
   const cleanup: (()=>void)[]=[];
   const finish=(error?:Error)=>{cleanup.forEach(fn=>fn());if(error)reject(error);else resolve();};
-  const check=()=>{if(attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner)finish(new Error('The entry session changed.'));else if(ready())finish();};
+  const check=()=>{if(accountOperationActive(owner)||attempt!==generation||usePreferencesStore.getState().profile?.user_id!==owner)finish(new Error('The entry session changed.'));else if(ready())finish();};
   invalidationListeners.add(check);cleanup.push(()=>{invalidationListeners.delete(check);});
   const listener=AppState.addEventListener('change',check);cleanup.push(()=>listener.remove());
   cleanup.push(useAppLockStore.subscribe(check),usePreferencesStore.subscribe(check));

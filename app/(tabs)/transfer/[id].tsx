@@ -8,11 +8,12 @@ import {usePageLayout} from '../../../src/styles/pageLayout';
 import {useFormStyles} from '../../../src/styles/forms';
 import {usePreferencesStore} from '../../../src/stores/usePreferencesStore';
 import {useState} from 'react';
+import {ActivityBalanceDetails} from '../../../src/components/ActivityBalanceDetails';
 import type {PaymentTransfer} from '../../../src/domain/paymentMethods';
 export default function TransferScreen(){const {id,visit}=useLocalSearchParams<{id:string;visit?:string}>();const owner=usePreferencesStore(s=>s.profile?.user_id);return <TransferVisit key={`${owner}:${id}:${visit}`} id={id}/>;}
 function TransferVisit({id}:{id:string}){
  const query=useTransferEntry(id),methods=usePaymentMethods(),layout=usePageLayout(),form=useFormStyles(),router=useRouter();
  const [snapshot,setSnapshot]=useState<PaymentTransfer|null>(null);
  if(!snapshot&&query.data?.transfer&&!query.isFetching)setSnapshot(query.data.transfer);
- return <ScrollView style={layout.screen} contentContainerStyle={layout.scrollContent} keyboardShouldPersistTaps="handled"><View style={layout.card}>{snapshot?<TransferEntryForm initial={snapshot} methods={methods.methods??[]} onClose={()=>router.back()}/>:<QueryState loading={query.isPending||query.isFetching} error={query.isError} retry={()=>void query.refetch()}>{query.isSuccess?<Text style={form.subtitle}>This transfer is no longer available.</Text>:null}</QueryState>}</View></ScrollView>;
+ return <ScrollView style={layout.screen} contentContainerStyle={layout.scrollContent} keyboardShouldPersistTaps="handled"><View style={layout.card}>{snapshot?<><ActivityBalanceDetails entry={{kind:'transfer',id:snapshot.id}}/><TransferEntryForm initial={snapshot} methods={methods.methods??[]} onClose={()=>router.back()}/></>:<QueryState loading={query.isPending||query.isFetching} error={query.isError} retry={()=>void query.refetch()}>{query.isSuccess?<Text style={form.subtitle}>This transfer is no longer available.</Text>:null}</QueryState>}</View></ScrollView>;
 }

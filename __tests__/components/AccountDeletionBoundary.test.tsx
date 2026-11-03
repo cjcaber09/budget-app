@@ -1,0 +1,30 @@
+import {act,render,screen} from '@testing-library/react-native';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {AccountDeletionBoundary} from '../../src/components/AccountDeletion';
+import {defaultProfile,usePreferencesStore} from '../../src/stores/usePreferencesStore';
+import {useAccountDeletionStore} from '../../src/stores/useAccountDeletionStore';
+import {DeletionError} from '../../src/lib/accountDeletion';
+const owner='00000000-0000-4000-8000-000000000001';
+const requestId='00000000-0000-4000-8000-000000000002';
+const mockRequest=jest.fn(),mockClear=jest.fn(),mockSignOut=jest.fn(),mockReplace=jest.fn();
+const mockRouter={replace:mockReplace};
+jest.mock('../../src/hooks/useSession',()=>({useSession:()=>({session:{user:{id:owner}}})}));
+jest.mock('../../src/lib/accountDeletion',()=>({deletionRequest:(...args:unknown[])=>mockRequest(...args),DeletionError:class extends Error{code:string;constructor(mockCode:string){super(mockCode);this.code=mockCode;}}}));
+jest.mock('../../src/lib/resetClientState',()=>({resetClientState:(...args:unknown[])=>mockClear(...args)}));
+jest.mock('../../src/lib/supabase',()=>({supabase:{rpc:async()=>({data:null,error:null}),auth:{signOut:(...args:unknown[])=>mockSignOut(...args)}}}));
+jest.mock('expo-router',()=>({useRouter:()=>mockRouter}));
+let client:QueryClient;
+beforeEach(()=>{jest.clearAllMocks();client=new QueryClient();usePreferencesStore.getState().setProfile(defaultProfile(owner));useAccountDeletionStore.setState({pending:{owner,requestId,accepted:true},hydrated:true,starting:false});mockSignOut.mockResolvedValue({error:null});});
+afterEach(()=>{client.clear();jest.useRealTimers();});
+const mount=()=>render(<QueryClientProvider client={client}><AccountDeletionBoundary/></QueryClientProvider>);
+test('slow deletion confirmation is consumed once instead of invalidated by polling',async()=>{
+ jest.useFakeTimers();let finish:(value:string)=>void=()=>{};mockRequest.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));mount();
+ await act(async()=>jest.advanceTimersByTime(35000));expect(mockRequest).toHaveBeenCalledTimes(1);
+ await act(async()=>finish('completed'));expect(mockClear).toHaveBeenCalledTimes(1);expect(mockReplace).toHaveBeenCalledWith('/sign-in');
+});
+test('expired authentication retains the pending job and never reports successful deletion',async()=>{
+ mockRequest.mockRejectedValue(new DeletionError('unauthorized'));mount();
+ await screen.findByText('Your session expired. Deletion completion could not be confirmed. Sign in to check again.');
+ expect(mockClear).not.toHaveBeenCalled();expect(useAccountDeletionStore.getState().pending?.requestId).toBe(requestId);
+ expect(screen.getByRole('progressbar').props.accessibilityState.busy).toBe(false);
+});

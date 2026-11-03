@@ -7,9 +7,11 @@ import {transactionDraftGeneration} from './transactionDraftStorage';
 import type {VoiceEntryContext} from '../stores/useVoiceEntryStore';
 import {VOICE_MAX_BYTES} from '../../supabase/functions/voice-entry/shared';
 
+import {accountOperationActive} from './accountOperation';
+
 export function voiceContextActive(context:VoiceEntryContext){
  const profile=usePreferencesStore.getState().profile,lock=useAppLockStore.getState();
- return profile?.user_id===context.owner&&profile.currency===context.currency&&profile.timezone===context.timezone&&handoffGeneration()===context.generation&&transactionDraftGeneration(context.owner)===context.draftGeneration&&!(lock.enabled&&(lock.locked||lock.obscured));
+ return !accountOperationActive(context.owner)&&profile?.user_id===context.owner&&profile.currency===context.currency&&profile.timezone===context.timezone&&handoffGeneration()===context.generation&&transactionDraftGeneration(context.owner)===context.draftGeneration&&!(lock.enabled&&(lock.locked||lock.obscured));
 }
 let cleanupWork:Promise<void>|null=null;
 export function cleanupVoiceFiles():Promise<void>{

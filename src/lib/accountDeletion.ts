@@ -12,12 +12,13 @@ export async function deletionRequest(operation:PendingDeletion,action:'delete'|
    body:JSON.stringify({action,requestId:operation.requestId,...(password===undefined?{}:{password})}),signal:controller.signal,
   });
   const data=await response.json();
+  const current=()=>{const pending=useAccountDeletionStore.getState().pending;return pending?.owner===operation.owner&&pending.requestId===operation.requestId;};
   if(response.status===409&&data.error==='operation_exists'&&typeof data.requestId==='string'){
-   await useAccountDeletionStore.getState().set({...operation,requestId:data.requestId,accepted:true});return 'pending' as const;
+   if(current())await useAccountDeletionStore.getState().set({...operation,requestId:data.requestId,accepted:true});return 'pending' as const;
   }
   if(!response.ok)throw new DeletionError(typeof data.error==='string'?data.error:'status_unavailable');
   if(data.requestId!==operation.requestId||!['pending','completed'].includes(data.state))throw new DeletionError('status_unavailable');
-  if(data.state==='pending')await useAccountDeletionStore.getState().set({...operation,accepted:true});
+  if(data.state==='pending'&&current())await useAccountDeletionStore.getState().set({...operation,accepted:true});
   return data.state as 'pending'|'completed';
  }finally{clearTimeout(timer);}
 }

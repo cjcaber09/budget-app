@@ -19,3 +19,4 @@ test('failed history never presents a partial list as complete and keeps search 
  fireEvent.press(screen.getByText('Try again'));expect(mockRetry).toHaveBeenCalled();mockFailed=false;view.rerender(<AccountActivity method={method} corrections={[]} unavailable={false} refresh={mockRetry} onBack={jest.fn()}/>);
  expect(screen.getByLabelText('Search account activity').props.value).toBe('weekly');expect(screen.getByText('1 entry matching your search')).toBeTruthy();
 });
+jest.mock('../../src/hooks/useActivityBalances',()=>({useActivityBalances:()=>({data:new Map(),isError:false,isFetching:false})}));

@@ -21,6 +21,9 @@ import {loadTransactionDraft,clearTransactionDraft} from '../lib/transactionDraf
 import {useRecoveredPickerStore} from '../stores/useRecoveredPickerStore';
 import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
 
+import {useAccountOperation} from '../hooks/useAccountOperation';
+import {accountOperationActive} from '../lib/accountOperation';
+
 const FAB_SIZE = 56;
 
 type ImageSource = 'camera' | 'library';
@@ -47,6 +50,7 @@ async function pickImage(source: ImageSource) {
 export function AddTransactionFab() {
   const styles = useStyles();
   const colors = useColors();
+  const paused=useAccountOperation();
   const insets = useContext(SafeAreaInsetsContext);
   const {fontScale}=useWindowDimensions();
   const router = useRouter();
@@ -60,13 +64,15 @@ export function AddTransactionFab() {
   useHelpBlocker('receipt-picker',picking);
   const afterSheetClosesRef = useRef<(() => void) | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  if(paused&&sheetOpen)setSheetOpen(false);
+  useEffect(()=>{if(paused){afterSheetClosesRef.current=null;if(fallbackTimerRef.current)clearTimeout(fallbackTimerRef.current);}},[paused]);
   const acceptImage=useCallback(async (asset:ImagePicker.ImagePickerAsset,startedOwner:string|undefined,attempt:number)=>{
-    if(!startedOwner||usePreferencesStore.getState().profile?.user_id!==startedOwner||attempt!==handoffGeneration())return;
+    if(!startedOwner||accountOperationActive(startedOwner)||usePreferencesStore.getState().profile?.user_id!==startedOwner||attempt!==handoffGeneration())return;
     // Keep the image in memory through an expired guard; resume only after unlock.
     try {
       await waitForHandoffReturn(startedOwner,attempt);
       const image = await prepareScanImage(asset);
-      if(usePreferencesStore.getState().profile?.user_id!==startedOwner||attempt!==handoffGeneration())return;
+      if(accountOperationActive(startedOwner)||usePreferencesStore.getState().profile?.user_id!==startedOwner||attempt!==handoffGeneration())return;
       if (estimateBase64Bytes(image.base64) > MAX_IMAGE_BYTES) {
         showToast('That image is too large to scan.');
         return;
@@ -81,23 +87,24 @@ export function AddTransactionFab() {
       showToast("Couldn't read that image.");
     }
   },[router]);
-  useEffect(()=>()=>{if(fallbackTimerRef.current)clearTimeout(fallbackTimerRef.current);},[]);
+  useEffect(()=>()=>{afterSheetClosesRef.current=null;if(fallbackTimerRef.current)clearTimeout(fallbackTimerRef.current);},[]);
   useEffect(()=>{
-   if(!owner||locked||recoveryChecked.current)return;
+   if(!owner||paused||locked||recoveryChecked.current)return;
    recoveryChecked.current=true;
+   const recoveryGeneration=handoffGeneration();
    void recoverNativeHandoff().then(recovered=>{
-    if(!recovered||usePreferencesStore.getState().profile?.user_id!==owner)return;
+    if(!recovered||recoveryGeneration!==handoffGeneration()||accountOperationActive(owner)||usePreferencesStore.getState().profile?.user_id!==owner)return;
     Alert.alert('Resume selected image?','The app restarted while choosing an image. Review it before saving.',[
      {text:'Discard',style:'cancel'},
      {text:'Resume',onPress:()=>{
-      if(usePreferencesStore.getState().profile?.user_id!==owner)return;
+      if(recoveryGeneration!==handoffGeneration()||accountOperationActive(owner)||usePreferencesStore.getState().profile?.user_id!==owner)return;
       const asset=recovered.result.assets?.[0];if(!asset)return;
       if(recovered.marker.purpose==='avatar'){useRecoveredPickerStore.getState().setAvatar({owner,asset});router.push({pathname:'/settings',params:{section:'profile',visit:createRequestId()}});}
       else void acceptImage(asset,owner,handoffGeneration());
      }},
     ]);
    }).catch(()=>showToast('Could not recover the previous image. Choose it again.'));
-  },[owner,locked,router,acceptImage]);
+  },[owner,paused,locked,router,acceptImage]);
 
   // iOS can't present the camera/library while the sheet's Modal is still
   // animating closed — the picker silently never appears. There, wait for the
@@ -130,27 +137,28 @@ export function AddTransactionFab() {
   // Every navigation carries a fresh `visit` id: the Add Transaction screen is a
   // tab screen, which stays mounted between visits, and keys its content on it.
   function handleManualEntry() {
+    if(!owner||accountOperationActive(owner))return;
     setSheetOpen(false);
     router.push({ pathname: '/transaction/new', params: { visit: createRequestId() } });
   }
   async function handleVoiceEntry(){
-   if(pickingRef.current||!owner)return;
+   if(pickingRef.current||!owner||accountOperationActive(owner))return;
    pickingRef.current=true;setPicking(true);const attempt=handoffGeneration();
    try{
     const draft=await loadTransactionDraft(owner);
-    if(usePreferencesStore.getState().profile?.user_id!==owner)return;
-    const open=()=>{if(attempt===handoffGeneration()&&usePreferencesStore.getState().profile?.user_id===owner)router.push({pathname:'/transaction/voice',params:{visit:createRequestId()}});};
+    if(accountOperationActive(owner)||usePreferencesStore.getState().profile?.user_id!==owner)return;
+    const open=()=>{if(!accountOperationActive(owner)&&attempt===handoffGeneration()&&usePreferencesStore.getState().profile?.user_id===owner)router.push({pathname:'/transaction/voice',params:{visit:createRequestId()}});};
     if(!draft){open();return;}
     Alert.alert('Unfinished transaction',draft.pending?'A save was attempted. Resume it to check or retry the same entry before recording another.':'Resume your saved draft, or discard it before recording a new entry.',[
      {text:'Cancel',style:'cancel'},{text:'Resume draft',onPress:handleManualEntry},
-     ...(!draft.pending?[{text:'Discard and record',style:'destructive' as const,onPress:()=>{void clearTransactionDraft(owner).then(()=>{if(usePreferencesStore.getState().profile?.user_id===owner)open();}).catch(()=>showToast('Could not discard the draft. Try again.'));}}]:[]),
+     ...(!draft.pending?[{text:'Discard and record',style:'destructive' as const,onPress:()=>{if(accountOperationActive(owner))return;void clearTransactionDraft(owner).then(()=>{if(usePreferencesStore.getState().profile?.user_id===owner)open();}).catch(()=>showToast('Could not discard the draft. Try again.'));}}]:[]),
     ]);
    }catch{showToast('Could not check your draft. Retry before recording.');}
    finally{pickingRef.current=false;setPicking(false);}
   }
 
   async function handleScan(source: ImageSource) {
-    if(pickingRef.current)return;pickingRef.current=true;
+    if(pickingRef.current||accountOperationActive(owner))return;pickingRef.current=true;
     setPicking(true);
     try {await scan(source);} finally {pickingRef.current=false;setPicking(false);}
   }
@@ -170,11 +178,12 @@ export function AddTransactionFab() {
   }
 
 
+  if(paused)return null;
   return (
     <>
       <MotionPressable
         style={[styles.fab, { bottom: tabBodyHeight(fontScale) + (insets?.bottom ?? 0) - FAB_SIZE / 2 }]}
-        onPress={() => setSheetOpen(true)}
+        onPress={() => {if(!accountOperationActive(owner))setSheetOpen(true);}}
         accessibilityRole="button"
         accessibilityLabel="Add transaction"
       >

@@ -15,6 +15,9 @@ import {type,useColors} from '../styles/theme';
 import {MonthPicker} from './MonthPicker';
 import {MotionPressable} from './MotionPressable';
 import {QueryState} from './QueryState';
+import {useActivityBalances} from '../hooks/useActivityBalances';
+import {balanceActivityKey,transactionBalanceActivity,type BalanceActivity} from '../domain/activityBalances';
+import {ActivityBalanceChange,BalanceHistoryRetry} from './ActivityBalanceChange';
 
 export function AccountActivity({method,corrections,unavailable,refresh,onBack}:{method:PaymentMethod;corrections:BalanceCorrection[];unavailable:boolean;refresh:()=>void;onBack:()=>void}) {
  const profile=usePreferencesStore(s=>s.profile),selectedMonth=useUiStore(s=>s.selectedMonth);
@@ -33,6 +36,12 @@ export function AccountActivity({method,corrections,unavailable,refresh,onBack}:
   const byId=new Map(transactions.data.map(transaction=>['transaction:'+transaction.id,transaction]));
   rows=rows.map(row=>{const transaction=byId.get(row.key);const category=transaction?.category_id?labels.get(transaction.category_id):undefined;return {...row,detail:[row.detail,category].filter(Boolean).join(' · ')};});
  }catch(issue){error=issue instanceof Error?issue.message:'Activity could not be read.';}}
+ const entries=new Map(rows.map(row=>{
+  const transaction=row.kind==='transaction'?transactions.data?.find(t=>'transaction:'+t.id===row.key):undefined;
+  const [entryKind,id]=row.key.split(':');
+  return [row.key,transaction?transactionBalanceActivity(transaction):{kind:entryKind,id} as BalanceActivity];
+ }));
+ const balances=useActivityBalances(owned?[...entries.values()]:[]);
  const filtered=searchAccountActivity(rows,search,kind);
  const failed=unavailable||transactions.isError||transfers.isError||categories.isError||!owned||!!error;
  const loading=transactions.isPending||transfers.isPending||categories.isPending;
@@ -40,6 +49,7 @@ export function AccountActivity({method,corrections,unavailable,refresh,onBack}:
   <Text style={form.title}>{method.method==='cash'?'Cash':paymentMethodLabel(method)}</Text>
   <MotionPressable accessibilityLabel="Back to payment method details" style={form.secondaryButton} onPress={onBack}><Text style={form.chipTextSelected}>Back to details</Text></MotionPressable>
   <Text style={form.subtitle}>Recorded activity for this month. Future dates and records before the starting balance may not affect the current balance.</Text>
+  {balances.isError&&<BalanceHistoryRetry onRetry={()=>void balances.refetch()}/>}
   <MonthPicker value={month} onChange={setMonth} minMonth="0001-12-01"/>
   <TextInput accessibilityLabel="Search account activity" value={search} onChangeText={setSearch} placeholder="Search notes, category, date or amount" placeholderTextColor={colors.subtle} style={form.input}/>
   <View style={form.optionRow}>{([['all','All'],['transaction','Transactions'],['transfer','Transfers'],['correction','Corrections']] as const).map(([value,label])=><MotionPressable key={value} accessibilityState={{selected:kind===value}} style={[form.chip,kind===value&&form.chipSelected]} onPress={()=>setKind(value)}><Text style={kind===value?form.chipTextSelected:form.chipText}>{label}</Text></MotionPressable>)}</View>
@@ -50,6 +60,7 @@ export function AccountActivity({method,corrections,unavailable,refresh,onBack}:
     <View style={{flexDirection:'row',gap:12,alignItems:'flex-start'}}><Text style={{...type.body,color:colors.text,flex:1}}>{row.label}</Text><Text style={{...type.number,color:colors.text,flexShrink:1}}>{row.cents>0?'+':''}{money(row.cents)}</Text></View>
     <Text style={form.subtitle}>{dateLabel(row.date)}{row.detail?' · '+row.detail:''}</Text>
     {!!row.note&&<Text style={form.subtitle}>{row.note}</Text>}
+    {!balances.isError&&!balances.isFetching&&balances.data?.get(balanceActivityKey(entries.get(row.key)!))&&<ActivityBalanceChange balance={balances.data.get(balanceActivityKey(entries.get(row.key)!))!} methodId={method.id} compact/>}
    </View>)}
   </QueryState>}
  </View>;

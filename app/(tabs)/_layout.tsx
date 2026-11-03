@@ -1,6 +1,6 @@
-import { Easing, View, type ColorValue } from 'react-native';
+import { Easing, Keyboard, View, type ColorValue } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-import { useContext } from 'react';
+import { useContext,useEffect } from 'react';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { Tabs, usePathname } from 'expo-router';
 import { LayoutDashboard, Receipt, ChartColumn, Settings } from 'lucide-react-native';
@@ -16,6 +16,9 @@ import {SetupGuide} from '../../src/components/SetupGuide';
 import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
 import {AppUpdatesProvider} from '../../src/components/AppUpdates';
 import {RaisedTabBar} from '../../src/components/RaisedTabBar';
+
+import {useAccountOperation} from '../../src/hooks/useAccountOperation';
+import {invalidateNativeHandoffs} from '../../src/lib/nativeHandoff';
 
 function renderBackButton() {
   return <BackButton />;
@@ -52,10 +55,12 @@ export default function TabsLayout() {
   const selectedMonth = useUiStore((state) => state.selectedMonth);
   useBudgetAlerts(selectedMonth);
   const pathname = usePathname();
+  const paused = useAccountOperation();
+  useEffect(()=>{if(paused){Keyboard.dismiss();invalidateNativeHandoffs();}},[paused]);
 
   return (
     <AppUpdatesProvider pathname={pathname}><View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.background }}>
-      <Tabs
+      <View style={{flex:1}} pointerEvents={paused?'none':'auto'} accessibilityElementsHidden={paused} importantForAccessibility={paused?'no-hide-descendants':'auto'}><Tabs
         tabBar={props=><RaisedTabBar {...props}/>}
         backBehavior="history"
         screenOptions={{
@@ -117,11 +122,11 @@ export default function TabsLayout() {
           name="recurring/[id]"
           options={{ href: null, title: 'Edit Recurring Bill', headerLeft: renderBackButton }}
         />
-      </Tabs>
+      </Tabs></View>
       {/* Rendered as a sibling of the whole Tabs navigator (not nested
           inside the Overview screen's own scene) so it can't be clipped
           by that screen's container and reliably paints above the tab bar. */}
-      {TAB_PAGES.has(pathname) && <AddTransactionFab />}
+      {TAB_PAGES.has(pathname) && !paused && <AddTransactionFab />}
       <InitialHelp autoOpen={false}/>
       <SetupGuide/>
     </View></AppUpdatesProvider>
