@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useEffect,useRef,useState} from 'react';
 import {Text,TextInput,View} from 'react-native';
 import {usePaymentMethods} from '../hooks/usePaymentMethods';
@@ -24,6 +25,7 @@ import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from './Tran
 
 interface Props {defaultCash?:boolean;entryContext?:{startedAt:string;day:string;timezone:string;currency:string};id?:string;initial?:PaymentTransfer;initialFields?:Partial<TransferFields>;restored?:TransferDraft;methods:PaymentMethod[];active?:boolean;persist?:boolean;proof?:ReturnType<typeof useProofDraft>;onClose:()=>void;onSaved?:()=>void;onBusyChange?:(busy:boolean)=>void;onUncertainChange?:(busy:boolean)=>void}
 export function TransferEntryForm({id:entryId,initial,initialFields,restored,methods:initialMethods,defaultCash=false,active:activeProp=true,persist=false,proof:externalProof,entryContext,onClose,onSaved,onBusyChange,onUncertainChange}:Props){
+ const dateLabel=useDateFormatter();
  const active=useScreenActive()&&activeProp;
  const profile=usePreferencesStore(s=>s.profile),[owner]=useState(()=>profile?.user_id),form=useFormStyles(),money=useMoneyCents();
  const query=usePaymentMethods(),save=useTransferCommand(),localProof=useProofDraft(),proof=externalProof??localProof;
@@ -105,7 +107,7 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   {query.isPending&&<Text style={form.subtitle}>Loading accounts…</Text>}
   {!query.transferEntrySupported&&!query.isPending&&!query.isError&&<Text style={form.error}>Refresh after the server update to enable transfers.</Text>}
   {pending&&!financialSaved&&<View style={{gap:12}}><Text style={form.subtitle}>Save request retained. Your fields are locked until the outcome is confirmed.</Text><MotionPressable disabled={busy} style={form.button} onPress={()=>void send(pending)}><Text style={form.buttonText}>Retry same save</Text></MotionPressable><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>void check()}><Text style={form.chipTextSelected}>Check whether it saved</Text></MotionPressable></View>}
-  {current&&<View><Text style={form.subtitle}>Saved: {current.transfer_date} · {money(Math.round(Number(current.amount)*100))} received · {current.note??''}</Text><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>{setFields({sourceId:current.source_id,destinationId:current.destination_id,amount:transferEnteredAmount(current.amount,current.fee_amount,current.fee_mode),fee:current.fee_amount??'',feeMode:current.fee_mode??'added',date:current.transfer_date,note:current.note??'',reviewRequired:false});setVersion(current.version);setCurrent(null);setPending(null);setError('Saved values loaded. Review before saving.');}}><Text style={form.chipTextSelected}>Use saved values</Text></MotionPressable></View>}
+  {current&&<View><Text style={form.subtitle}>Saved: {dateLabel(current.transfer_date)} · {money(Math.round(Number(current.amount)*100))} received · {current.note??''}</Text><MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>{setFields({sourceId:current.source_id,destinationId:current.destination_id,amount:transferEnteredAmount(current.amount,current.fee_amount,current.fee_mode),fee:current.fee_amount??'',feeMode:current.fee_mode??'added',date:current.transfer_date,note:current.note??'',reviewRequired:false});setVersion(current.version);setCurrent(null);setPending(null);setError('Saved values loaded. Review before saving.');}}><Text style={form.chipTextSelected}>Use saved values</Text></MotionPressable></View>}
   {(['sourceId','destinationId'] as const).map(key=><View key={key}>
    <TransferAccountAutocomplete label={key==='sourceId'?'From account':'To account'} value={fields[key]} excludedId={key==='sourceId'?fields.destinationId:fields.sourceId}
     methods={[...methods,...createdChoices.filter(m=>!methods.some(current=>current.id===m.id))]} disabled={locked||!active} open={accountUi.mode==='search'&&accountUi.target===key}

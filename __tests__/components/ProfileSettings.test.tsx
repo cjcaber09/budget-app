@@ -130,3 +130,7 @@ it("updates a verified password and clears the input fields", async () => {
   expect(screen.getByLabelText("Current password").props.value).toBe("");
   expect(screen.getByLabelText("New password").props.value).toBe("");
 });
+it('saves a date-format choice through the account profile',()=>{
+ mount();fireEvent.press(screen.getByText(/03\/10\/2026.*Month/));
+ expect(mockUpdate).toHaveBeenCalledWith({date_format:'mdy'});
+});

@@ -1,6 +1,8 @@
 import { cardElevation, createThemedStyles } from './theme';
 import { useContext } from 'react';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import { useWindowDimensions } from 'react-native';
+import { tabBodyHeight } from '../constants/layout';
 
 // Screens retain their own ScrollView/FlatList wrappers and share themed layout.
 const useLayoutStyles = createThemedStyles((colors) => ({
@@ -14,8 +16,9 @@ const useLayoutStyles = createThemedStyles((colors) => ({
 export function usePageLayout({ safeTop = false }: { safeTop?: boolean } = {}) {
   const styles = useLayoutStyles();
   const insets = useContext(SafeAreaInsetsContext);
+  const { fontScale } = useWindowDimensions();
   return {
     ...styles,
-    scrollContent: { ...styles.scrollContent, paddingTop: 24 + (safeTop ? insets?.top ?? 0 : 0), paddingBottom: 96 + (insets?.bottom ?? 0) },
+    scrollContent: { ...styles.scrollContent, paddingTop: 24 + (safeTop ? insets?.top ?? 0 : 0), paddingBottom: Math.max(96, tabBodyHeight(fontScale) + 12) + (insets?.bottom ?? 0) },
   };
 }

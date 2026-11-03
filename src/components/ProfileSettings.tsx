@@ -17,6 +17,9 @@ import { createRequestId } from "../domain/ocr";
 import { MotionPressable } from "./MotionPressable";
 import timezoneNames from "../domain/timezones.json";
 import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
+import {runNativeHandoff,clearHandoffMarker,handoffGeneration,waitForHandoffReturn} from '../lib/nativeHandoff';
+import {useRecoveredPickerStore} from '../stores/useRecoveredPickerStore';
+import {DATE_FORMATS,formatDisplayDate} from '../domain/dateFormat';
 
 const AVATARS = "budget-tracker-avatars";
 export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' | 'preferences'} = {}) {
@@ -33,6 +36,7 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [orphans, setOrphans] = useState<string[]>([]);
+  const recoveredAvatar=useRecoveredPickerStore(s=>s.avatar);
   const [currency, setCurrency] = useState<Currency | null>(null);
   const [search, setSearch] = useState("");
   const [zoneOpen, setZoneOpen] = useState(false);
@@ -56,25 +60,32 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
     },
   });
   if (!profile) return null;
-  async function changeAvatar(remove = false) {
+  async function changeAvatar(remove = false,recover=false) {
     if (!profile || busy) return;
     setBusy(true);
     setError("");
     let uploaded: string | null = null;
     const owner = profile.user_id;
+    const attempt=handoffGeneration();
     const previous = profile.avatar_path;
     try {
       if (!remove) {
+        const picked = recover&&recoveredAvatar?.owner===owner?{canceled:false,assets:[recoveredAvatar.asset]}:await runNativeHandoff('avatar',async()=>{
         const permission =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted)
           throw new Error("Allow photo access to choose a profile image.");
-        const picked = await ImagePicker.launchImageLibraryAsync({
+        return ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
           aspect: [1, 1],
           quality: 1,
         });
+        });
+        if(usePreferencesStore.getState().profile?.user_id!==owner||attempt!==handoffGeneration())throw new Error('The profile session changed. Choose the image again.');
+        await waitForHandoffReturn(owner,attempt);
+        await clearHandoffMarker();
+        useRecoveredPickerStore.getState().setAvatar(null);
         if (picked.canceled) return;
         const asset = picked.assets[0];
         if ((asset.fileSize ?? 0) > 10485760)
@@ -247,6 +258,7 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
             </Text>
           </View>
         </View>
+        {recoveredAvatar?.owner===profile.user_id&&<MotionPressable disabled={busy} style={form.secondaryButton} onPress={()=>void changeAvatar(false,true)}><Text style={form.chipTextSelected}>Use recovered profile image</Text></MotionPressable>}
         <View style={form.optionRow}>
           <MotionPressable
             disabled={busy}
@@ -327,6 +339,14 @@ export function ProfileSettings({section = 'all'}: {section?: 'all' | 'profile' 
           ))}
         </View>
         {update.isError&&update.variables?.appearance!==undefined&&<Text accessibilityRole="alert" style={form.error}>Could not save appearance. Your last saved setting remains active. Try again.</Text>}
+        <Text style={form.label}>Date format</Text>
+        <View style={{gap:8}}>
+          {DATE_FORMATS.map(value=><MotionPressable key={value} accessibilityRole="radio" aria-checked={(profile.date_format??'long')===value} accessibilityState={{checked:(profile.date_format??'long')===value}} disabled={update.isPending} style={[form.chip,(profile.date_format??'long')===value&&form.chipSelected]} onPress={()=>update.mutate({date_format:value})}>
+            <Text style={(profile.date_format??'long')===value?form.chipTextSelected:form.chipText}>{formatDisplayDate('2026-03-10',value)}{value==='mdy'?' · Month / Day / Year':value==='dmy'?' · Day / Month / Year':''}</Text>
+          </MotionPressable>)}
+        </View>
+        <Text style={styles.caption}>Changes displayed dates. Native calendar controls follow your phone or browser settings.</Text>
+        {update.isError&&update.variables?.date_format!==undefined&&<Text accessibilityRole="alert" style={form.error}>Could not save date format. Your last saved format remains active. Try again.</Text>}
         <Text style={form.label}>Currency · {profile.currency}</Text>
         <View style={form.optionRow}>
           {currencies.map((value) => (

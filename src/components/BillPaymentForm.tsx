@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../hooks/useDateFormatter';
 import {useState} from 'react';
 import {ScrollView,Text,View} from 'react-native';
 import {useRouter} from 'expo-router';
@@ -31,6 +32,7 @@ export function BillPaymentForm({occurrenceId}:Readonly<{occurrenceId:string}>){
  {query.data&&<PayBill key={`${owner}:${occurrenceId}`} bill={query.data}/>}</QueryState></View></ScrollView>;
 }
 function PayBill({bill}:Readonly<{bill:BillOccurrence}>){
+ const dateLabel=useDateFormatter();
  const [snapshot]=useState(bill),[id]=useState(createRequestId),[method,setMethod]=useState<string|null>(bill.payment_method_id??null);
  const [owner]=useState(()=>usePreferencesStore.getState().profile?.user_id);
  const [paymentDate,setPaymentDate]=useState(()=>localDateKey(new Date()));
@@ -47,9 +49,9 @@ function PayBill({bill}:Readonly<{bill:BillOccurrence}>){
  },onSuccess:()=>{if(usePreferencesStore.getState().profile?.user_id===owner)void proof.upload(id).then(ok=>{if(ok)router.back();});}});
  if(proof.savedId)return <AttachmentRetry draft={proof} onDone={()=>router.back()}/>;
  if(snapshot.state!=='outstanding'&&snapshot.state!=='replacement')return <Text accessibilityRole="alert" style={form.error}>This bill is no longer awaiting payment. Go back to refresh.</Text>;
- return <View style={{gap:16}}><View><Text style={form.label}>{snapshot.label||'Scheduled expense'}</Text><Text style={form.subtitle}>{money(Number(snapshot.amount))} · Due {snapshot.scheduled_date}</Text></View>
+ return <View style={{gap:16}}><View><Text style={form.label}>{snapshot.label||'Scheduled expense'}</Text><Text style={form.subtitle}>{money(Number(snapshot.amount))} · Due {dateLabel(snapshot.scheduled_date)}</Text></View>
  <View pointerEvents={payment.isPending||proof.busy?'none':'auto'}>
-  <View style={{flexDirection:'row',alignItems:'center',gap:12}}><Text style={[form.subtitle,{flex:1}]}>Paid on {paymentDate}</Text><MotionPressable accessibilityLabel="Edit payment date" accessibilityState={{expanded:editingDate}} disabled={payment.isPending||proof.busy} onPress={()=>setEditingDate(!editingDate)} style={{minHeight:48,minWidth:48,alignItems:'center',justifyContent:'center'}}><Pencil size={18} color={colors.primary}/></MotionPressable></View>
+  <View style={{flexDirection:'row',alignItems:'center',gap:12}}><Text style={[form.subtitle,{flex:1}]}>Paid on {dateLabel(paymentDate)}</Text><MotionPressable accessibilityLabel="Edit payment date" accessibilityState={{expanded:editingDate}} disabled={payment.isPending||proof.busy} onPress={()=>setEditingDate(!editingDate)} style={{minHeight:48,minWidth:48,alignItems:'center',justifyContent:'center'}}><Pencil size={18} color={colors.primary}/></MotionPressable></View>
   {editingDate&&<TransactionDateField label="Payment date" accessibilityLabel="Payment date" value={paymentDate} onChange={setPaymentDate}/>}
  </View>
  <View pointerEvents={payment.isPending||proof.busy?'none':'auto'}><PaymentMethodPicker value={method} onChange={setMethod}/></View>

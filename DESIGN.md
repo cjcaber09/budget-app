@@ -98,7 +98,7 @@ Overview begins with current Total cash and an account stack above the calendar.
 
 Budget Tracker uses a clear mobile hierarchy across authentication, Overview, Transactions, Reports, Settings, and nested editing screens. Warm surfaces, forest actions, system type, fine separators, and aligned amounts organize existing budgeting and receipt workflows. Web is a phone-layout development preview. No desktop layout is specified.
 
-The independent finish review returned “Ship at verified mobile web-preview scope.” Phone previews at 390x844 and 360x800 used synthetic fixtures, including dark theme and reduced-motion interactions. Production iOS and Android Hermes exports pass. Native picker presentation, safe-area behavior, keyboard and screen-reader behavior, release-build motion feel, and performance still require device verification. No generated raster ships in this redesign; existing icon assets remain unchanged.
+The independent finish review returned â€œShip at verified mobile web-preview scope.â€ Phone previews at 390x844 and 360x800 used synthetic fixtures, including dark theme and reduced-motion interactions. Production iOS and Android Hermes exports pass. Native picker presentation, safe-area behavior, keyboard and screen-reader behavior, release-build motion feel, and performance still require device verification. No generated raster ships in this redesign; existing icon assets remain unchanged.
 
 ## Colors
 
@@ -138,9 +138,9 @@ Use the platform system faces and shared `type` styles. Titles are 30/38 at 700;
 
 ## Layout
 
-Keep each screen’s ScrollView or FlatList and obtain themed styles from `usePageLayout()`. Main tab pages use an open `workspace` with 28px section gaps; focused forms use a padded `card`. Both have a 560px cap for the phone preview. Reports stack sections vertically. The sheet has a 520px cap and a 90% maximum height.
+Keep each screenâ€™s ScrollView or FlatList and obtain themed styles from `usePageLayout()`. Main tab pages use an open `workspace` with 28px section gaps; focused forms use a padded `card`. Both have a 560px cap for the phone preview. Reports stack sections vertically. The sheet has a 520px cap and a 90% maximum height.
 
-Page padding is 24px; header controls wrap with a 16px gap. Headerless tab screens request `safeTop: true`, adding the top inset. Scroll content reserves 96px plus the bottom inset. Four bottom tabs remain visible on nested editing routes. Their height is 72px plus the bottom inset, with 10px top and bottom padding plus that inset at the bottom. The FAB sits 16px above the tab bar, 24px from the right edge, and appears only on the four primary tab routes.
+Page padding is 24px; header controls wrap with a 16px gap. Headerless tab screens request `safeTop: true`, adding the top inset. Scroll content reserves 96px plus the bottom inset. Four bottom tabs remain visible on nested editing routes. The full-width, bottom-flush bar has 18px rounded top corners, square bottom corners, an 84px body, a 4px top margin and bottom safe-area coverage. The 56px primary-green + action and its U-shaped cutout stay fixed in the center, with an 8px cutout clearance, two tabs on each side and 16px icon top padding. The navigation overlays page content so its unfilled cutout reveals the page instead of a solid background crescent; the raised button retains its shadow. No full-width strip reserves its 28px lift. Scroll padding accounts for the bar and enlarged text. A translucent filled active circle stretches into a narrow liquid trail: its head moves over 230ms and its tail retracts by 340ms, redirecting from current positions on rapid taps. The trail bends below the center cutout behind stationary icons and labels. Reduce Motion replaces travel with 160ms fades between fixed circles. The centered + action appears only on the four primary routes. Nested routes retain the originating tab highlight.
 
 ## Elevation & Depth
 
@@ -152,12 +152,12 @@ Fields and option chips use 8px corners; primary buttons, month controls, and ic
 
 ## Components
 
-- **ScreenHeading and MonthPicker:** title/description precede the month action; controls wrap to fit the phone. Month arrows each have a 48×48px target.
+- **ScreenHeading and MonthPicker:** title/description precede the month action; controls wrap to fit the phone. Month arrows each have a 48Ã—48px target.
 - **Spending share:** a responsive SVG doughnut shows the exact net-expense total in its centre and complete tappable category legend below. The graphic is absolute inside a square container to keep native height bounded. Refund and unavailable-total states retain their explanations instead of misleading percentages.
 - **CategoryBudgetReport:** horizontally scrollable category tiles pair a decorative category icon with a naturally wrapping title, without reserved blank title space. Remaining (or Over by) is the primary amount, above a full-content-width square doughnut with a centered usage percentage. Cards use intrinsic height and stretch through flex growth; avoid percentage card heights in the horizontal scroller, and keep the SVG absolutely positioned within its square container. Status appears in a themed text pill. Net spent and Budget sit side by side below a divider, with labels above exact amounts. Missing budgets show a dash for Remaining; navigation and selected-month context stay intact.
 - **TransactionListItem:** show category, optional one-line note, date, signed tabular amount, and edit chevron. Use a tonal icon tile and row separator.
 - **SharedForms:** reuse new/edit forms without outer padding. Inputs are at least 50px high; notes at least 112px. Chips and secondary actions are at least 48px; primary buttons at least 52px. Labels precede fields; validation errors use danger text and tone.
-- **AddTransactionFab and AddTransactionSheet:** preserve camera, upload, manual entry, cancellation, and provider privacy copy. Sheet options are at least 72px high. Keep sheet content scrollable and pad for the bottom safe area. iOS pickers wait for modal dismissal.
+- **AddTransactionFab and AddTransactionSheet:** preserve camera, upload, manual entry, cancellation, and provider privacy copy. The chooser is a two-column grid ordered Manual, Scan / Upload, Voice, with equal-width icon/label/description tiles, 12px gaps and intrinsic height. Voice is Android-only; offline only Manual is available. Keep sheet content scrollable and pad for the bottom safe area. iOS pickers wait for modal dismissal.
 - **MotionPressable:** presses scale to 0.98 and fade to 0.88 over 120ms using `cubic-bezier(0.23, 1, 0.32, 1)`. Disabled opacity is 0.45. Reduced motion and web keyboard focus suppress scale and duration.
 - **Sheet motion:** enter in 240ms and exit in 180ms, with a 32px translation and `cubic-bezier(0.32, 0.72, 0, 1)` easing. Reduced motion removes translation and sheet duration; the scrim retains its opacity timing. Navigator screens cross-fade over 180ms with ease-out cubic easing; Reduce Motion disables the transition. List rows have no entrance animation.
 - **QueryState and reports:** preserve distinct loading, empty, and retryable error copy. Reports retain labeled chart legends and readable category totals; chart widths follow available phone space.
@@ -191,5 +191,11 @@ Don't:
 - Add desktop rails or split layouts.
 - Wrap every section in another shadowed card.
 - Use category colors as action backgrounds.
-- Add sliding navigation or list entrance motion.
+- Add unrelated sliding page transitions or list entrance motion; the user-requested 340ms liquid tab indicator is the sole navigation-motion exception.
 - Remove OCR privacy disclosures or alter backend workflows as a styling change.
+
+Native camera/photo pickers and microphone permission prompts use a scoped two-minute lock guard with a passive privacy cover. Voice recording itself does not bypass background locking. Voice proposes one ordinary entry for review; transcript/audio are temporary, and only Save records money. See [Voice/navigation plan](docs/superpowers/plans/2026-11-01-voice-navigation.md).
+
+Date format is an account preference: long English month/day/year, MM/DD/YYYY, DD/MM/YYYY or ISO. Stored dates, ordering and CSV formats remain ISO; native/browser calendar controls and compact chart axes retain their platform/space-specific formatting. Full entry, bill, refund, transfer and activity dates use the shared display formatter. Privacy & security adds 28px top padding. Notification switches and test controls stay disabled until phone permission is allowed; an explicit Allow notifications action requests permission or opens phone settings. Saved switches are retained while permission is denied. Toasts dismiss after five seconds, restarting the deadline even for repeated identical messages.
+
+Voice version 2 automatically groups up to 20 compatible purchases in one 20-second clip into an itemized expense. Shared item review shows pending totals for missing prices; generated purchase summaries stay in sync until manually edited. Different dates/accounts/currencies, mixed direction and unsupported adjustments require separate recordings or Manual Entry. Voice-origin drafts retain summary mode; deleting every purchase clears stale amounts. The centered + action uses two soft black shadows with zero horizontal and vertical offset, centered evenly around the button. Its stacking order keeps it above the bar; Android elevation is omitted to avoid an additional downward shadow.

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type {DateFormat} from '../domain/dateFormat';
 export const currencies = [
   "USD",
   "PHP",
@@ -13,6 +14,7 @@ export const currencies = [
 ] as const;
 export type Currency = (typeof currencies)[number];
 export interface Profile {
+  date_format?: DateFormat;
   budget_notifications?: boolean;
   bill_notifications?: boolean;
   notification_private?: boolean;

@@ -1,3 +1,4 @@
+import {useDateFormatter} from '../../../src/hooks/useDateFormatter';
 import {PaymentMethodPicker,TransferDialog} from '../../../src/components/PaymentMethodPicker';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from '../../../src/components/TransactionAttachments';
 import {IncomeSourcePicker} from '../../../src/components/IncomeSources';
@@ -50,13 +51,15 @@ function LoadTransaction({ id }: { id: string }) {
   </ScrollView>;
 }
 function TransferFeeDetails({transaction}:{transaction:Transaction}) {
+ const dateLabel=useDateFormatter();
   const query=usePaymentMethods(),styles=useFormStyles(),money=useMoneyCents(),router=useRouter();
   const [open,setOpen]=useState(false);
   const transfer=query.transfers?.find(row=>row.id===transaction.transfer_id);
-  return <View><Text style={styles.title}>Transfer fee</Text><Text style={styles.subtitle}>{money(decimalToCents(transaction.amount)!)} · {effectiveDate(transaction)}</Text><Text style={styles.subtitle}>Edit or remove this fee through its transfer.</Text><QueryState loading={query.isPending} error={query.isError||(!query.isPending&&!transfer)} retry={()=>void query.refetch()}/><MotionPressable disabled={!transfer||query.isFetching} style={styles.button} onPress={()=>setOpen(true)}><Text style={styles.buttonText}>Edit transfer</Text></MotionPressable>{open&&transfer&&<TransferDialog initial={transfer} onClose={()=>setOpen(false)} onSaved={()=>router.back()}/>}</View>;
+  return <View><Text style={styles.title}>Transfer fee</Text><Text style={styles.subtitle}>{money(decimalToCents(transaction.amount)!)} · {dateLabel(effectiveDate(transaction))}</Text><Text style={styles.subtitle}>Edit or remove this fee through its transfer.</Text><QueryState loading={query.isPending} error={query.isError||(!query.isPending&&!transfer)} retry={()=>void query.refetch()}/><MotionPressable disabled={!transfer||query.isFetching} style={styles.button} onPress={()=>setOpen(true)}><Text style={styles.buttonText}>Edit transfer</Text></MotionPressable>{open&&transfer&&<TransferDialog initial={transfer} onClose={()=>setOpen(false)} onSaved={()=>router.back()}/>}</View>;
 }
 function Editor({ transaction, items, categories }: { transaction: Transaction; items: TransactionItemInput[]; categories: Category[] }) {
   // A mounted editor owns its initial snapshot; background query updates never overwrite a draft.
+  const dateLabel=useDateFormatter();
   const [snapshot] = useState(() => ({ transaction, items }));
   const router = useRouter();
   const styles = useFormStyles();
@@ -92,7 +95,7 @@ function Editor({ transaction, items, categories }: { transaction: Transaction; 
       <Text style={styles.secondaryText}>{snapshot.transaction.occurrence_id ? 'Delete and skip this bill' : 'Delete Transaction'}</Text>
     </MotionPressable>
     <ActionSheet visible={destructive!==null} title={destructive==='replace'?'Replace this expense?':'Delete transaction?'} busy={saving} onClose={()=>{if(!saving)setDestructive(null);}}>
-      <Text style={styles.subtitle}>{formatMoney(snapshot.transaction.amount)} · {effectiveDate(snapshot.transaction)}{snapshot.transaction.note ? ` · ${snapshot.transaction.note}` : ''}</Text>
+      <Text style={styles.subtitle}>{formatMoney(snapshot.transaction.amount)} · {dateLabel(effectiveDate(snapshot.transaction))}{snapshot.transaction.note ? ` · ${snapshot.transaction.note}` : ''}</Text>
       <Text style={styles.subtitle}>This removes the transaction and any attached receipts.{destructive==='replace'?' The bill stays pending until you record or link a replacement payment.':snapshot.transaction.occurrence_id ? ' The linked bill occurrence will be skipped.' : ''} This cannot be undone.</Text>
       {(destructive==='replace'?billCommand.isError:remove.isError) && <Text accessibilityRole="alert" style={styles.error}>Could not {destructive==='replace'?'replace':'delete'} this transaction. Retry or keep it.</Text>}
       <MotionPressable accessibilityLabel={destructive==='replace'?'Confirm expense replacement':'Confirm transaction deletion'} disabled={saving} style={[styles.button,{flexDirection:'row',gap:8,justifyContent:'center'}]} onPress={()=>{

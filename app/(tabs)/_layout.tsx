@@ -15,6 +15,7 @@ import {InitialHelp} from '../../src/components/InitialHelp';
 import {SetupGuide} from '../../src/components/SetupGuide';
 import { TAB_BAR_HEIGHT } from '../../src/constants/layout';
 import {AppUpdatesProvider} from '../../src/components/AppUpdates';
+import {RaisedTabBar} from '../../src/components/RaisedTabBar';
 
 function renderBackButton() {
   return <BackButton />;
@@ -55,6 +56,7 @@ export default function TabsLayout() {
   return (
     <AppUpdatesProvider pathname={pathname}><View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: colors.background }}>
       <Tabs
+        tabBar={props=><RaisedTabBar {...props}/>}
         backBehavior="history"
         screenOptions={{
           headerShown: true,
@@ -79,6 +81,7 @@ export default function TabsLayout() {
         />
         <Tabs.Screen name="reports" options={{ title: 'Reports', headerShown: false, tabBarIcon: renderReportsIcon }} />
         <Tabs.Screen name="report/[kind]" options={{ href:null,title:'Report details',headerLeft:renderBackButton }}/>
+        <Tabs.Screen name="transaction/voice" options={{href:null,title:'Voice entry',headerLeft:renderBackButton}}/>
         <Tabs.Screen name="transfer/[id]" options={{ href:null,title:'Transfer',headerLeft:renderBackButton }}/>
         <Tabs.Screen name="settings" options={{ title: 'Settings', headerShown: false, tabBarIcon: renderSettingsIcon }} />
 

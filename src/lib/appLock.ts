@@ -2,6 +2,7 @@ import {AppState,Platform} from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import {useAppLockStore} from '../stores/useAppLockStore';
+import {observeHandoffState,invalidateNativeHandoffs} from './nativeHandoff';
 
 const preference='budget-tracker.biometric-lock.v1';
 let generation=0,prompt:Promise<boolean>|null=null;
@@ -14,12 +15,14 @@ export async function initializeAppLock(){
   }catch{useAppLockStore.setState({loaded:false,locked:true,error:'Could not read app-lock settings. Retry to unlock safely.'});}
 }
 export function handleLockAppState(next:string){
+  const handoff=observeHandoffState(next);
   const state=useAppLockStore.getState();if(!state.enabled)return;
-  if(next==='active'){useAppLockStore.setState({obscured:false});return;}
+  if(next==='active'){useAppLockStore.setState({obscured:false,...(handoff==='expired'?{locked:true}:{})});return;}
   useAppLockStore.setState({obscured:true});
+  if(handoff==='guarded')return;
   if(next==='background'||!state.busy){generation++;useAppLockStore.setState({locked:true});}
 }
-export function lockApp(){generation++;useAppLockStore.setState({locked:true,error:''});}
+export function lockApp(){invalidateNativeHandoffs();generation++;useAppLockStore.setState({locked:true,error:''});}
 async function verify():Promise<boolean>{
   if(Platform.OS==='web')return false;
   if(prompt)return prompt;

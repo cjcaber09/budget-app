@@ -49,3 +49,8 @@ test('online review rejects missing categories, archived methods and foreign sou
   expect(manualDraftSelectionError({...input,type:'income',incomeSourceId:cash},owner,data.categories,data.methods,[{id:cash,user_id:owner,name:'Old source',archived:true}])).toMatch(/income source/);
   expect(manualDraftSelectionError(input,owner,data.categories,data.methods,[{id:cash,user_id:cash,name:'Foreign',archived:false}])).toMatch(/verify/);
 });
+test('preserves a valid date preference and rejects unsupported cached formats',()=>{
+ const data={...fixture(),dateFormat:'dmy' as const};
+ expect(decodeOfflineDraftChoices(JSON.stringify(data),owner).dateFormat).toBe('dmy');
+ expect(()=>decodeOfflineDraftChoices(JSON.stringify({...data,dateFormat:'unsupported'}),owner)).toThrow();
+});

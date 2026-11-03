@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {useDateTimeFormatter} from '../hooks/useDateFormatter';
 import {Platform,Text,View} from 'react-native';
 import {useReminderFreshnessStore} from '../stores/useReminderFreshnessStore';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
@@ -15,13 +16,13 @@ function reminderCoverage(snapshot:ReminderSnapshot,timezone:string,times:string
 }
 
 export function ReminderFreshness(){
+  const date=useDateTimeFormatter();
   const profile=usePreferencesStore(s=>s.profile),status=useReminderFreshnessStore(),form=useFormStyles();
   const [now,setNow]=useState(()=>Date.now());
   useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(id);},[]);
   if(Platform.OS==='web'||!profile)return null;
   const own=status.owner===profile.user_id,snapshot=own?status.snapshot:null;
   const times=(snapshot?.scheduledAt??[]).filter(t=>Date.parse(t)>now);
-  const date=(value:string)=>new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short',timeZone:profile.timezone}).format(new Date(value));
   return <View style={{gap:8}}>
     <Text style={form.label}>Reminder sync on this phone</Text>
     <Text style={form.subtitle}>{snapshot?`Last successful sync: ${date(snapshot.syncedAt)}`:'No successful reminder sync recorded yet.'}</Text>
