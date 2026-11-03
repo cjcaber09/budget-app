@@ -9,7 +9,7 @@ import {RotateCcw} from 'lucide-react-native';
 import {useRouter} from 'expo-router';
 import {useQueryClient} from '@tanstack/react-query';
 import {usePreferencesStore} from '../stores/usePreferencesStore';
-import {useFinancialResetStore} from '../stores/useFinancialResetStore';
+import {useFinancialResetStore,type PendingReset} from '../stores/useFinancialResetStore';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {financialResetRequest,FinancialResetError} from '../lib/financialReset';
@@ -24,6 +24,12 @@ import {ActionSheet} from './ActionSheet';
 import {MotionPressable} from './MotionPressable';
 import {useHelpBlocker} from '../stores/useHelpStore';
 
+function resetStartMessage(code:string){
+ if(code==='password_not_accepted')return 'Your current password was not accepted. Try again.';
+ if(code==='invalid_request')return 'Record reset is not available yet. No reset was started.';
+ return 'Sign in again before clearing records.';
+}
+
 export function FinancialResetSettings(){
  const owner=usePreferencesStore(s=>s.profile?.user_id);return <ResetSettings key={owner} owner={owner}/>;
 }
@@ -34,18 +40,23 @@ function ResetSettings({owner}:Readonly<{owner?:string}>){
  useHelpBlocker('financial-reset',open);
  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  const close=()=>{if(!busy){setOpen(false);setPassword('');setAck(false);}};
+ async function handleStartError(e:unknown,operation:PendingReset){
+  if(e instanceof FinancialResetError&&['password_not_accepted','invalid_request','unauthorized'].includes(e.code)){
+   if(useFinancialResetStore.getState().pending?.requestId===operation.requestId)await useFinancialResetStore.getState().set(null);
+   if(alive.current)setError(resetStartMessage(e.code));
+   return;
+  }
+  if(alive.current){setPassword('');setOpen(false);}
+ }
  async function start(){
-  if(!owner||accountOperationActive(owner)||busy||starting||!password||!ack)return;setBusy(true);setError('');useFinancialResetStore.setState({starting:true});
+  if(!owner||accountOperationActive(owner)||busy||starting||!password||!ack){return;}
+  setBusy(true);setError('');useFinancialResetStore.setState({starting:true});
   const operation={owner,requestId:createRequestId(),accepted:false};
   try{
    await useFinancialResetStore.getState().set(operation);await financialResetRequest(operation,'reset',password);
    if(alive.current){setPassword('');setOpen(false);}
-  }catch(e){
-   if(e instanceof FinancialResetError&&['password_not_accepted','invalid_request','unauthorized'].includes(e.code)){
-    if(useFinancialResetStore.getState().pending?.requestId===operation.requestId)await useFinancialResetStore.getState().set(null);
-    if(alive.current)setError(e.code==='password_not_accepted'?'Your current password was not accepted. Try again.':e.code==='invalid_request'?'Record reset is not available yet. No reset was started.':'Sign in again before clearing records.');
-   }else if(alive.current){setPassword('');setOpen(false);}
-  }finally{useFinancialResetStore.setState({starting:false});if(alive.current)setBusy(false);}
+  }catch(e){await handleStartError(e,operation);}
+  finally{useFinancialResetStore.setState({starting:false});if(alive.current)setBusy(false);}
  }
  return <>
  <MotionPressable accessibilityLabel="Clear all finance records" disabled={!owner||starting} style={[form.secondaryButton,{flexDirection:'row',justifyContent:'center',gap:8}]} onPress={()=>{setOpen(true);setError('');setAck(false);}}><RotateCcw size={18} color={colors.danger}/><Text style={[form.secondaryText,{color:colors.danger}]}>Clear records</Text></MotionPressable>
@@ -74,6 +85,24 @@ export function FinancialResetBoundary(){
   }catch{/* Discovery retries on resume; an active operation owns its error UI. */}
   return false;
  });
+ async function finishReset(pending:PendingReset,owned:()=>boolean){
+  await resetFinancialClientState(client,pending.owner);
+  if(!owned())return;
+  await useFinancialResetStore.getState().complete(pending.owner,pending.requestId);
+  if(usePreferencesStore.getState().profile?.user_id===pending.owner){
+   router.replace('/');useFinancialResetStore.setState(state=>({epoch:state.epoch+1}));
+   useToastStore.getState().showToast('Records cleared. Your account is unchanged.');
+  }
+ }
+ async function handleStatusError(e:unknown,pending:PendingReset,confirmed:boolean){
+  if(e instanceof FinancialResetError&&e.code==='operation_not_found'&&!pending.accepted){
+   await useFinancialResetStore.getState().set(null);
+   useToastStore.getState().showToast('Reset was not started. You can retry in Profile.');
+   return;
+  }
+  if(confirmed){setError('Records are cleared. Could not refresh this device. Retry.');return;}
+  setError(e instanceof FinancialResetError&&e.code==='unauthorized'?'Your session expired. Sign in to confirm reset status.':'Could not confirm the reset. Check your connection and retry.');
+ }
  const retry=useSerialOperationPoll(matching&&!store.starting,key,async current=>{
   if(!operation)return false;
   const owned=()=>current()&&usePreferencesStore.getState().profile?.user_id===operation.owner&&useFinancialResetStore.getState().pending?.requestId===operation.requestId;
@@ -82,13 +111,9 @@ export function FinancialResetBoundary(){
    const result=await financialResetRequest(operation,'reset-status');if(!owned())return false;
    if(result!=='completed')return true;
    confirmed=true;setCompletedRequest(key);
-   await resetFinancialClientState(client,operation.owner);if(!owned())return false;
-   await useFinancialResetStore.getState().complete(operation.owner,operation.requestId);
-   if(usePreferencesStore.getState().profile?.user_id===operation.owner){router.replace('/');useFinancialResetStore.setState(state=>({epoch:state.epoch+1}));useToastStore.getState().showToast('Records cleared. Your account is unchanged.');}
-  }catch(e){if(owned()){
-   if(e instanceof FinancialResetError&&e.code==='operation_not_found'&&!operation.accepted){await useFinancialResetStore.getState().set(null);useToastStore.getState().showToast('Reset was not started. You can retry in Profile.');}
-   else setError(confirmed?'Records are cleared. Could not refresh this device. Retry.':e instanceof FinancialResetError&&e.code==='unauthorized'?'Your session expired. Sign in to confirm reset status.':'Could not confirm the reset. Check your connection and retry.');
-  }}finally{if(current())setBusy(false);}
+   await finishReset(operation,owned);
+  }catch(e){if(owned())await handleStatusError(e,operation,confirmed);}
+  finally{if(current())setBusy(false);}
   return false;
  });
  if(!operation||!matching||store.starting)return null;

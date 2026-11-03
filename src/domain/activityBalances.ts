@@ -30,8 +30,9 @@ export function decodeActivityBalances(value: unknown, context: {owner: string; 
   const seen = new Set<string>();
   return data.rows.map(value => {
     const row = value as ActivityBalance;
-    const key = row && balanceActivityKey(row);
-    if (!row || !expected.has(key) || seen.has(key) || !isUuid(row.id) || !Array.isArray(row.accounts) || row.accounts.length > (row.kind === 'transfer' ? 2 : 1)) return fail();
+    if (!row) return fail();
+    const key = balanceActivityKey(row);
+    if (!expected.has(key) || seen.has(key) || !isUuid(row.id) || !Array.isArray(row.accounts) || row.accounts.length > (row.kind === 'transfer' ? 2 : 1)) return fail();
     seen.add(key);
     const methods = new Set<string>();
     const accounts = row.accounts.map(value => {

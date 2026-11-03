@@ -15,9 +15,9 @@ type Layer = { title: string; content: ReactNode; onClose: () => void; busy?: bo
 const Host = createContext<((layer: Layer | null) => void) | null>(null);
 
 /** One native modal, including child account creation. Hidden children stay mounted. */
-export function KeyboardSheet({ title, visible = true, onClose, busy = false, children, closeLabel, animationType = 'slide', allowAccountOperation = false }: {
+export function KeyboardSheet({ title, visible = true, onClose, busy = false, children, closeLabel, animationType = 'slide', allowAccountOperation = false }: Readonly<{
   title: string; visible?: boolean; onClose: () => void; busy?: boolean; children: ReactNode; closeLabel?: string; animationType?: 'slide' | 'none'; allowAccountOperation?: boolean;
-}) {
+}>) {
   const colors = useColors(), insets = useContext(SafeAreaInsetsContext), reduced = useReducedMotion();
   useUpdateBlocker(visible);
   const [layer, setLayer] = useState<Layer | null>(null);

@@ -13,7 +13,7 @@ function accountAmount(cents:number,account:ActivityAccountBalance,money:(cents:
   if(account.method==='card'&&account.paymentType==='Credit card')return `${money(Math.abs(cents))} ${cents>0?'credit':'owed'}`;
   return money(cents);
 }
-export function ActivityBalanceChange({balance,methodId,compact=false}:{balance:ActivityBalance;methodId?:string;compact?:boolean}){
+export function ActivityBalanceChange({balance,methodId,compact=false}:Readonly<{balance:ActivityBalance;methodId?:string;compact?:boolean}>){
   const colors=useColors(),money=useMoneyCents();
   const accounts=balance.accounts.filter(a=>!methodId||a.methodId===methodId);
   return <View style={{gap:compact?8:16}}>
@@ -28,7 +28,7 @@ export function ActivityBalanceChange({balance,methodId,compact=false}:{balance:
     {balance.kind==='transfer'&&accounts.length>0&&<Text style={{...type.label,fontWeight:'400',color:colors.muted}}>Includes the transfer amount and fee.</Text>}
   </View>;
 }
-export function BalanceHistoryRetry({onRetry}:{onRetry:()=>void}){
+export function BalanceHistoryRetry({onRetry}:Readonly<{onRetry:()=>void}>){
   const colors=useColors();
   return <MotionPressable accessibilityLabel="Retry balance history" onPress={onRetry} style={{minHeight:48,justifyContent:'center',paddingVertical:12}}><Text style={{...type.label,color:colors.primary}}>Balance history unavailable. Retry</Text></MotionPressable>;
 }

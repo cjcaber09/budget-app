@@ -24,6 +24,24 @@ test('uses separate bounded requests beyond 100 activities and never loses ident
  const entries=Array.from({length:101},(_,i)=>({kind:'transaction' as const,id:`00000000-0000-4000-8000-${String(i+10).padStart(12,'0')}`}));
  const h=setup(entries);await waitFor(()=>expect(h.result.current.isSuccess).toBe(true));expect(mockRpc).toHaveBeenCalledTimes(2);expect(mockRpc.mock.calls[0][1].p_entries).toHaveLength(100);expect(h.result.current.data?.size).toBe(101);h.unmount();h.client.clear();
 });
+test('canonical string ordering reuses the same cache entry for reordered and duplicate identities',async()=>{
+ const entries=[{kind:'transaction' as const,id},{kind:'transaction' as const,id:'00000000-0000-4000-8000-000000000003'}];
+ const h=setup(entries);await waitFor(()=>expect(h.result.current.isSuccess).toBe(true));
+ const originalKeys=h.client.getQueryCache().getAll().map(q=>q.queryHash);
+ entries.reverse();entries.push(entries[0]);h.rerender({});
+ await waitFor(()=>expect(h.result.current.isSuccess).toBe(true));
+ expect(h.client.getQueryCache().getAll().map(q=>q.queryHash)).toEqual(originalKeys);expect(mockRpc).toHaveBeenCalledTimes(1);
+ h.unmount();h.client.clear();
+});
+test('keeps batches serial and stops immediately if the first batch fails',async()=>{
+ let resolveFirst:((value:unknown)=>void)|undefined;
+ mockRpc.mockImplementation(()=>new Promise(resolve=>{resolveFirst=resolve;}));
+ const entries=Array.from({length:101},(_,i)=>({kind:'transaction' as const,id:`00000000-0000-4000-8000-${String(i+10).padStart(12,'0')}`}));
+ const h=setup(entries);await waitFor(()=>expect(mockRpc).toHaveBeenCalledTimes(1));
+ expect(h.result.current.isError).toBe(false);
+ await act(async()=>{resolveFirst?.({error:{code:'500'},data:null});});
+ await waitFor(()=>expect(h.result.current.isError).toBe(true));expect(mockRpc).toHaveBeenCalledTimes(1);expect(h.result.current.data).toBeUndefined();h.unmount();h.client.clear();
+});
 test('refreshes on foreground and isolates an account change',async()=>{
  let listener:((state:string)=>void)|undefined;
  const spy=jest.spyOn(AppState,'addEventListener').mockImplementation((_event,fn)=>{listener=fn as typeof listener;return {remove:jest.fn()};});

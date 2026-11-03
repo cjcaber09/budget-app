@@ -23,6 +23,7 @@ import {useUpdateBlocker} from '../stores/useUpdateSafetyStore';
 import {KeyboardViewport} from './KeyboardViewport';
 import {MotionPressable} from './MotionPressable';
 import {FormActions} from './FormActions';
+import {setupActionLabel} from '../domain/formActionLabels';
 import {MoneyInput} from './MoneyInput';
 import {CategoryPicker} from './CategoryPicker';
 import {QueryState} from './QueryState';
@@ -112,7 +113,7 @@ function GuideContent({owner}:{owner:string}){
   {!!error&&<Text accessibilityRole="alert" style={form.error}>{error}</Text>}
   <FormActions
    secondary={state.step>0?{label:'Previous step',disabled:busy||!!refresh,onPress:()=>void move(state.step-1)}:undefined}
-   primary={{label:busy?'Saving…':refresh?'Refresh saved values':state.step===4?'Finish setup':state.step===0&&confirmCurrency?'Confirm currency & continue':'Continue',disabled:busy,onPress:()=>void next()}}/>
+   primary={{label:setupActionLabel(busy,!!refresh,state.step,confirmCurrency),disabled:busy,onPress:()=>void next()}}/>
   <MotionPressable disabled={busy} style={form.secondaryButton} onPress={close}><Text style={form.chipTextSelected}>Continue later</Text></MotionPressable>
  </ScrollView></View></KeyboardViewport></Modal>;
 }

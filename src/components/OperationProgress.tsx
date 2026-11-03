@@ -4,7 +4,7 @@ import {useReducedMotion} from 'react-native-reanimated';
 import {useColors,type} from '../styles/theme';
 
 /** Activity, not a fabricated percentage: the server exposes no work counts. */
-export function OperationProgress({label,paused=false}:{label:string;paused?:boolean}){
+export function OperationProgress({label,paused=false}:Readonly<{label:string;paused?:boolean}>){
   const colors=useColors(),reduced=useReducedMotion();
   const [position]=useState(()=>new Animated.Value(0));
   const [width,setWidth]=useState(240);

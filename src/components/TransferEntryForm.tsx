@@ -22,6 +22,7 @@ import {TransactionDateField} from './TransactionDateField';
 import {TransferMethodCreation,type AccountChoice} from './TransferMethodCreation';
 import {TransferAccountAutocomplete} from './TransferAccountAutocomplete';
 import {FormActions} from './FormActions';
+import {transferActionLabel} from '../domain/formActionLabels';
 import {useProofDraft,ProofPicker,AttachmentRetry,SavedAttachments} from './TransactionAttachments';
 
 interface Props {defaultCash?:boolean;entryContext?:{startedAt:string;day:string;timezone:string;currency:string};id?:string;initial?:PaymentTransfer;initialFields?:Partial<TransferFields>;restored?:TransferDraft;methods:PaymentMethod[];active?:boolean;persist?:boolean;proof?:ReturnType<typeof useProofDraft>;onClose:()=>void;onSaved?:()=>void;onBusyChange?:(busy:boolean)=>void;onUncertainChange?:(busy:boolean)=>void}
@@ -128,7 +129,7 @@ export function TransferEntryForm({id:entryId,initial,initialFields,restored,met
   {initial&&<SavedAttachments transferId={id}/>}
   {!pending&&!financialSaved&&<FormActions marginTop={0}
    secondary={{label:'Cancel',disabled:busy||creating,onPress:onClose}}
-   primary={{label:busy?'Saving…':initial?'Save transfer changes':'Record transfer',disabled:locked||!query.transferEntrySupported,onPress:()=>submit(initial?'update':'create')}}/>}
+   primary={{label:transferActionLabel(busy,!!initial),disabled:locked||!query.transferEntrySupported,onPress:()=>submit(initial?'update':'create')}}/>}
   {financialSaved&&<MotionPressable disabled={busy} style={form.button} onPress={()=>void finish('saved')}><Text style={form.buttonText}>Finish saved transfer</Text></MotionPressable>}
   {(pending||financialSaved)&&<MotionPressable disabled={busy||creating} style={form.secondaryButton} onPress={onClose}><Text style={form.chipTextSelected}>Cancel</Text></MotionPressable>}
   {initial&&!pending&&!financialSaved&&<MotionPressable disabled={locked} style={form.secondaryButton} onPress={()=>setDeleting(!deleting)}><Text style={form.secondaryText}>Delete transfer</Text></MotionPressable>}

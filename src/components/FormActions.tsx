@@ -10,19 +10,19 @@ interface FormAction {
 }
 
 /** Related actions share a row, wrapping together into full-width buttons when space is tight. */
-export function FormActions({primary, secondary, primaryVariant = 'primary', marginTop = 28}: {
+export function FormActions({primary, secondary, primaryVariant = 'primary', marginTop = 28}: Readonly<{
   primary: FormAction;
   secondary?: FormAction;
   primaryVariant?: 'primary' | 'secondary';
   marginTop?: number;
-}) {
+}>) {
   const form = useFormStyles();
   const {fontScale} = useWindowDimensions();
   return <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop}}>
-    {([secondary, primary] as const).map((action, index) => {
+    {([['secondary',secondary], ['primary',primary]] as const).map(([role,action]) => {
       if (!action) return null;
-      const emphasized = index === 1 && primaryVariant === 'primary';
-      return <MotionPressable key={index} onPress={action.onPress} disabled={action.disabled}
+      const emphasized = role === 'primary' && primaryVariant === 'primary';
+      return <MotionPressable key={role} onPress={action.onPress} disabled={action.disabled}
         accessibilityLabel={action.accessibilityLabel}
         style={[emphasized ? form.button : form.secondaryButton, {
           flexBasis: 120 * fontScale, flexGrow: 1, flexShrink: 1, maxWidth: '100%',

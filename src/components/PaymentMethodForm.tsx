@@ -5,6 +5,7 @@ import {useFormStyles} from '../styles/forms';
 import {useColors} from '../styles/theme';
 import {MotionPressable} from './MotionPressable';
 import {FormActions} from './FormActions';
+import {paymentMethodActionLabel} from '../domain/formActionLabels';
 import {createRequestId} from '../domain/ocr';
 import {CARD_PRIVACY_NOTE,validatePaymentMethod,isCreditCard,type PaymentMethod,type PaymentMethodKind,type PaymentMethodValues} from '../domain/paymentMethods';
 const KINDS:[PaymentMethodKind,string][]=[['card','Card'],['bank_account','Bank account'],['wallet','E-wallet'],['other','Other']];
@@ -32,6 +33,6 @@ export function PaymentMethodForm({initial,submitting,error:onSaveError,onSave,o
     {credit&&<Text style={form.subtitle}>Spending increases the amount owed. Payments reduce it. An overpayment is shown as a credit balance, not available credit.</Text>}
     {!!(error||onSaveError)&&<Text accessibilityRole="alert" style={form.error}>{error||onSaveError}</Text>}
     <FormActions secondary={{label:'Cancel',disabled:submitting,onPress:onCancel}}
-      primary={{label:submitting?'Saving…':initial?'Save payment method':'Create payment method',disabled:submitting,onPress:submit}}/>
+      primary={{label:paymentMethodActionLabel(submitting,!!initial),disabled:submitting,onPress:submit}}/>
   </View>;
 }

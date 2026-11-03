@@ -18,8 +18,23 @@ import {QueryState} from './QueryState';
 import {useActivityBalances} from '../hooks/useActivityBalances';
 import {balanceActivityKey,transactionBalanceActivity,type BalanceActivity} from '../domain/activityBalances';
 import {ActivityBalanceChange,BalanceHistoryRetry} from './ActivityBalanceChange';
+import type {Category,Transaction} from '../types/database';
 
-export function AccountActivity({method,corrections,unavailable,refresh,onBack}:{method:PaymentMethod;corrections:BalanceCorrection[];unavailable:boolean;refresh:()=>void;onBack:()=>void}) {
+function labelActivityRows(rows:AccountActivityRow[],transactions:Transaction[],categories:Category[]) {
+ const labels=new Map(categories.map(category=>[category.id,category.name]));
+ const byId=new Map(transactions.map(transaction=>['transaction:'+transaction.id,transaction]));
+ return rows.map(row=>{
+  const transaction=byId.get(row.key);
+  const category=transaction?.category_id?labels.get(transaction.category_id):undefined;
+  return {...row,detail:[row.detail,category].filter(Boolean).join(' · ')};
+ });
+}
+function readActivityRows(enabled:boolean,read:()=>AccountActivityRow[]):{rows:AccountActivityRow[];error:string}{
+ if(!enabled)return {rows:[],error:''};
+ try{return {rows:read(),error:''};}
+ catch(issue){return {rows:[],error:issue instanceof Error?issue.message:'Activity could not be read.'};}
+}
+export function AccountActivity({method,corrections,unavailable,refresh,onBack}:Readonly<{method:PaymentMethod;corrections:BalanceCorrection[];unavailable:boolean;refresh:()=>void;onBack:()=>void}>) {
  const profile=usePreferencesStore(s=>s.profile),selectedMonth=useUiStore(s=>s.selectedMonth);
  const [month,setMonth]=useState(selectedMonth),[search,setSearch]=useState(''),[kind,setKind]=useState<'all'|AccountActivityRow['kind']>('all');
  const dateLabel=useDateFormatter();
@@ -28,14 +43,9 @@ export function AccountActivity({method,corrections,unavailable,refresh,onBack}:
  const refetchTransactions=transactions.refetch,refetchTransfers=transfers.refetch;
  useEffect(()=>{let day=localDateKey(new Date(),profile?.timezone);const sync=()=>{if(supported){void refetchTransactions();void refetchTransfers();}};const listener=AppState.addEventListener('change',state=>{if(state==='active')sync();});const timer=setInterval(()=>{const next=localDateKey(new Date(),profile?.timezone);if(next!==day){day=next;sync();}},30000);return()=>{listener.remove();clearInterval(timer);};},[profile?.timezone,supported,refetchTransactions,refetchTransfers]);
  const form=useFormStyles(),colors=useColors(),money=useMoneyCents();
- let rows:AccountActivityRow[]=[],error='';
  const owned=profile?.user_id===method.user_id;
- if(owned&&transactions.data&&transfers.data&&!unavailable){try{
-  rows=accountActivity(method,month,profile.timezone,transactions.data,transfers.data,corrections);
-  const labels=new Map((categories.data??[]).map(category=>[category.id,category.name]));
-  const byId=new Map(transactions.data.map(transaction=>['transaction:'+transaction.id,transaction]));
-  rows=rows.map(row=>{const transaction=byId.get(row.key);const category=transaction?.category_id?labels.get(transaction.category_id):undefined;return {...row,detail:[row.detail,category].filter(Boolean).join(' · ')};});
- }catch(issue){error=issue instanceof Error?issue.message:'Activity could not be read.';}}
+ const {rows,error}=readActivityRows(owned&&!!transactions.data&&!!transfers.data&&!unavailable,()=>
+  labelActivityRows(accountActivity(method,month,profile!.timezone,transactions.data!,transfers.data!,corrections),transactions.data!,categories.data??[]));
  const entries=new Map(rows.map(row=>{
   const transaction=row.kind==='transaction'?transactions.data?.find(t=>'transaction:'+t.id===row.key):undefined;
   const [entryKind,id]=row.key.split(':');

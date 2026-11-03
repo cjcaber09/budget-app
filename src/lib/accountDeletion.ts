@@ -14,7 +14,10 @@ export async function deletionRequest(operation:PendingDeletion,action:'delete'|
   const data=await response.json();
   const current=()=>{const pending=useAccountDeletionStore.getState().pending;return pending?.owner===operation.owner&&pending.requestId===operation.requestId;};
   if(response.status===409&&data.error==='operation_exists'&&typeof data.requestId==='string'){
-   if(current())await useAccountDeletionStore.getState().set({...operation,requestId:data.requestId,accepted:true});return 'pending' as const;
+   if(current()){
+    await useAccountDeletionStore.getState().set({...operation,requestId:data.requestId,accepted:true});
+   }
+   return 'pending' as const;
   }
   if(!response.ok)throw new DeletionError(typeof data.error==='string'?data.error:'status_unavailable');
   if(data.requestId!==operation.requestId||!['pending','completed'].includes(data.state))throw new DeletionError('status_unavailable');

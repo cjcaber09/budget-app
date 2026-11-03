@@ -151,14 +151,18 @@ export function AddTransactionFab() {
     if(!draft){open();return;}
     Alert.alert('Unfinished transaction',draft.pending?'A save was attempted. Resume it to check or retry the same entry before recording another.':'Resume your saved draft, or discard it before recording a new entry.',[
      {text:'Cancel',style:'cancel'},{text:'Resume draft',onPress:handleManualEntry},
-     ...(!draft.pending?[{text:'Discard and record',style:'destructive' as const,onPress:()=>{if(accountOperationActive(owner))return;void clearTransactionDraft(owner).then(()=>{if(usePreferencesStore.getState().profile?.user_id===owner)open();}).catch(()=>showToast('Could not discard the draft. Try again.'));}}]:[]),
+     ...(!draft.pending?[{text:'Discard and record',style:'destructive' as const,onPress:()=>{
+      if(accountOperationActive(owner)){return;}
+      void clearTransactionDraft(owner).then(()=>{if(usePreferencesStore.getState().profile?.user_id===owner)open();}).catch(()=>showToast('Could not discard the draft. Try again.'));
+     }}]:[]),
     ]);
    }catch{showToast('Could not check your draft. Retry before recording.');}
    finally{pickingRef.current=false;setPicking(false);}
   }
 
   async function handleScan(source: ImageSource) {
-    if(pickingRef.current||accountOperationActive(owner))return;pickingRef.current=true;
+    if(pickingRef.current||accountOperationActive(owner)){return;}
+    pickingRef.current=true;
     setPicking(true);
     try {await scan(source);} finally {pickingRef.current=false;setPicking(false);}
   }
